@@ -1,0 +1,44 @@
+import React from 'react';
+import { NavLink } from 'react-router-dom';
+import { LayoutDashboard, CheckSquare, BarChart2, MessageSquare, Target, Settings, HelpCircle } from 'lucide-react';
+
+export const Sidebar = () => {
+  return (
+    <aside className="sidebar">
+      <div className="sidebar-header">
+        <div className="logo-placeholder"></div>
+        <h2>MoonPulse</h2>
+      </div>
+      
+      <nav className="sidebar-nav">
+        <NavLink to="/" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} end>
+          <LayoutDashboard size={20} />
+          <span>Dashboard</span>
+        </NavLink>
+        <NavLink to="/tasks" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+          <CheckSquare size={20} />
+          <span>Task (Content Post)</span>
+        </NavLink>
+        
+        <div className="nav-section-title">Statistics</div>
+        <NavLink to="/stats/fb" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+          <BarChart2 size={20} />
+          <span>Facebook</span>
+        </NavLink>
+        <NavLink to="/stats/tiktok" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+          <BarChart2 size={20} />
+          <span>TikTok (Soon)</span>
+        </NavLink>
+      </nav>
+      
+      <div className="sidebar-footer">
+        <nav className="sidebar-nav">
+          <NavLink to="/settings" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+            <Settings size={20} />
+            <span>Settings</span>
+          </NavLink>
+        </nav>
+      </div>
+    </aside>
+  );
+};
