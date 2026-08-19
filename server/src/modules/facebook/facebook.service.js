@@ -1,32 +1,43 @@
 const fbClient = require('./facebook.client');
 const db = require('../../config/db');
+const repository = require('./facebook.repository');
 
-const getPageAccessToken = async (pageId) => {
-  const result = await db.query('SELECT access_token FROM tb_fb_page WHERE id = $1', [pageId]);
+const getPages = async () => {
+  return await repository.listPages();
+};
+const getPageCredentials = async (pageId) => {
+  const result = await db.query(
+    'SELECT access_token, fb_page_id FROM tb_fb_page WHERE id = $1',
+    [pageId]
+  );
   if (result.rows.length === 0) throw new Error('Page not found');
-  return result.rows[0].access_token;
+  return result.rows[0]; // { access_token, fb_page_id }
 };
 
 const getScheduledPosts = async (pageId) => {
-  const token = await getPageAccessToken(pageId);
-  return await fbClient.getFbData(`/${pageId}/scheduled_posts?fields=id,message,created_time`, token);
+  const { access_token, fb_page_id } = await getPageCredentials(pageId);
+  return await fbClient.getFbData(
+    `/${fb_page_id}/scheduled_posts?fields=id,message,created_time`,
+    access_token
+  );
 };
 
 const checkPublished = async (postId, pageId) => {
-  const token = await getPageAccessToken(pageId);
-  const data = await fbClient.getFbData(`/${postId}?fields=is_published`, token);
+  const { access_token } = await getPageCredentials(pageId);
+  const data = await fbClient.getFbData(`/${postId}?fields=is_published`, access_token);
   return data.is_published;
 };
 
 const getInsights = async (postId, pageId) => {
-  const token = await getPageAccessToken(pageId);
+  const { access_token } = await getPageCredentials(pageId);
   const metrics = 'post_impressions,post_impressions_unique,post_engaged_users';
-  return await fbClient.getFbData(`/${postId}/insights?metric=${metrics}`, token);
+  return await fbClient.getFbData(`/${postId}/insights?metric=${metrics}`, access_token);
 };
 
 module.exports = {
-  getPageAccessToken,
+  getPageCredentials,
   getScheduledPosts,
   checkPublished,
   getInsights,
+  getPages,
 };

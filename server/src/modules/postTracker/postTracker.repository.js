@@ -22,12 +22,21 @@ const getTrackedPostsByStatus = async (status) => {
 
 const createTrackedPost = async (postData) => {
   const { product_id, page_id, fb_post_id, status, scheduled_time, marked_by } = postData;
-  const result = await db.query(`
-    INSERT INTO tb_post_tracker (product_id, page_id, fb_post_id, status, scheduled_time, marked_by)
-    VALUES ($1, $2, $3, $4, $5, $6)
-    RETURNING *
-  `, [product_id, page_id, fb_post_id, status, scheduled_time, marked_by]);
-  return result.rows[0];
+  try {
+    const result = await db.query(`
+      INSERT INTO tb_post_tracker (product_id, page_id, fb_post_id, status, scheduled_time, marked_by)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+    `, [product_id, page_id, fb_post_id, status, scheduled_time, marked_by]);
+    return result.rows[0];
+  } catch (err) {
+    if (err.code === '23505') {
+      const e = new Error('This Facebook post is already tracked.');
+      e.status = 409;
+      throw e;
+    }
+    throw err;
+  }
 };
 
 const updateTrackedPostStatus = async (id, status, published_time) => {

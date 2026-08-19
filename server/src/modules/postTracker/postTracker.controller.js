@@ -22,7 +22,14 @@ const createPost = async (req, res, next) => {
   }
 };
 
-module.exports = {
-  getPosts,
-  createPost,
+const updatePost = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const updated = await service.updatePost(id, req.body);
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
 };
+
+module.exports = { getPosts, createPost, updatePost }; // ← add updatePost
