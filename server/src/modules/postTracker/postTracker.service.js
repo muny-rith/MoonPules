@@ -1,4 +1,5 @@
 const repository = require('./postTracker.repository');
+const facebookService = require('../facebook/facebook.service');
 
 const listPosts = async () => {
   return await repository.getAllTrackedPosts();
@@ -17,13 +18,27 @@ const markPost = async (postData) => {
     err.status = 400;
     throw err;
   }
-  if (typeof fb_post_id !== 'string' || fb_post_id.trim() === '') {
-    const err = new Error('fb_post_id is required');
+  if (typeof fb_post_id !== 'string' || !/^\d+_\d+$/.test(fb_post_id.trim())) {
+    const err = new Error('fb_post_id must be in "{pageId}_{postId}" format — paste the post link again');
     err.status = 400;
     throw err;
   }
 
-  return await repository.createTrackedPost({ ...postData, status: 'scheduled' });
+  let isPublished = false;
+  try {
+    isPublished = await facebookService.checkPublished(fb_post_id, page_id);
+  } catch (err) {
+    isPublished = false;
+  }
+
+  const now = new Date();
+
+  return await repository.createTrackedPost({
+    ...postData,
+    status: isPublished ? 'published' : 'scheduled',
+    scheduled_time: now,          // ← always set — "when we marked it"
+    published_time: isPublished ? now : null,
+  });
 };
 
 const getScheduledPosts = async () => {
@@ -48,5 +63,5 @@ module.exports = {
   markPost,
   getScheduledPosts,
   setPostPublished,
-  updatePost, // ← add
+  updatePost,
 };

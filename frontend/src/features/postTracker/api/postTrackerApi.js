@@ -10,12 +10,17 @@ export const createPost = async (data) => {
   return response.data;
 };
 
-export const fetchScheduledFbPosts = async (pageId) => {
-  const response = await apiClient.get(`/facebook/pages/${pageId}/scheduled-posts`);
+export const fetchPages = async () => {
+  const response = await apiClient.get('/facebook/pages');
   return response.data;
 };
 
 export const fetchFbInsights = async (postId, pageId) => {
   const response = await apiClient.get(`/facebook/insights/${postId}?pageId=${pageId}`);
+  return response.data;
+};
+
+export const fetchRecentPosts = async (pageId) => {
+  const response = await apiClient.get(`/facebook/pages/${pageId}/recent-posts`);
   return response.data;
 };

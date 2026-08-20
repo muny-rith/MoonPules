@@ -1,10 +1,8 @@
+// server/src/modules/facebook/facebook.service.js
 const fbClient = require('./facebook.client');
 const db = require('../../config/db');
 const repository = require('./facebook.repository');
 
-const getPages = async () => {
-  return await repository.listPages();
-};
 const getPageCredentials = async (pageId) => {
   const result = await db.query(
     'SELECT access_token, fb_page_id FROM tb_fb_page WHERE id = $1',
@@ -22,6 +20,14 @@ const getScheduledPosts = async (pageId) => {
   );
 };
 
+const getRecentPosts = async (pageId) => {
+  const { access_token, fb_page_id } = await getPageCredentials(pageId);
+  return await fbClient.getFbData(
+    `/${fb_page_id}/posts?fields=id,message,created_time&limit=10`,
+    access_token
+  );
+};
+
 const checkPublished = async (postId, pageId) => {
   const { access_token } = await getPageCredentials(pageId);
   const data = await fbClient.getFbData(`/${postId}?fields=is_published`, access_token);
@@ -34,9 +40,14 @@ const getInsights = async (postId, pageId) => {
   return await fbClient.getFbData(`/${postId}/insights?metric=${metrics}`, access_token);
 };
 
+const getPages = async () => {
+  return await repository.listPages();
+};
+
 module.exports = {
   getPageCredentials,
   getScheduledPosts,
+  getRecentPosts, // ← new
   checkPublished,
   getInsights,
   getPages,
