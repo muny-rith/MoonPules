@@ -1,12 +1,11 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, CheckSquare, Package, BarChart2, MessageSquare, Target, Settings, HelpCircle } from 'lucide-react';
-import logoBlack from '../../../../public/logoBlack.png'
 export const Sidebar = () => {
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        <img src={logoBlack} alt="MoonPulse" style={{ width: '32px', height: '32px', borderRadius: '8px' }} />
+        <img src="/logoBlack.png" alt="MoonPulse" style={{ width: '32px', height: '32px', borderRadius: '8px' }} />
 
         <h2>MoonPulse</h2>
       </div>
