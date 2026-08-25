@@ -2588,3 +2588,14 @@ a {
   color: #dc2626;
 }
 
+/* Remove default focus outline on Recharts components when clicked */
+.recharts-wrapper, 
+.recharts-surface,
+.recharts-responsive-container {
+  outline: none !important;
+}
+
+.recharts-wrapper svg {
+  outline: none !important;
+}
+
