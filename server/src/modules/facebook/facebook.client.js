@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 const fbClient = axios.create({
-  baseURL: 'https://graph.facebook.com/v19.0',
+  baseURL: 'https://graph.facebook.com/v26.0',
 });
 
 const getFbData = async (endpoint, accessToken) => {

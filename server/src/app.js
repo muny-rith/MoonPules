@@ -6,6 +6,9 @@ const requireAuth = require('./middleware/authMiddleware');
 
 const postTrackerRoutes = require('./modules/postTracker/postTracker.routes');
 const facebookRoutes = require('./modules/facebook/facebook.routes');
+const productsRoutes = require('./modules/products/products.routes');
+const statisticsRoutes = require('./modules/statistics/statistics.routes');
+const profitRoutes = require('./modules/profit/profit.routes');
 
 const app = express();
 
@@ -20,6 +23,9 @@ app.use('/api', requireAuth);
 // Routes
 app.use('/api/post-tracker', postTrackerRoutes);
 app.use('/api/facebook', facebookRoutes);
+app.use('/api/products', productsRoutes);
+app.use('/api/statistics', statisticsRoutes);
+app.use('/api/profit', profitRoutes);
 
 // Error Handling
 app.use(errorHandler);

@@ -1,8 +1,19 @@
 const repository = require('./postTracker.repository');
 const facebookService = require('../facebook/facebook.service');
+const productsService = require('../products/products.service');
 
 const listPosts = async () => {
-  return await repository.getAllTrackedPosts();
+  const posts = await repository.getAllTrackedPosts();
+  const products = await productsService.listProducts();
+  
+  return posts.map(post => {
+    const prod = products.find(p => String(p.id) === String(post.product_id));
+    return {
+      ...post,
+      product_name: prod ? prod.product_name : 'Unknown Product',
+      product_image: prod ? prod.image_url : null
+    };
+  });
 };
 
 const markPost = async (postData) => {
@@ -25,8 +36,11 @@ const markPost = async (postData) => {
   }
 
   let isPublished = false;
+  let createdTime = null;
   try {
-    isPublished = await facebookService.checkPublished(fb_post_id, page_id);
+    const fbStatus = await facebookService.checkPublished(fb_post_id, page_id);
+    isPublished = fbStatus.is_published;
+    createdTime = fbStatus.created_time;
   } catch (err) {
     isPublished = false;
   }
@@ -37,7 +51,7 @@ const markPost = async (postData) => {
     ...postData,
     status: isPublished ? 'published' : 'scheduled',
     scheduled_time: now,          // ← always set — "when we marked it"
-    published_time: isPublished ? now : null,
+    published_time: isPublished ? (createdTime || now) : null,
   });
 };
 
@@ -45,8 +59,12 @@ const getScheduledPosts = async () => {
   return await repository.getTrackedPostsByStatus('scheduled');
 };
 
-const setPostPublished = async (id) => {
-  return await repository.updateTrackedPostStatus(id, 'published', new Date());
+const getPublishedPosts = async () => {
+  return await repository.getTrackedPostsByStatus('published');
+};
+
+const setPostPublished = async (id, publishedTime) => {
+  return await repository.updateTrackedPostStatus(id, 'published', publishedTime || new Date());
 };
 
 const updatePost = async (id, { status, published_time }) => {
@@ -58,10 +76,31 @@ const updatePost = async (id, { status, published_time }) => {
   return await repository.updateTrackedPostStatus(id, status, published_time || null);
 };
 
+const updateMetrics = async (id, likes, comments, shares, views, reach) => {
+  return await repository.updateTrackedPostMetrics(id, likes, comments, shares, views, reach);
+};
+
+const editPostData = async (id, data) => {
+  return await repository.updateTrackedPostData(id, data);
+};
+
+const removePost = async (id) => {
+  return await repository.deleteTrackedPost(id);
+};
+
+const updatePostCosts = async (id, contentCost, adSpend) => {
+  return await repository.updateTrackedPostCosts(id, contentCost, adSpend);
+};
+
 module.exports = {
   listPosts,
   markPost,
   getScheduledPosts,
+  getPublishedPosts,
   setPostPublished,
   updatePost,
+  updateMetrics,
+  editPostData,
+  removePost,
+  updatePostCosts,
 };

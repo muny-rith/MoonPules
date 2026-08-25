@@ -24,3 +24,13 @@ export const fetchRecentPosts = async (pageId) => {
   const response = await apiClient.get(`/facebook/pages/${pageId}/recent-posts`);
   return response.data;
 };
+
+export const deletePost = async (id) => {
+  const response = await apiClient.delete(`/post-tracker/${id}`);
+  return response.data;
+};
+
+export const updatePostData = async (id, data) => {
+  const response = await apiClient.put(`/post-tracker/${id}`, data);
+  return response.data;
+};

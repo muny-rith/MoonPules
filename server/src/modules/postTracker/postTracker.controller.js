@@ -32,4 +32,38 @@ const updatePost = async (req, res, next) => {
   }
 };
 
-module.exports = { getPosts, createPost, updatePost }; // ← add updatePost
+const updatePostData = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const updated = await service.editPostData(id, req.body);
+    if (!updated) return res.status(404).json({ error: 'Post not found' });
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deletePost = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const deleted = await service.removePost(id);
+    if (!deleted) return res.status(404).json({ error: 'Post not found' });
+    res.json({ message: 'Post deleted successfully', deleted });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updatePostCosts = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { content_cost, ad_spend } = req.body;
+    const updated = await service.updatePostCosts(id, content_cost || 0, ad_spend || 0);
+    if (!updated) return res.status(404).json({ error: 'Post not found' });
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { getPosts, createPost, updatePost, updatePostData, deletePost, updatePostCosts };

@@ -29,9 +29,28 @@ export const usePostTracker = () => {
     }
   };
 
+  const updatePost = async (id, data) => {
+    try {
+      const updated = await api.updatePostData(id, data);
+      await loadPosts(); // Refresh to get the new product_image and name
+      return updated;
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const deletePost = async (id) => {
+    try {
+      await api.deletePost(id);
+      setPosts((prev) => prev.filter(p => p.id !== id));
+    } catch (err) {
+      throw err;
+    }
+  };
+
   useEffect(() => {
     loadPosts();
   }, []);
 
-  return { posts, loading, error, addPost, reload: loadPosts };
+  return { posts, loading, error, addPost, updatePost, deletePost, reload: loadPosts };
 };

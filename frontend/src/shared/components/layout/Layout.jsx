@@ -7,10 +7,13 @@ export const Layout = ({ children }) => {
       <Sidebar />
       <main className="main-content">
         <header className="topbar">
-          <div className="search-bar">
-            <input type="text" placeholder="Search..." />
+          <div style={{ flex: 1 }}></div>
+          
+          <div className="search-bar" style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+            <input type="text" placeholder="Search..." style={{ width: '100%', maxWidth: '400px' }} />
           </div>
-          <div className="user-profile">
+          
+          <div className="user-profile" style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
             <div className="avatar">U</div>
             <span>User</span>
           </div>

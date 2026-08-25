@@ -1,8 +1,39 @@
-import React from 'react';
-import { Eye, TrendingUp, Users, Camera, MonitorPlay, PlayCircle, CheckCircle2, Clock, Sparkles } from 'lucide-react';
-import { WeeklyViewsChart } from '../components/WeeklyViewsChart';
+import React, { useState, useEffect } from 'react';
+import { Eye, TrendingUp, Users, Globe, MonitorPlay, PlayCircle, CheckCircle2, Clock, Sparkles } from 'lucide-react';
+import { RevenueAttributionChart } from '../components/RevenueAttributionChart';
+import { ProfitKPICards } from '../components/ProfitKPICards';
+import { ConversionFunnel } from '../components/ConversionFunnel';
+import { Skeleton } from '../../../shared/components/ui/Skeleton';
+import apiClient from '../../../shared/utils/apiClient';
 
-const ViewPercentageCard = () => {
+const formatCompactNumber = (number) => {
+  if (number === undefined || number === null) return '0';
+  return Intl.NumberFormat('en-US', {
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(number);
+};
+
+const ViewPercentageCard = ({ stats, loading }) => {
+  if (loading || !stats) {
+    return (
+      <div className="card stat-card-group" style={{ display: 'flex' }}>
+        {[1, 2, 3].map(i => (
+          <React.Fragment key={i}>
+            <div className="stat-item" style={{ flex: 1 }}>
+              <div className="stat-header">
+                <Skeleton type="icon" width={18} height={18} borderRadius={4} />
+                <Skeleton width="60px" height={12} />
+              </div>
+              <Skeleton width="80px" height={24} style={{ marginTop: 8 }} />
+            </div>
+            {i < 3 && <div className="stat-divider" />}
+          </React.Fragment>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="card stat-card-group">
       <div className="stat-item">
@@ -10,17 +41,15 @@ const ViewPercentageCard = () => {
           <Eye size={18} className="icon-blue" />
           <span>Total Views</span>
         </div>
-        <div className="stat-value">1.41M</div>
-        <div className="stat-trend positive">↑ 24.8% vs last week</div>
+        <div className="stat-value">{formatCompactNumber(stats.total_views)}</div>
       </div>
       <div className="stat-divider" />
       <div className="stat-item">
         <div className="stat-header">
           <Users size={18} className="icon-purple" />
-          <span>Followers</span>
+          <span>Total Reach</span>
         </div>
-        <div className="stat-value">980K</div>
-        <div className="stat-trend positive">↑ 20%</div>
+        <div className="stat-value">{formatCompactNumber(stats.total_reach)}</div>
       </div>
       <div className="stat-divider" />
       <div className="stat-item">
@@ -28,8 +57,7 @@ const ViewPercentageCard = () => {
           <TrendingUp size={18} className="icon-red" />
           <span>Avg. Engagement</span>
         </div>
-        <div className="stat-value">14.6%</div>
-        <div className="stat-trend positive">↑ 5.2%</div>
+        <div className="stat-value">{stats.engagement_rate}%</div>
       </div>
     </div>
   );
@@ -44,64 +72,125 @@ const getPlatformIcon = (platform) => {
   }
 };
 
-const SchedulePostList = () => {
-  const mockSchedules = [
-    { id: 1, platform: 'Instagram', text: 'It\'s not just yoga. It\'s a lifestyle. Subscribe today for exclusive content.', date: 'Jan 04, 2024', status: 'Schedule' },
-    { id: 2, platform: 'Tiktok', text: 'New dance trend alert! Join the movement and show us your moves.', date: 'Jan 03, 2024', status: 'Schedule' },
-    { id: 3, platform: 'Youtube', text: 'Full 30-min morning routine video dropping this weekend!', date: 'Dec 31, 2023', status: 'Published' },
-    { id: 4, platform: 'Instagram', text: '5 secret habits of successful content creators you must know in 2026.', date: 'Dec 29, 2023', status: 'Published' },
-  ];
+const SchedulePostList = ({ posts, loading }) => {
+  if (loading) {
+    return (
+      <div className="card schedule-card" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div className="card-header">
+          <div>
+            <Skeleton width="150px" height={18} style={{ marginBottom: 6 }} />
+            <Skeleton width="120px" height={12} />
+          </div>
+        </div>
+        <div className="schedule-list">
+          {[1, 2].map(i => (
+            <div key={i} className="schedule-item">
+              <div className="schedule-meta" style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                <Skeleton width="80px" height={22} borderRadius={12} />
+                <Skeleton width="100px" height={14} />
+              </div>
+              <div className="schedule-footer" style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-between' }}>
+                <Skeleton width="70px" height={12} />
+                <Skeleton width="60px" height={12} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="card schedule-card">
+    <div className="card schedule-card" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
       <div className="card-header">
         <div>
-          <h3>Schedules Post</h3>
-          <span className="subtitle">Upcoming & recent queue</span>
+          <h3>Recent & Upcoming Posts</h3>
+          <span className="subtitle">Latest tracked Facebook posts</span>
         </div>
-        <select className="dropdown">
-          <option>Weekly</option>
-          <option>Monthly</option>
-        </select>
       </div>
       <div className="schedule-list">
-        {mockSchedules.map(post => (
+        {posts && posts.length > 0 ? posts.map(post => (
           <div key={post.id} className="schedule-item">
             <div className="schedule-meta">
-              <span className={`platform-badge ${post.platform.toLowerCase()}`}>
-                {getPlatformIcon(post.platform)}
-                {post.platform}
+              <span className="platform-badge" style={{ backgroundColor: '#e0f2fe', color: '#0369a1' }}>
+                <Globe size={14} /> Facebook
               </span>
-              <span className="author">@skylar</span>
+              <span className="author" style={{ marginLeft: 'auto' }}>{post.product_name}</span>
             </div>
-            <p className="schedule-text">{post.text}</p>
-            <div className="schedule-footer">
-              <span className={`status ${post.status.toLowerCase()}`}>
-                {post.status === 'Published' ? <CheckCircle2 size={12} /> : <Clock size={12} />}
-                {post.status}
+            <div className="schedule-footer" style={{ marginTop: '12px' }}>
+              <span className={`status ${post.status === 'published' ? 'published' : 'schedule'}`}>
+                {post.status === 'published' ? <CheckCircle2 size={12} /> : <Clock size={12} />}
+                {post.status.charAt(0).toUpperCase() + post.status.slice(1)}
               </span>
-              <span className="date">{post.date}</span>
+              <span className="date">
+                {post.published_time 
+                  ? new Date(post.published_time).toLocaleDateString()
+                  : post.scheduled_time 
+                    ? new Date(post.scheduled_time).toLocaleDateString() 
+                    : ''}
+              </span>
             </div>
           </div>
-        ))}
+        )) : (
+          <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>No posts tracked yet.</div>
+        )}
       </div>
     </div>
   );
 };
 
 export const DashboardPage = () => {
+  const [stats, setStats] = useState(null);
+  const [profitData, setProfitData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [profitLoading, setProfitLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      try {
+        setLoading(true);
+        const res = await apiClient.get('/statistics/dashboard');
+        if (res.data && res.data.success) {
+          setStats(res.data.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch dashboard stats', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    const fetchProfit = async () => {
+      try {
+        setProfitLoading(true);
+        const res = await apiClient.get('/profit/dashboard');
+        if (res.data && res.data.success) {
+          setProfitData(res.data.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch profit data', err);
+      } finally {
+        setProfitLoading(false);
+      }
+    };
+
+    fetchDashboard();
+    fetchProfit();
+  }, []);
+
   return (
     <div className="dashboard-page">
       <div className="dashboard-grid">
         <div className="left-column">
-          <ViewPercentageCard />
-          <WeeklyViewsChart />
+          <ViewPercentageCard stats={stats} loading={loading} />
+          <ProfitKPICards data={profitData} loading={profitLoading} />
+          <RevenueAttributionChart data={profitData} loading={profitLoading} />
         </div>
         <div className="right-column">
-          <SchedulePostList />
+          <ConversionFunnel data={profitData?.funnel} loading={profitLoading} />
+          <SchedulePostList posts={stats?.recent_posts} loading={loading} />
         </div>
       </div>
     </div>
   );
 };
-
