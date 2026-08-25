@@ -2490,7 +2490,7 @@ a {
 
 .funnel-step {
   width: var(--funnel-width, 100%);
-  min-width: 140px;
+  min-width: fit-content;
   transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
