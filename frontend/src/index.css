@@ -2967,3 +2967,148 @@ a {
   }
 }
 
+
+/* ==========================================================================
+   Responsive Fixes for Secondary Pages (Tasks, Products, Brand Stats)
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* Tables */
+  .table-card {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .custom-table {
+    min-width: 800px; /* Ensure table doesn't squish too much, forces scroll */
+  }
+
+  /* Post Tracker Toolbar & Header */
+  .tasks-page-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  
+  .toolbar-header-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  
+  .toolbar-filter-row {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  /* Product Catalog Page */
+  .product-page-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  
+  .product-toolbar-top {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  
+  .product-toolbar-actions {
+    justify-content: flex-start !important;
+    flex-wrap: wrap;
+  }
+
+  .product-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Brand Detail Page */
+  .brand-hero-card {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 16px;
+  }
+  
+  .hero-brand-info {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center;
+  }
+
+  /* Compare Modal */
+  .card > div[style*='grid-template-columns'] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+
+@media (max-width: 768px) {
+  .top-performing-banner {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 16px;
+  }
+}
+
+
+@media (max-width: 768px) {
+  /* Prevent table cell text from squishing */
+  .custom-table th,
+  .custom-table td {
+    white-space: nowrap;
+  }
+
+  /* Make first column sticky for horizontal scrolling context */
+  .custom-table th:first-child,
+  .custom-table td:first-child {
+    position: sticky;
+    left: 0;
+    background-color: inherit;
+    z-index: 10;
+  }
+  .custom-table th:first-child {
+    background-color: #f8fafc;
+    z-index: 11;
+  }
+  
+  /* Horizontally scrollable filters on mobile to prevent weird wrapping */
+  .toolbar-filter-row {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px; /* Space for scrollbar */
+  }
+  .toolbar-filter-row::-webkit-scrollbar {
+    height: 4px;
+  }
+  .toolbar-filter-row::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 4px;
+  }
+  
+  /* Header stats vertical stacking */
+  .tasks-page-header .stats-row {
+    flex-direction: column !important;
+    gap: 4px !important;
+  }
+}
+
+
+/* Utility Classes for Responsive Layouts */
+.mobile-only {
+  display: none !important;
+}
+@media (max-width: 768px) {
+  .desktop-only {
+    display: none !important;
+  }
+  .mobile-only {
+    display: block !important;
+  }
+  
+  /* Fix filter row to stack nicely instead of horizontal scroll */
+  .toolbar-filter-row {
+    flex-wrap: wrap !important;
+    overflow-x: visible !important;
+  }
+  .toolbar-filter-row > div {
+    flex: 1 1 45%;
+  }
+}
+

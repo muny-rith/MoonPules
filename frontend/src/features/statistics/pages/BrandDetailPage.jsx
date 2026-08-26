@@ -334,7 +334,7 @@ export const BrandDetailPage = () => {
                 </div>
 
                 {topPost && (
-                  <div style={{ marginTop: '24px', marginBottom: '24px', backgroundColor: '#fef3c7', borderRadius: '12px', padding: '16px 24px', border: '1px solid #fde68a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div className="top-performing-banner" style={{ marginTop: '24px', marginBottom: '24px', backgroundColor: '#fef3c7', borderRadius: '12px', padding: '16px 24px', border: '1px solid #fde68a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                       <div style={{ backgroundColor: '#fffbeb', width: '48px', height: '48px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fbbf24' }}>
                         <Trophy size={24} color="#d97706" />
