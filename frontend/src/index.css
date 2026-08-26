@@ -3062,3 +3062,11 @@ a {
     justify-items: start;
   }
 }
+
+/* Remove default focus outline from all Chart elements across the project */
+.recharts-wrapper,
+.recharts-wrapper *,
+.recharts-surface,
+.recharts-surface * {
+  outline: none !important;
+}

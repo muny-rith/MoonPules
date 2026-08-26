@@ -186,12 +186,13 @@ export const BrandInsightsChart = ({ detail, posts = [] }) => {
         </div>
       </div>
 
-      <div style={{ width: '100%', height: 350 }}>
+      <div className="chart-area" style={{ width: '100%', height: 350, outline: 'none' }} tabIndex="-1">
         {chartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" style={{ outline: 'none' }}>
             <BarChart
               data={chartData}
               margin={{ top: 20, right: 0, left: -20, bottom: 0 }}
+              style={{ outline: 'none' }}
             >
               <CartesianGrid strokeDasharray="6 6" vertical={false} stroke="#e2e8f0" />
               <XAxis
