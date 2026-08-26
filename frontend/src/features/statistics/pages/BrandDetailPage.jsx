@@ -151,7 +151,7 @@ export const BrandDetailPage = () => {
     if (!filteredPosts || filteredPosts.length === 0) return;
     const headers = ['Linked Product', 'Status', 'Scheduled Date', 'Published Date', 'Views', 'Reach', 'Likes', 'Comments', 'Shares', 'FB Post ID'];
     const rows = filteredPosts.map(p => [
-      `"${p.product_name}"`,
+      `"${(p.product_name || '').replace(/"/g, '""')}"`,
       p.status,
       p.scheduled_time ? new Date(p.scheduled_time).toISOString() : '',
       p.published_time ? new Date(p.published_time).toISOString() : '',
@@ -167,7 +167,7 @@ export const BrandDetailPage = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `${detail.brand_name.replace(/\s+/g, '_')}_Analytics.csv`);
+    link.setAttribute('download', `${(detail.brand_name || 'Brand').replace(/\s+/g, '_')}_Analytics.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -233,17 +233,12 @@ export const BrandDetailPage = () => {
           {/* Hero Header with Overview Integrated */}
           <div className="brand-hero-card" style={{ marginBottom: '24px' }}>
             <div className="hero-brand-info">
-              {detail.image_url ? (
-                <img 
-                  src={detail.image_url.startsWith('http') ? detail.image_url : `http://localhost:50257${detail.image_url}`} 
-                  alt={detail.brand_name} 
-                  className="hero-logo"
-                />
-              ) : (
-                <div className="hero-logo-placeholder">
-                  {detail.brand_name.charAt(0)}
-                </div>
-              )}
+              <img 
+                src={detail.logo_url || detail.image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(detail.brand_name || 'Brand')}&background=e0e7ff&color=3730a3&bold=true&size=128`}
+                alt={detail.brand_name} 
+                className="hero-logo"
+                style={{ objectFit: 'cover' }}
+              />
               <div>
                 <h1 className="hero-title">
                   {detail.brand_name}
@@ -272,8 +267,8 @@ export const BrandDetailPage = () => {
           {/* Unified Analytics Panel */}
           <div className="card" style={{ padding: '24px' }}>
             {/* Filter Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-              <h3 style={{ margin: 0, fontSize: '22px', fontWeight: '700', color: 'var(--text-main)' }}>Analytics Overview</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+              <h3 style={{ margin: 0, fontSize: '26px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.02em' }}>Analytics Overview</h3>
               
               <div className="custom-dropdown-container" ref={filterRef} style={{ position: 'relative' }}>
                 <button 
@@ -320,7 +315,7 @@ export const BrandDetailPage = () => {
             </div>
 
             {/* Recharts Insights Component */}
-            <BrandInsightsChart detail={detail} timeFilter={timeFilter} getDateRange={getDateRange} />
+            <BrandInsightsChart detail={detail} posts={filteredPosts} />
 
             {/* Single Column Layout for Main Data */}
             <div className="detail-main-col" style={{ marginTop: '32px' }}>
@@ -377,97 +372,181 @@ export const BrandDetailPage = () => {
                   </div>
 
                   {/* Data Table */}
-                  <table className="custom-table">
-                    <thead>
-                      <tr>
-                        <th style={{ width: '40px' }}></th>
-                        <th>Linked Product</th>
-                        <th>Status</th>
-                        <th>Scheduled Date</th>
-                        <th>Published Date</th>
-                        <th>Engagement</th>
-                        <th style={{ textAlign: 'right' }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredPosts.map((post) => (
-                        <tr key={post.id} style={{ backgroundColor: selectedPosts.includes(post.id) ? '#f8fafc' : 'transparent' }}>
-                          <td>
+                  <div className="desktop-only" style={{ overflowX: 'auto', width: '100%' }}>
+                    <table className="custom-table">
+                      <thead>
+                        <tr>
+                          <th style={{ width: '40px' }}></th>
+                          <th>Linked Product</th>
+                          <th>Status</th>
+                          <th>Scheduled Date</th>
+                          <th>Published Date</th>
+                          <th>Engagement</th>
+                          <th style={{ textAlign: 'right' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredPosts.map((post) => (
+                          <tr key={post.id} style={{ backgroundColor: selectedPosts.includes(post.id) ? '#f8fafc' : 'transparent' }}>
+                            <td data-label="Select">
+                              <div 
+                                onClick={() => handleSelectPost(post.id)}
+                                style={{ cursor: 'pointer', color: selectedPosts.includes(post.id) ? 'var(--color-primary)' : 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
+                              >
+                                {selectedPosts.includes(post.id) ? <CheckSquare size={16} /> : <Square size={16} />}
+                              </div>
+                            </td>
+                            <td data-label="Linked Product">
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ width: '32px', height: '32px', borderRadius: '6px', overflow: 'hidden', flexShrink: 0, border: '1px solid var(--border-color)' }}>
+                                  <img src={post.product_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.product_name || 'PR')}&background=c7d2fe&color=3730a3&rounded=false`} alt="product" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                </div>
+                                <span className="product-table-name">{post.product_name}</span>
+                              </div>
+                            </td>
+                            <td data-label="Status">
+                              {getStatusBadge(post.status)}
+                            </td>
+                            <td data-label="Scheduled Date">
+                              <span 
+                                className="product-table-qty" 
+                                title={post.scheduled_time ? new Date(post.scheduled_time).toLocaleString() : 'No exact time'}
+                                style={{ cursor: 'help' }}
+                              >
+                                <Calendar size={12} style={{marginRight: '4px'}}/>
+                                {post.scheduled_time ? new Date(post.scheduled_time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
+                              </span>
+                            </td>
+                            <td data-label="Published Date">
+                              <span 
+                                className="product-table-qty" 
+                                title={post.published_time ? new Date(post.published_time).toLocaleString() : 'No exact time'}
+                                style={{ color: post.published_time ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'help' }}
+                              >
+                                <Calendar size={12} style={{marginRight: '4px'}}/>
+                                {post.published_time ? new Date(post.published_time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not published'}
+                              </span>
+                            </td>
+                            <td data-label="Engagement">
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 60px)', alignItems: 'center' }}>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--text-main)', fontWeight: 500 }} title="Views">
+                                  <Eye size={14} color="#6366f1" /> {post.views_count ? post.views_count.toLocaleString() : '-'}
+                                </span>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--text-main)', fontWeight: 500 }} title="Reach">
+                                  <Eye size={14} color="#0ea5e9" /> {post.reach_count ? post.reach_count.toLocaleString() : '-'}
+                                </span>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--text-main)', fontWeight: 500 }} title="Likes">
+                                  <Heart size={14} color="#f43f5e" /> {post.likes_count ? post.likes_count.toLocaleString() : '-'}
+                                </span>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--text-main)', fontWeight: 500 }} title="Comments">
+                                  <MessageCircle size={14} color="#8b5cf6" /> {post.comments_count ? post.comments_count.toLocaleString() : '-'}
+                                </span>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--text-main)', fontWeight: 500 }} title="Shares">
+                                  <Share2 size={14} color="#10b981" /> {post.shares_count ? post.shares_count.toLocaleString() : '-'}
+                                </span>
+                              </div>
+                            </td>
+                            <td data-label="Actions" style={{ textAlign: 'right' }}>
+                              <a 
+                                href={`https://facebook.com/${post.fb_post_id}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="btn-secondary"
+                                style={{display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontSize: '12px', padding: '6px 12px'}}
+                              >
+                                <ExternalLink size={12} />
+                                <span>View Post</span>
+                              </a>
+                            </td>
+                          </tr>
+                        ))}
+                        {filteredPosts.length === 0 && (
+                          <tr>
+                            <td colSpan="7" style={{ textAlign: 'center', padding: '64px', color: 'var(--text-muted)' }}>
+                              {searchTerm ? 'No posts match your search.' : 'No posts have been tracked for this brand yet.'}
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* MOBILE CARD VIEW */}
+                  <div className="mobile-only" style={{ padding: '0 0 16px 0', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {filteredPosts.map((post) => (
+                      <div key={`mob-${post.id}`} style={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                        {/* Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                             <div 
                               onClick={() => handleSelectPost(post.id)}
                               style={{ cursor: 'pointer', color: selectedPosts.includes(post.id) ? 'var(--color-primary)' : 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
                             >
-                              {selectedPosts.includes(post.id) ? <CheckSquare size={16} /> : <Square size={16} />}
+                              {selectedPosts.includes(post.id) ? <CheckSquare size={20} /> : <Square size={20} />}
                             </div>
-                          </td>
-                          <td>
-                            <span className="product-table-name">{post.product_name}</span>
-                          </td>
-                          <td>
-                            {getStatusBadge(post.status)}
-                          </td>
-                          <td>
-                            <span 
-                              className="product-table-qty" 
-                              title={post.scheduled_time ? new Date(post.scheduled_time).toLocaleString() : 'No exact time'}
-                              style={{ cursor: 'help' }}
-                            >
-                              <Calendar size={12} style={{marginRight: '4px'}}/>
-                              {post.scheduled_time ? new Date(post.scheduled_time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
-                            </span>
-                          </td>
-                          <td>
-                            <span 
-                              className="product-table-qty" 
-                              title={post.published_time ? new Date(post.published_time).toLocaleString() : 'No exact time'}
-                              style={{ color: post.published_time ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'help' }}
-                            >
-                              <Calendar size={12} style={{marginRight: '4px'}}/>
-                              {post.published_time ? new Date(post.published_time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not published'}
-                            </span>
-                          </td>
-                          <td>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 60px)', alignItems: 'center' }}>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--text-main)', fontWeight: 500 }} title="Views">
-                                <Eye size={14} color="#6366f1" /> {post.views_count ? post.views_count.toLocaleString() : '-'}
-                              </span>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--text-main)', fontWeight: 500 }} title="Reach">
-                                <Eye size={14} color="#0ea5e9" /> {post.reach_count ? post.reach_count.toLocaleString() : '-'}
-                              </span>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--text-main)', fontWeight: 500 }} title="Likes">
-                                <Heart size={14} color="#f43f5e" /> {post.likes_count ? post.likes_count.toLocaleString() : '-'}
-                              </span>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--text-main)', fontWeight: 500 }} title="Comments">
-                                <MessageCircle size={14} color="#8b5cf6" /> {post.comments_count ? post.comments_count.toLocaleString() : '-'}
-                              </span>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--text-main)', fontWeight: 500 }} title="Shares">
-                                <Share2 size={14} color="#10b981" /> {post.shares_count ? post.shares_count.toLocaleString() : '-'}
-                              </span>
+                            <div style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, border: '1px solid #e2e8f0' }}>
+                              <img src={post.product_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.product_name || 'PR')}&background=c7d2fe&color=3730a3&rounded=false`} alt="product" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             </div>
-                          </td>
-                          <td style={{ textAlign: 'right' }}>
-                            <a 
-                              href={`https://facebook.com/${post.fb_post_id}`} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="btn-secondary"
-                              style={{display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontSize: '12px', padding: '6px 12px'}}
-                            >
-                              <ExternalLink size={12} />
-                              <span>View Post</span>
-                            </a>
-                          </td>
-                        </tr>
-                      ))}
-                      {filteredPosts.length === 0 && (
-                        <tr>
-                          <td colSpan="6" style={{ textAlign: 'center', padding: '64px', color: 'var(--text-muted)' }}>
-                            {searchTerm ? 'No posts match your search.' : 'No posts have been tracked for this brand yet.'}
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                            <div>
+                              <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '16px' }}>{post.product_name}</div>
+                            </div>
+                          </div>
+                          {getStatusBadge(post.status)}
+                        </div>
+                  
+                        {/* Metrics Grid */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                          <div>
+                            <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Published</div>
+                            <div style={{ fontSize: '14px', fontWeight: 600, color: '#334155' }}>
+                              {post.published_time ? new Date(post.published_time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'N/A'}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Scheduled</div>
+                            <div style={{ fontSize: '14px', fontWeight: 500, color: '#64748b' }}>
+                              {post.scheduled_time ? new Date(post.scheduled_time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'N/A'}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Views</div>
+                            <div style={{ fontSize: '15px', fontWeight: 600, color: '#6366f1' }}>{post.views_count?.toLocaleString() || '-'}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Reach</div>
+                            <div style={{ fontSize: '15px', fontWeight: 600, color: '#0ea5e9' }}>{post.reach_count?.toLocaleString() || '-'}</div>
+                          </div>
+                          <div style={{ gridColumn: 'span 2' }}>
+                            <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Engagements</div>
+                            <div style={{ display: 'flex', gap: '12px', fontSize: '13px', color: '#334155', marginTop: '2px' }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Heart size={12} color="#f43f5e" /> {post.likes_count?.toLocaleString() || 0}</span>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MessageCircle size={12} color="#f59e0b" /> {post.comments_count?.toLocaleString() || 0}</span>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Share2 size={12} color="#10b981" /> {post.shares_count?.toLocaleString() || 0}</span>
+                            </div>
+                          </div>
+                        </div>
+                  
+                        {/* Footer */}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
+                          <a 
+                            href={`https://facebook.com/${post.fb_post_id}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="btn-primary-soft"
+                            style={{ width: '100%', justifyContent: 'center', textDecoration: 'none', padding: '10px' }}
+                          >
+                            <ExternalLink size={14} style={{ marginRight: '6px' }} />
+                            <span>View Post</span>
+                          </a>
+                        </div>
+                      </div>
+                    ))}
+                    {filteredPosts.length === 0 && (
+                      <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                        {searchTerm ? 'No posts match your search.' : 'No posts have been tracked for this brand yet.'}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

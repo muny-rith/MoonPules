@@ -240,6 +240,7 @@ const getBrandProfitability = async () => {
     brandMap[b.brand_id || b.id] = {
       brand_id: b.brand_id || b.id,
       brand_name: b.brand_name || b.name,
+      image_url: b.image_url || b.logo_url || '',
       total_posts: 0,
       total_views: 0,
       total_revenue: 0,
@@ -260,6 +261,7 @@ const getBrandProfitability = async () => {
       brandMap[brandId] = {
         brand_id: brandId,
         brand_name: product.brand_name || 'Unbranded',
+        image_url: product.brand_image || '',
         total_posts: 0, total_views: 0, total_revenue: 0,
         total_content_cost: 0, total_ad_spend: 0, total_spend: 0,
         net_profit: 0, roi: 0,

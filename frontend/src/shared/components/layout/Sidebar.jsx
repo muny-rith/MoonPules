@@ -14,15 +14,15 @@ export const Sidebar = ({ isCollapsed, isMobileOpen, toggleCollapse, closeMobile
       </div>
 
       <nav className="sidebar-nav">
-        <NavLink to="/" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} end onClick={closeMobile}>
+        <NavLink to="/" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} end onClick={closeMobile} title={isCollapsed ? "Dashboard" : ""}>
           <LayoutDashboard size={20} />
           {!isCollapsed && <span>Dashboard</span>}
         </NavLink>
-        <NavLink to="/tasks" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeMobile}>
+        <NavLink to="/tasks" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeMobile} title={isCollapsed ? "Task (Content Post)" : ""}>
           <CheckSquare size={20} />
           {!isCollapsed && <span>Task (Content Post)</span>}
         </NavLink>
-        <NavLink to="/product" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeMobile}>
+        <NavLink to="/product" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeMobile} title={isCollapsed ? "Product" : ""}>
           <Package size={20} />
           {!isCollapsed && <span>Product</span>}
         </NavLink>
@@ -30,15 +30,15 @@ export const Sidebar = ({ isCollapsed, isMobileOpen, toggleCollapse, closeMobile
         {!isCollapsed && <div className="nav-section-title">Statistics</div>}
         {isCollapsed && <div className="nav-section-divider" />}
         
-        <NavLink to="/stats/brands" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeMobile}>
+        <NavLink to="/stats/brands" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeMobile} title={isCollapsed ? "Brands" : ""}>
           <BarChart2 size={20} />
           {!isCollapsed && <span>Brands</span>}
         </NavLink>
-        <NavLink to="/stats/fb" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeMobile}>
+        <NavLink to="/stats/fb" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeMobile} title={isCollapsed ? "Facebook" : ""}>
           <FaFacebook size={20} />
           {!isCollapsed && <span>Facebook</span>}
         </NavLink>
-        <NavLink to="/stats/tiktok" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeMobile}>
+        <NavLink to="/stats/tiktok" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeMobile} title={isCollapsed ? "TikTok (Soon)" : ""}>
           <FaTiktok size={20} />
           {!isCollapsed && <span>TikTok (Soon)</span>}
         </NavLink>
@@ -46,7 +46,7 @@ export const Sidebar = ({ isCollapsed, isMobileOpen, toggleCollapse, closeMobile
 
       <div className="sidebar-footer">
         <nav className="sidebar-nav">
-          <NavLink to="/settings" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeMobile}>
+          <NavLink to="/settings" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeMobile} title={isCollapsed ? "Settings" : ""}>
             <Settings size={20} />
             {!isCollapsed && <span>Settings</span>}
           </NavLink>

@@ -15,8 +15,8 @@ const formatPercent = (val) => {
   return val.toFixed(1) + '%';
 };
 
-const KPICard = ({ icon: Icon, iconColor, iconBg, label, value, subtitle, trend, trendPositive }) => (
-  <div className="profit-kpi-card">
+const KPICard = ({ icon: Icon, iconColor, iconBg, label, value, subtitle, trend, trendPositive, delay }) => (
+  <div className={`profit-kpi-card fade-in-up delay-${delay}`}>
     <div className="profit-kpi-icon" style={{ background: iconBg }}>
       <Icon size={18} color={iconColor} />
     </div>
@@ -81,6 +81,7 @@ export const ProfitKPICards = ({ data, loading }) => {
           value={formatCurrency(data.total_revenue)}
           subtitle={`${data.total_units_sold} units sold`}
           trendPositive={true}
+          delay="100"
         />
         <KPICard
           icon={Zap}
@@ -90,6 +91,7 @@ export const ProfitKPICards = ({ data, loading }) => {
           value={formatCurrency(data.total_spend)}
           subtitle={`Content $${data.total_content_cost} · Ads $${data.total_ad_spend}`}
           trendPositive={false}
+          delay="200"
         />
         <KPICard
           icon={isProfitable ? TrendingUp : TrendingDown}
@@ -99,6 +101,7 @@ export const ProfitKPICards = ({ data, loading }) => {
           value={formatCurrency(data.net_profit)}
           subtitle={`${isProfitable ? '+' : ''}${formatPercent(data.overall_roi)} ROI`}
           trendPositive={isProfitable}
+          delay="300"
         />
         <KPICard
           icon={Target}
@@ -108,6 +111,7 @@ export const ProfitKPICards = ({ data, loading }) => {
           value={formatPercent(data.overall_roi)}
           subtitle={`${data.profitable_posts}/${data.total_posts} posts profitable`}
           trendPositive={data.overall_roi > 0}
+          delay="400"
         />
         <KPICard
           icon={ShoppingCart}
@@ -117,6 +121,7 @@ export const ProfitKPICards = ({ data, loading }) => {
           value={data.total_units_sold}
           subtitle={`across ${data.total_posts} posts`}
           trendPositive={data.total_units_sold > 0}
+          delay="500"
         />
         <KPICard
           icon={Zap}
@@ -126,6 +131,7 @@ export const ProfitKPICards = ({ data, loading }) => {
           value={data.cost_per_view > 0 ? `$${data.cost_per_view.toFixed(3)}` : 'Free'}
           subtitle={data.cost_per_view > 0 ? 'per organic+paid view' : 'no ad spend yet'}
           trendPositive={data.cost_per_view === 0}
+          delay="600"
         />
       </div>
     </div>

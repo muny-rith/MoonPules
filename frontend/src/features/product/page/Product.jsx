@@ -153,7 +153,7 @@ export const Product = () => {
               </select>
             </div>
 
-            <div className="view-mode-toggle">
+            <div className="view-mode-toggle desktop-only">
               <button 
                 className={`view-toggle-btn ${viewMode === 'grid' ? 'active' : ''}`}
                 onClick={() => setViewMode('grid')}
@@ -215,28 +215,56 @@ export const Product = () => {
             </div>
           ))}
         </div>
-      ) : viewMode === 'grid' ? (
-        products.length > 0 ? (
-          <div className="product-grid">
-            {products.map((product) => (
-              <ProductCard key={product.product_id} product={product} />
-            ))}
-          </div>
-        ) : (
-          <div className="product-empty-state card">
-            <Package size={48} className="empty-icon" />
-            <h3>No products found</h3>
-            <p>Try adjusting your search keywords or active category filters.</p>
-            <button 
-              className="btn-secondary" 
-              onClick={() => { setSearchTerm(''); setSelectedCategory('all'); setStockFilter('all'); }}
-            >
-              Reset Filters
-            </button>
-          </div>
-        )
       ) : (
-        <ProductTable products={products} />
+        <>
+          <div className="desktop-only" style={{ width: '100%' }}>
+            {viewMode === 'grid' ? (
+              products.length > 0 ? (
+                <div className="product-grid">
+                  {products.map((product) => (
+                    <ProductCard key={product.product_id} product={product} />
+                  ))}
+                </div>
+              ) : (
+                <div className="product-empty-state card">
+                  <Package size={48} className="empty-icon" />
+                  <h3>No products found</h3>
+                  <p>Try adjusting your search keywords or active category filters.</p>
+                  <button 
+                    className="btn-secondary" 
+                    onClick={() => { setSearchTerm(''); setSelectedCategory('all'); setStockFilter('all'); }}
+                  >
+                    Reset Filters
+                  </button>
+                </div>
+              )
+            ) : (
+              <ProductTable products={products} />
+            )}
+          </div>
+          
+          <div className="mobile-only" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {products.length > 0 ? (
+              <div className="product-grid">
+                {products.map((product) => (
+                  <ProductCard key={product.product_id} product={product} />
+                ))}
+              </div>
+            ) : (
+              <div className="product-empty-state card">
+                <Package size={48} className="empty-icon" />
+                <h3>No products found</h3>
+                <p>Try adjusting your search keywords or active category filters.</p>
+                <button 
+                  className="btn-secondary" 
+                  onClick={() => { setSearchTerm(''); setSelectedCategory('all'); setStockFilter('all'); }}
+                >
+                  Reset Filters
+                </button>
+              </div>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

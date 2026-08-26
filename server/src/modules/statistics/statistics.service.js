@@ -71,7 +71,8 @@ const getBrandDetail = async (brandId) => {
      const prod = brandProducts.find(p => String(p.id) === String(post.product_id));
      return {
        ...post,
-       product_name: prod ? prod.product_name : 'Unknown Product'
+       product_name: prod ? prod.product_name : 'Unknown Product',
+       product_image: prod ? prod.image_url : null
      };
   });
 

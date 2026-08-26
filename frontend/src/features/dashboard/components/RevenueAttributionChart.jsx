@@ -237,7 +237,7 @@ export const RevenueAttributionChart = ({ data, loading }) => {
         </div>
       </div>
 
-      <div className="zen-chart-main-body" style={{ flex: 1, padding: '0 24px 24px 12px', width: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div className="zen-chart-main-body" style={{ flex: 1, minHeight: '280px', padding: '0 24px 24px 12px', width: '100%', display: 'flex', flexDirection: 'column' }}>
         {loading ? (
           <div style={{ height: '100%', width: '100%', padding: '20px', position: 'relative' }}>
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
@@ -260,7 +260,7 @@ export const RevenueAttributionChart = ({ data, loading }) => {
             />
           </div>
         ) : (
-          <ResponsiveContainer width="99%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minHeight={280}>
             <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">

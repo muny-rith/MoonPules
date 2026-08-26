@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Sidebar } from './Sidebar';
-import { Menu } from 'lucide-react';
+import { Menu, Bell } from 'lucide-react';
 
 export const Layout = ({ children }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -8,6 +8,11 @@ export const Layout = ({ children }) => {
 
   const toggleCollapse = () => setIsCollapsed(!isCollapsed);
   const toggleMobileOpen = () => setIsMobileOpen(!isMobileOpen);
+
+  const hour = new Date().getHours();
+  let greeting = 'Good evening';
+  if (hour < 12) greeting = 'Good morning';
+  else if (hour < 18) greeting = 'Good afternoon';
 
   return (
     <div className={`layout-container ${isCollapsed ? 'sidebar-collapsed' : ''}`}>
@@ -41,9 +46,17 @@ export const Layout = ({ children }) => {
             <input type="text" placeholder="Search..." style={{ width: '100%', maxWidth: '400px' }} />
           </div>
           
-          <div className="user-profile" style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
-            <div className="avatar">U</div>
-            <span className="user-name">User</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+            <div style={{ padding: '8px', cursor: 'pointer', color: 'var(--text-muted)' }}>
+              <Bell size={20} />
+            </div>
+            <div className="user-profile">
+              <div className="topbar-greeting desktop-only">
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{greeting}</span>
+                <span className="user-name" style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '13px' }}>Alex Rivera</span>
+              </div>
+              <div className="avatar" style={{ background: 'linear-gradient(135deg, var(--primary-blue), #8b5cf6)', color: '#fff', border: '2px solid var(--border-color)' }}>AR</div>
+            </div>
           </div>
         </header>
         <div className="content-scroll">

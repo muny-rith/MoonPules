@@ -62,7 +62,7 @@ export const ConversionFunnel = ({ data, loading }) => {
           const displayPercent = index === 0 ? '100%' : `${rawPercent.toFixed(0)}%`;
 
           return (
-            <div key={step.key} className="funnel-bar-row">
+            <div key={step.key} className={`funnel-bar-row fade-in-up delay-${(index + 1) * 100}`}>
               <div className="funnel-bar-info">
                 <span className="funnel-bar-label" style={{ color: step.color }}>{step.label}</span>
                 <span className="funnel-bar-value">{displayValue}</span>
