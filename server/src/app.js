@@ -17,13 +17,15 @@ app.use(cors());
 app.use(express.json());
 app.use(requestLogger);
 
+// Health check route (unauthenticated)
+app.use('/api/health', (req, res) => {
+    res.json({ message: 'OK' });
+});
+
 // Authentication for API routes
 app.use('/api', requireAuth);
 
 // Routes
-app.use('/api/health', (req, res) => {
-    res.json({ message: 'OK' });
-});
 app.use('/api/post-tracker', postTrackerRoutes);
 app.use('/api/facebook', facebookRoutes);
 app.use('/api/products', productsRoutes);
