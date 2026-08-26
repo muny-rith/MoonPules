@@ -130,59 +130,59 @@ export const BrandInsightsChart = ({ detail, posts = [] }) => {
   return (
     <div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '48px', justifyContent: 'flex-end', marginBottom: '32px' }}>
+      <div className="kpi-grid-container">
         {/* Media Views */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
             <Eye size={14} color="#6366f1" />
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Views</span>
+            <span style={{ fontSize: 'clamp(9px, 2.5vw, 11px)', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Views</span>
           </div>
-          <div style={{ fontSize: '24px', fontWeight: 700, color: '#0f172a', lineHeight: 1 }}>{formatCompactNumber(filteredTotals.total_views || 0)}</div>
+          <div style={{ fontSize: 'clamp(18px, 5vw, 24px)', fontWeight: 700, color: '#0f172a', lineHeight: 1 }}>{formatCompactNumber(filteredTotals.total_views || 0)}</div>
         </div>
 
         {/* Unique Viewers */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
             <Eye size={14} color="#0ea5e9" />
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Reach</span>
+            <span style={{ fontSize: 'clamp(9px, 2.5vw, 11px)', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Reach</span>
           </div>
-          <div style={{ fontSize: '24px', fontWeight: 700, color: '#0f172a', lineHeight: 1 }}>{formatCompactNumber(filteredTotals.total_reach || 0)}</div>
+          <div style={{ fontSize: 'clamp(18px, 5vw, 24px)', fontWeight: 700, color: '#0f172a', lineHeight: 1 }}>{formatCompactNumber(filteredTotals.total_reach || 0)}</div>
         </div>
 
         {/* Likes */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
             <Heart size={14} color="#f43f5e" />
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Likes</span>
+            <span style={{ fontSize: 'clamp(9px, 2.5vw, 11px)', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Likes</span>
           </div>
-          <div style={{ fontSize: '24px', fontWeight: 700, color: '#0f172a', lineHeight: 1 }}>{formatCompactNumber(filteredTotals.total_likes)}</div>
+          <div style={{ fontSize: 'clamp(18px, 5vw, 24px)', fontWeight: 700, color: '#0f172a', lineHeight: 1 }}>{formatCompactNumber(filteredTotals.total_likes)}</div>
         </div>
 
         {/* Comments */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
             <MessageCircle size={14} color="#8b5cf6" />
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Comments</span>
+            <span style={{ fontSize: 'clamp(9px, 2.5vw, 11px)', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Comments</span>
           </div>
-          <div style={{ fontSize: '24px', fontWeight: 700, color: '#0f172a', lineHeight: 1 }}>{formatCompactNumber(filteredTotals.total_comments)}</div>
+          <div style={{ fontSize: 'clamp(18px, 5vw, 24px)', fontWeight: 700, color: '#0f172a', lineHeight: 1 }}>{formatCompactNumber(filteredTotals.total_comments)}</div>
         </div>
 
         {/* Shares */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
             <Share2 size={14} color="#10b981" />
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Shares</span>
+            <span style={{ fontSize: 'clamp(9px, 2.5vw, 11px)', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Shares</span>
           </div>
-          <div style={{ fontSize: '24px', fontWeight: 700, color: '#0f172a', lineHeight: 1 }}>{formatCompactNumber(filteredTotals.total_shares)}</div>
+          <div style={{ fontSize: 'clamp(18px, 5vw, 24px)', fontWeight: 700, color: '#0f172a', lineHeight: 1 }}>{formatCompactNumber(filteredTotals.total_shares)}</div>
         </div>
 
         {/* Engagement Rate */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
             <TrendingUp size={14} color="#d97706" />
-            <span style={{ fontSize: '11px', color: '#d97706', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Engagement</span>
+            <span style={{ fontSize: 'clamp(9px, 2.5vw, 11px)', color: '#d97706', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Engagement</span>
           </div>
-          <div style={{ fontSize: '24px', fontWeight: 800, color: '#b45309', lineHeight: 1 }}>{filteredTotals.engagement_rate}%</div>
+          <div style={{ fontSize: 'clamp(18px, 5vw, 24px)', fontWeight: 800, color: '#b45309', lineHeight: 1 }}>{filteredTotals.engagement_rate}%</div>
         </div>
       </div>
 

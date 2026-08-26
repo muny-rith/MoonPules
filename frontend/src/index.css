@@ -3044,3 +3044,21 @@ a {
   /* Product grid already 1 col */
   .product-grid { grid-template-columns: 1fr !important; gap: 12px; }
 }
+
+/* Responsive KPI Grid Container */
+.kpi-grid-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 48px;
+  justify-content: flex-end;
+  margin-bottom: 32px;
+}
+
+@media (max-width: 768px) {
+  .kpi-grid-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px 12px;
+    justify-items: start;
+  }
+}

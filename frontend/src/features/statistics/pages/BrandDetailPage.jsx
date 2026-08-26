@@ -231,44 +231,61 @@ export const BrandDetailPage = () => {
       ) : detail && (
         <>
           {/* Hero Header with Overview Integrated */}
-          <div className="brand-hero-card" style={{ marginBottom: '24px' }}>
-            <div className="hero-brand-info">
-              <img 
-                src={detail.logo_url || detail.image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(detail.brand_name || 'Brand')}&background=e0e7ff&color=3730a3&bold=true&size=128`}
-                alt={detail.brand_name} 
-                className="hero-logo"
-                style={{ objectFit: 'cover' }}
-              />
-              <div>
-                <h1 className="hero-title">
-                  {detail.brand_name}
-                  {detail.total_products > 0 && <span className="hero-badge">Active</span>}
-                </h1>
-                <div className="hero-subtitle" style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Package size={14} /> {detail.total_products} Linked Products
-                  </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <BarChart2 size={14} /> {detail.total_posts} Tracked Posts
-                  </span>
+          <div className="card" style={{ marginBottom: '24px', padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px', position: 'relative', overflow: 'hidden' }}>
+            {/* Subtle background decoration */}
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100px', background: 'linear-gradient(to right, #eff6ff, #f8fafc)', zIndex: 0 }} />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '24px', zIndex: 1 }}>
+              
+              {/* Brand Info (Left) */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+                <div style={{ padding: '8px', backgroundColor: 'white', borderRadius: '20px', boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0,0,0,0.02)' }}>
+                  <img 
+                    src={detail.logo_url || detail.image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(detail.brand_name || 'Brand')}&background=e0e7ff&color=3730a3&bold=true&size=128`}
+                    alt={detail.brand_name} 
+                    style={{ width: '84px', height: '84px', borderRadius: '14px', objectFit: 'cover' }}
+                  />
+                </div>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                    <h1 style={{ margin: 0, fontSize: '32px', fontWeight: '800', color: '#0f172a', letterSpacing: '-0.02em', lineHeight: 1 }}>
+                      {detail.brand_name}
+                    </h1>
+                    {detail.total_products > 0 && (
+                      <span style={{ backgroundColor: '#dcfce7', color: '#166534', padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active</span>
+                    )}
+                  </div>
+                  
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '20px', color: '#64748b', fontSize: '14px', fontWeight: '500', flexWrap: 'wrap', marginTop: '6px' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Package size={16} color="#94a3b8" /> {detail.total_products} Linked Products
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <BarChart2 size={16} color="#94a3b8" /> {detail.total_posts} Tracked Posts
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={handleExportCSV}>
-                <Download size={14} /> Export CSV
-              </button>
-              <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={fetchDetail}>
-                <RefreshCw size={14} /> Refresh
-              </button>
+
+              {/* Action Buttons (Right) */}
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '10px', fontWeight: '600', backgroundColor: 'white', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }} onClick={handleExportCSV}>
+                  <Download size={16} /> Export CSV
+                </button>
+                <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '10px', fontWeight: '600', backgroundColor: 'white', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }} onClick={fetchDetail}>
+                  <RefreshCw size={16} /> Refresh
+                </button>
+              </div>
+
             </div>
           </div>
 
           {/* Unified Analytics Panel */}
           <div className="card" style={{ padding: '24px' }}>
             {/* Filter Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-              <h3 style={{ margin: 0, fontSize: '26px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.02em' }}>Analytics Overview</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
+              <h3 style={{ margin: 0, fontSize: 'clamp(20px, 5vw, 26px)', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.02em' }}>Analytics Overview</h3>
               
               <div className="custom-dropdown-container" ref={filterRef} style={{ position: 'relative' }}>
                 <button 
