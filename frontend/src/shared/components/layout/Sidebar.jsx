@@ -1,49 +1,54 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, CheckSquare, Package, BarChart2, MessageSquare, Target, Settings, HelpCircle } from 'lucide-react';
-export const Sidebar = () => {
-  return (
-    <aside className="sidebar">
-      <div className="sidebar-header">
-        <img src="/logoBlack.png" alt="MoonPulse" style={{ width: '32px', height: '32px', borderRadius: '8px' }} />
+import { LayoutDashboard, CheckSquare, Package, BarChart2, MessageSquare, Target, Settings, HelpCircle, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { FaFacebook, FaTiktok } from 'react-icons/fa';
 
-        <h2>MoonPulse</h2>
+export const Sidebar = ({ isCollapsed, isMobileOpen, toggleCollapse, closeMobile }) => {
+  return (
+    <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''} ${isMobileOpen ? 'mobile-open' : ''}`}>
+      <div className="sidebar-header">
+        <div className="logo-container">
+          <img src="/logoBlack.png" alt="MoonPulse" style={{ width: '32px', height: '32px', borderRadius: '8px' }} />
+          {!isCollapsed && <h2>MoonPulse</h2>}
+        </div>
       </div>
 
       <nav className="sidebar-nav">
-        <NavLink to="/" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} end>
+        <NavLink to="/" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} end onClick={closeMobile}>
           <LayoutDashboard size={20} />
-          <span>Dashboard</span>
+          {!isCollapsed && <span>Dashboard</span>}
         </NavLink>
-        <NavLink to="/tasks" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+        <NavLink to="/tasks" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeMobile}>
           <CheckSquare size={20} />
-          <span>Task (Content Post)</span>
+          {!isCollapsed && <span>Task (Content Post)</span>}
         </NavLink>
-        <NavLink to="/product" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+        <NavLink to="/product" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeMobile}>
           <Package size={20} />
-          <span>Product</span>
+          {!isCollapsed && <span>Product</span>}
         </NavLink>
 
-        <div className="nav-section-title">Statistics</div>
-        <NavLink to="/stats/brands" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+        {!isCollapsed && <div className="nav-section-title">Statistics</div>}
+        {isCollapsed && <div className="nav-section-divider" />}
+        
+        <NavLink to="/stats/brands" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeMobile}>
           <BarChart2 size={20} />
-          <span>Brands</span>
+          {!isCollapsed && <span>Brands</span>}
         </NavLink>
-        <NavLink to="/stats/fb" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-          <BarChart2 size={20} />
-          <span>Facebook</span>
+        <NavLink to="/stats/fb" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeMobile}>
+          <FaFacebook size={20} />
+          {!isCollapsed && <span>Facebook</span>}
         </NavLink>
-        <NavLink to="/stats/tiktok" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-          <BarChart2 size={20} />
-          <span>TikTok (Soon)</span>
+        <NavLink to="/stats/tiktok" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeMobile}>
+          <FaTiktok size={20} />
+          {!isCollapsed && <span>TikTok (Soon)</span>}
         </NavLink>
       </nav>
 
       <div className="sidebar-footer">
         <nav className="sidebar-nav">
-          <NavLink to="/settings" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+          <NavLink to="/settings" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeMobile}>
             <Settings size={20} />
-            <span>Settings</span>
+            {!isCollapsed && <span>Settings</span>}
           </NavLink>
         </nav>
       </div>

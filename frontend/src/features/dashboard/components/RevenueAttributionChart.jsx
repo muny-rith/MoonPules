@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Eye, Users, ChevronDown, Sparkles, Calendar } from 'lucide-react';
+import { FaFacebook, FaTiktok } from 'react-icons/fa';
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 
 export const RevenueAttributionChart = ({ data, loading }) => {
@@ -116,30 +117,35 @@ export const RevenueAttributionChart = ({ data, loading }) => {
               onClick={() => setIsPlatformOpen(!isPlatformOpen)}
               onBlur={() => setTimeout(() => setIsPlatformOpen(false), 200)}
               className="zen-platform-dropdown-wrapper"
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fff', cursor: 'pointer', outline: 'none' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fff', cursor: 'pointer', outline: 'none', justifyContent: 'space-between' }}
             >
-              <Sparkles size={14} color="#64748b" />
-              <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>
-                {activePlatform === 'all' ? 'All Platforms' : activePlatform === 'tiktok' ? 'Tiktok' : 'Facebook'}
-              </span>
-              <ChevronDown size={14} color="#64748b" style={{ transform: isPlatformOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {activePlatform === 'all' ? <Sparkles size={14} color="#64748b" /> : 
+                 activePlatform === 'tiktok' ? <FaTiktok size={14} color="#000000" /> : 
+                 <FaFacebook size={14} color="#1877F2" />}
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>
+                  {activePlatform === 'all' ? 'All Platforms' : activePlatform === 'tiktok' ? 'Tiktok' : 'Facebook'}
+                </span>
+              </div>
+              <ChevronDown size={14} color="#64748b" style={{ marginLeft: '4px', transform: isPlatformOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
             </button>
           )}
 
           {!loading && isPlatformOpen && (
-            <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '4px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', zIndex: 10, width: '130px', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '4px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', zIndex: 10, width: '140px', overflow: 'hidden' }}>
               {[
-                { id: 'all', label: 'All Platforms' },
-                { id: 'tiktok', label: 'Tiktok' },
-                { id: 'fb', label: 'Facebook' }
+                { id: 'all', label: 'All Platforms', icon: <Sparkles size={14} /> },
+                { id: 'tiktok', label: 'Tiktok', icon: <FaTiktok size={14} color="#000000" /> },
+                { id: 'fb', label: 'Facebook', icon: <FaFacebook size={14} color="#1877F2" /> }
               ].map(opt => (
                 <div
                   key={opt.id}
                   onClick={() => { setActivePlatform(opt.id); setIsPlatformOpen(false); }}
-                  style={{ padding: '10px 12px', fontSize: '13px', fontWeight: 500, color: activePlatform === opt.id ? '#3b82f6' : '#475569', background: activePlatform === opt.id ? '#eff6ff' : '#fff', cursor: 'pointer', transition: 'all 0.15s ease' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', fontSize: '13px', fontWeight: 500, color: activePlatform === opt.id ? '#3b82f6' : '#475569', background: activePlatform === opt.id ? '#eff6ff' : '#fff', cursor: 'pointer', transition: 'all 0.15s ease' }}
                   onMouseEnter={(e) => e.currentTarget.style.background = activePlatform === opt.id ? '#eff6ff' : '#f8fafc'}
                   onMouseLeave={(e) => e.currentTarget.style.background = activePlatform === opt.id ? '#eff6ff' : '#fff'}
                 >
+                  {opt.icon}
                   {opt.label}
                 </div>
               ))}
@@ -162,11 +168,11 @@ export const RevenueAttributionChart = ({ data, loading }) => {
                 <button 
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: '#0f172a', background: '#fff', cursor: 'pointer', width: '100%', outline: 'none' }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: '#0f172a', background: '#fff', cursor: 'pointer', width: '100%', outline: 'none', justifyContent: 'flex-start' }}
                 >
                   <Calendar size={16} color="#64748b" />
                   <span>{rangeLabel}</span>
-                  <ChevronDown size={14} color="#64748b" style={{ marginLeft: '4px', transform: isDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                  <ChevronDown size={14} color="#64748b" style={{ marginLeft: 'auto', transform: isDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
                 </button>
 
                 {isDropdownOpen && (
@@ -201,14 +207,14 @@ export const RevenueAttributionChart = ({ data, loading }) => {
             </>
           ) : (
             <>
-              <div className="zen-mini-card zen-card-active">
+              <div className="zen-mini-card">
                 <div className="zen-mini-icon-box">
                   <Eye size={16} color="#00a8ff" />
                   <span className="zen-mini-label">Total Views</span>
                 </div>
                 <div className="zen-mini-stat-info">
                   <span className="zen-mini-value zen-val-blue">{totals.views.toLocaleString()}</span>
-                  <span className="zen-mini-trend zen-trend-blue">
+                  <span className="zen-mini-trend" style={{ color: '#00a8ff', background: '#e0f2fe', padding: '2px 6px', borderRadius: '4px' }}>
                     +14% ↗
                   </span>
                 </div>
@@ -221,7 +227,7 @@ export const RevenueAttributionChart = ({ data, loading }) => {
                 </div>
                 <div className="zen-mini-stat-info">
                   <span className="zen-mini-value">{totals.reach.toLocaleString()}</span>
-                  <span className="zen-mini-trend" style={{ color: '#6366f1', background: '#e0e7ff' }}>
+                  <span className="zen-mini-trend" style={{ color: '#6366f1', background: '#e0e7ff', padding: '2px 6px', borderRadius: '4px' }}>
                     +8% ↗
                   </span>
                 </div>

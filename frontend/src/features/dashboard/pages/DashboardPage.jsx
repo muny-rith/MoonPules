@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, TrendingUp, Users, Globe, MonitorPlay, PlayCircle, CheckCircle2, Clock, Sparkles } from 'lucide-react';
+import { Eye, TrendingUp, Users, CheckCircle2, Clock, Sparkles } from 'lucide-react';
+import { FaFacebook, FaTiktok, FaInstagram, FaYoutube } from 'react-icons/fa';
 import { RevenueAttributionChart } from '../components/RevenueAttributionChart';
 import { ProfitKPICards } from '../components/ProfitKPICards';
 import { ConversionFunnel } from '../components/ConversionFunnel';
@@ -65,10 +66,11 @@ const ViewPercentageCard = ({ stats, loading }) => {
 
 const getPlatformIcon = (platform) => {
   switch (platform.toLowerCase()) {
-    case 'instagram': return <Camera size={14} />;
-    case 'youtube': return <MonitorPlay size={14} />;
-    case 'tiktok': return <PlayCircle size={14} />;
-    default: return null;
+    case 'instagram': return <FaInstagram size={14} color="#E1306C" />;
+    case 'youtube': return <FaYoutube size={14} color="#FF0000" />;
+    case 'tiktok': return <FaTiktok size={14} color="#000000" />;
+    case 'facebook': return <FaFacebook size={14} color="#1877F2" />;
+    default: return <Sparkles size={14} />;
   }
 };
 
@@ -105,33 +107,36 @@ const SchedulePostList = ({ posts, loading }) => {
       <div className="card-header">
         <div>
           <h3>Recent & Upcoming Posts</h3>
-          <span className="subtitle">Latest tracked Facebook posts</span>
+          <span className="subtitle">Latest tracked posts</span>
         </div>
       </div>
       <div className="schedule-list">
-        {posts && posts.length > 0 ? posts.map(post => (
-          <div key={post.id} className="schedule-item">
-            <div className="schedule-meta">
-              <span className="platform-badge" style={{ backgroundColor: '#e0f2fe', color: '#0369a1' }}>
-                <Globe size={14} /> Facebook
-              </span>
-              <span className="author" style={{ marginLeft: 'auto' }}>{post.product_name}</span>
+        {posts && posts.length > 0 ? posts.map(post => {
+          const platformName = post.platform || 'facebook';
+          return (
+            <div key={post.id} className="schedule-item">
+              <div className="schedule-meta">
+                <span className="platform-badge" style={{ backgroundColor: platformName === 'facebook' ? '#e0f2fe' : '#f1f5f9', color: platformName === 'facebook' ? '#0369a1' : '#334155' }}>
+                  {getPlatformIcon(platformName)} {platformName.charAt(0).toUpperCase() + platformName.slice(1)}
+                </span>
+                <span className="author" style={{ marginLeft: 'auto' }}>{post.product_name}</span>
+              </div>
+              <div className="schedule-footer" style={{ marginTop: '12px' }}>
+                <span className={`status ${post.status === 'published' ? 'published' : 'schedule'}`}>
+                  {post.status === 'published' ? <CheckCircle2 size={12} /> : <Clock size={12} />}
+                  {post.status.charAt(0).toUpperCase() + post.status.slice(1)}
+                </span>
+                <span className="date">
+                  {post.published_time 
+                    ? new Date(post.published_time).toLocaleDateString()
+                    : post.scheduled_time 
+                      ? new Date(post.scheduled_time).toLocaleDateString() 
+                      : ''}
+                </span>
+              </div>
             </div>
-            <div className="schedule-footer" style={{ marginTop: '12px' }}>
-              <span className={`status ${post.status === 'published' ? 'published' : 'schedule'}`}>
-                {post.status === 'published' ? <CheckCircle2 size={12} /> : <Clock size={12} />}
-                {post.status.charAt(0).toUpperCase() + post.status.slice(1)}
-              </span>
-              <span className="date">
-                {post.published_time 
-                  ? new Date(post.published_time).toLocaleDateString()
-                  : post.scheduled_time 
-                    ? new Date(post.scheduled_time).toLocaleDateString() 
-                    : ''}
-              </span>
-            </div>
-          </div>
-        )) : (
+          );
+        }) : (
           <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>No posts tracked yet.</div>
         )}
       </div>

@@ -26,15 +26,15 @@ export const ConversionFunnel = ({ data, loading }) => {
           <h3>Conversion Funnel</h3>
         </div>
         <div className="funnel-skeleton funnel-body">
-          {[1, 2, 3, 4, 5].map((i, index) => (
-            <div key={i} className="funnel-step-row">
-              {index > 0 && (
-                <div className="funnel-conv-rate">
-                  <div className="funnel-conv-arrow" />
-                  <Skeleton width="30px" height="10px" />
-                </div>
-              )}
-              <Skeleton className="funnel-step-skeleton" />
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="funnel-bar-row">
+              <div className="funnel-bar-info">
+                <Skeleton width="60px" height="12px" />
+                <Skeleton width="40px" height="16px" style={{ marginTop: '4px' }} />
+              </div>
+              <div className="funnel-bar-track-wrapper">
+                <Skeleton height="32px" style={{ borderRadius: '4px' }} />
+              </div>
             </div>
           ))}
         </div>
@@ -44,12 +44,6 @@ export const ConversionFunnel = ({ data, loading }) => {
 
   // Calculate max for proportional widths
   const maxVal = Math.max(data.views || 1, 1);
-
-  // Calculate conversion rates between steps
-  const getRate = (from, to) => {
-    if (!from || from === 0) return '—';
-    return ((to / from) * 100).toFixed(1) + '%';
-  };
 
   return (
     <div className="card funnel-card">
@@ -61,30 +55,38 @@ export const ConversionFunnel = ({ data, loading }) => {
         {FUNNEL_STEPS.map((step, index) => {
           const value = data[step.key] || 0;
           const displayValue = step.isCurrency ? `$${formatCompact(value)}` : formatCompact(value);
-          const widthPercent = step.isCurrency
-            ? 20 // Revenue always gets minimum width
-            : Math.max(20, (value / maxVal) * 100);
-          const prevStep = index > 0 ? FUNNEL_STEPS[index - 1] : null;
-          const convRate = prevStep ? getRate(data[prevStep.key], value) : null;
-          const Icon = step.icon;
+          
+          const rawPercent = (value / maxVal) * 100;
+          
+          // Display the percentage relative to the top of the funnel
+          const displayPercent = index === 0 ? '100%' : `${rawPercent.toFixed(0)}%`;
 
           return (
-            <div key={step.key} className="funnel-step-row">
-              {/* Conversion rate arrow */}
-              {convRate && (
-                <div className="funnel-conv-rate">
-                  <div className="funnel-conv-arrow" />
-                  <span>{convRate}</span>
-                </div>
-              )}
-              {/* The bar */}
-              <div className="funnel-step" style={{ '--funnel-width': `${widthPercent}%`, '--funnel-color': step.color, '--funnel-bg': step.bg }}>
-                <div className="funnel-step-bar">
-                  <div className="funnel-step-icon-wrapper" style={{ background: step.bg }}>
-                    <Icon size={14} color={step.color} />
+            <div key={step.key} className="funnel-bar-row">
+              <div className="funnel-bar-info">
+                <span className="funnel-bar-label" style={{ color: step.color }}>{step.label}</span>
+                <span className="funnel-bar-value">{displayValue}</span>
+              </div>
+              <div className="funnel-bar-track-wrapper">
+                <div className="funnel-bar-split-container">
+                  <div 
+                    className="funnel-bar-percent-box"
+                    style={{ backgroundColor: step.color }}
+                  >
+                    {displayPercent}
                   </div>
-                  <span className="funnel-step-label">{step.label}</span>
-                  <span className="funnel-step-value" style={{ color: step.color }}>{displayValue}</span>
+                  <div className="funnel-bar-track">
+                    {rawPercent > 0 && (
+                      <div 
+                        className="funnel-bar-fill-dynamic" 
+                        style={{ 
+                          width: `${rawPercent}%`,
+                          minWidth: '14px', 
+                          backgroundColor: step.color
+                        }}
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
