@@ -61,8 +61,16 @@ export const RevenueAttributionChart = ({ data, loading }) => {
       const dateStr = d.toISOString().split('T')[0];
       const monthDay = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       
+      let dateLabel = monthDay;
+      if (rangeType === 'this_week') {
+        dateLabel = d.toLocaleDateString('en-US', { weekday: 'short' });
+      } else if (rangeType === 'this_month') {
+        dateLabel = d.getDate().toString();
+      }
+      
       generatedData.push({
-        date: monthDay,
+        date: dateLabel,
+        fullDate: monthDay,
         views: dataMap[dateStr] ? dataMap[dateStr].views : 0,
         reach: dataMap[dateStr] ? dataMap[dateStr].reach : 0,
       });
@@ -87,10 +95,11 @@ export const RevenueAttributionChart = ({ data, loading }) => {
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
+      const displayDate = payload[0]?.payload?.fullDate || label;
       return (
         <div className="zen-chart-tooltip" style={{ display: 'block', position: 'relative', transform: 'none', left: 0, top: 0 }}>
           <div className="zen-tooltip-header">
-            <span className="zen-tooltip-day">{label}</span>
+            <span className="zen-tooltip-day">{displayDate}</span>
           </div>
           <div className="zen-tooltip-views-row">
             <span className="zen-tooltip-views-num">{payload.find(p => p.name === 'Views')?.value.toLocaleString() || 0}</span>
