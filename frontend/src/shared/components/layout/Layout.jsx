@@ -18,19 +18,19 @@ export const Layout = ({ children }) => {
     <div className={`layout-container ${isCollapsed ? 'sidebar-collapsed' : ''}`}>
       {/* Mobile overlay */}
       {isMobileOpen && (
-        <div 
-          className="sidebar-overlay" 
+        <div
+          className="sidebar-overlay"
           onClick={() => setIsMobileOpen(false)}
         />
       )}
-      
-      <Sidebar 
-        isCollapsed={isCollapsed} 
-        isMobileOpen={isMobileOpen} 
+
+      <Sidebar
+        isCollapsed={isCollapsed}
+        isMobileOpen={isMobileOpen}
         toggleCollapse={toggleCollapse}
         closeMobile={() => setIsMobileOpen(false)}
       />
-      
+
       <main className="main-content">
         <header className="topbar">
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -41,11 +41,11 @@ export const Layout = ({ children }) => {
               <Menu size={20} />
             </button>
           </div>
-          
+
           <div className="search-bar" style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
             <input type="text" placeholder="Search..." style={{ width: '100%', maxWidth: '400px' }} />
           </div>
-          
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
             <div style={{ padding: '8px', cursor: 'pointer', color: 'var(--text-muted)' }}>
               <Bell size={20} />
@@ -53,9 +53,9 @@ export const Layout = ({ children }) => {
             <div className="user-profile">
               <div className="topbar-greeting desktop-only">
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{greeting}</span>
-                <span className="user-name" style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '13px' }}>Alex Rivera</span>
+                <span className="user-name" style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '13px' }}>Chhoby</span>
               </div>
-              <div className="avatar" style={{ background: 'linear-gradient(135deg, var(--primary-blue), #8b5cf6)', color: '#fff', border: '2px solid var(--border-color)' }}>AR</div>
+              <div className="avatar" style={{ background: 'linear-gradient(135deg, var(--primary-blue), #8b5cf6)', color: '#fff', border: '2px solid var(--border-color)' }}>Ch</div>
             </div>
           </div>
         </header>
