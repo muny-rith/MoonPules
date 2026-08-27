@@ -46,7 +46,7 @@ export const Layout = ({ children }) => {
             <input type="text" placeholder="Search..." style={{ width: '100%', maxWidth: '400px' }} />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+          <div className="topbar-user-profile">
             <div style={{ padding: '8px', cursor: 'pointer', color: 'var(--text-muted)' }}>
               <Bell size={20} />
             </div>

@@ -175,6 +175,10 @@ a {
   justify-content: space-between;
   padding: 0 24px;
   flex-shrink: 0;
+
+  >* {
+    flex: 1;
+  }
 }
 
 .search-bar input {
@@ -196,9 +200,18 @@ a {
   border-color: var(--primary-blue);
 }
 
+.topbar-user-profile {
+  display: flex;
+  alignItems: center;
+  gap: 4px;
+  flexShrink: 0;
+  justify-content: right;
+}
+
 .user-profile {
   display: flex;
   align-items: center;
+  justify-content: end;
   gap: 10px;
   font-weight: 500;
   font-size: 13.5px;
