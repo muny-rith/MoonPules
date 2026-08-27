@@ -1,0 +1,82 @@
+export const PLATFORM_DATA = {
+  tiktok: {
+    name: 'Tiktok',
+    iconColor: '#000000',
+    barColor: '#00b8ff',
+    badgeBg: '#e6f7ff',
+    timeRange: 'Jun 2023 - Dec 2023',
+    growthStat: { value: '23,430', change: '+412', percent: '23%', isUp: true },
+    followStat: { value: '25,592', change: '+804', percent: '23%', isUp: true },
+    unfollowStat: { value: '100', change: '-4', percent: '2.2%', isUp: true },
+    yAxis: ['50.000', '25.000', '15.000', '3000', '1.500', '0'],
+    dailyData: [
+      { date: 'Dec 18', day: 'Mon', value: 14000, engagement: '14.2%', shares: '2.1k' },
+      { date: 'Dec 19', day: 'Tue', value: 31000, engagement: '18.4%', shares: '4.8k' },
+      { date: 'Dec 20', day: 'Wed', value: 21000, engagement: '16.1%', shares: '3.2k' },
+      { date: 'Dec 21', day: 'Thu', value: 3800,  engagement: '9.5%',  shares: '640' },
+      { date: 'Dec 22', day: 'Fri', value: 11000, engagement: '12.8%', shares: '1.8k' },
+      { date: 'Dec 23', day: 'Sat', value: 22000, engagement: '17.2%', shares: '3.9k' },
+      { date: 'Dec 24', day: 'Sun', value: 22000, engagement: '16.9%', shares: '3.7k' },
+    ]
+  },
+  fb: {
+    name: 'Facebook',
+    iconColor: '#1877f2',
+    barColor: '#1877f2',
+    badgeBg: '#eff6ff',
+    timeRange: 'Jun 2023 - Dec 2023',
+    growthStat: { value: '18,920', change: '+320', percent: '18%', isUp: true },
+    followStat: { value: '21,140', change: '+650', percent: '19%', isUp: true },
+    unfollowStat: { value: '142', change: '+12', percent: '1.4%', isUp: false },
+    yAxis: ['50.000', '25.000', '15.000', '3000', '1.500', '0'],
+    dailyData: [
+      { date: 'Dec 18', day: 'Mon', value: 12500, engagement: '7.2%',  shares: '480' },
+      { date: 'Dec 19', day: 'Tue', value: 26000, engagement: '11.5%', shares: '1.2k' },
+      { date: 'Dec 20', day: 'Wed', value: 18400, engagement: '9.4%',  shares: '850' },
+      { date: 'Dec 21', day: 'Thu', value: 7200,  engagement: '6.1%',  shares: '290' },
+      { date: 'Dec 22', day: 'Fri', value: 16500, engagement: '8.8%',  shares: '710' },
+      { date: 'Dec 23', day: 'Sat', value: 28000, engagement: '12.6%', shares: '1.5k' },
+      { date: 'Dec 24', day: 'Sun', value: 19800, engagement: '10.1%', shares: '920' },
+    ]
+  },
+  telegram: {
+    name: 'Telegram',
+    iconColor: '#229ed9',
+    barColor: '#229ed9',
+    badgeBg: '#f0f9ff',
+    timeRange: 'Jun 2023 - Dec 2023',
+    growthStat: { value: '14,200', change: '+190', percent: '14%', isUp: true },
+    followStat: { value: '16,800', change: '+410', percent: '16%', isUp: true },
+    unfollowStat: { value: '55', change: '-2', percent: '0.8%', isUp: true },
+    yAxis: ['50.000', '25.000', '15.000', '3000', '1.500', '0'],
+    dailyData: [
+      { date: 'Dec 18', day: 'Mon', value: 9200,  engagement: '22.1%', shares: '820' },
+      { date: 'Dec 19', day: 'Tue', value: 15400, engagement: '25.3%', shares: '1.4k' },
+      { date: 'Dec 20', day: 'Wed', value: 12600, engagement: '23.8%', shares: '1.1k' },
+      { date: 'Dec 21', day: 'Thu', value: 4500,  engagement: '18.2%', shares: '390' },
+      { date: 'Dec 22', day: 'Fri', value: 14200, engagement: '24.9%', shares: '1.3k' },
+      { date: 'Dec 23', day: 'Sat', value: 19800, engagement: '28.4%', shares: '1.9k' },
+      { date: 'Dec 24', day: 'Sun', value: 24500, engagement: '31.2%', shares: '2.5k' },
+    ]
+  },
+  instagram: {
+    name: 'Instagram',
+    iconColor: '#e1306c',
+    barColor: '#e1306c',
+    badgeBg: '#fdf2f8',
+    timeRange: 'Jun 2023 - Dec 2023',
+    growthStat: { value: '31,500', change: '+940', percent: '28%', isUp: true },
+    followStat: { value: '34,200', change: '+1200', percent: '29%', isUp: true },
+    unfollowStat: { value: '88', change: '-6', percent: '1.8%', isUp: true },
+    yAxis: ['50.000', '25.000', '15.000', '3000', '1.500', '0'],
+    dailyData: [
+      { date: 'Dec 18', day: 'Mon', value: 18400, engagement: '11.8%', shares: '1.6k' },
+      { date: 'Dec 19', day: 'Tue', value: 34000, engagement: '16.4%', shares: '3.8k' },
+      { date: 'Dec 20', day: 'Wed', value: 24500, engagement: '13.7%', shares: '2.4k' },
+      { date: 'Dec 21', day: 'Thu', value: 8900,  engagement: '9.2%',  shares: '780' },
+      { date: 'Dec 22', day: 'Fri', value: 21000, engagement: '12.9%', shares: '2.1k' },
+      { date: 'Dec 23', day: 'Sat', value: 32000, engagement: '15.8%', shares: '3.5k' },
+      { date: 'Dec 24', day: 'Sun', value: 29000, engagement: '14.5%', shares: '3.1k' },
+    ]
+  }
+};

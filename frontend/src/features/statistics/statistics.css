@@ -1,0 +1,282 @@
+/* ==========================================================================
+   DETAIL PAGE HUB LAYOUT (e.g. Brand Detail)
+   ========================================================================== */
+.detail-page-grid {
+  display: grid;
+  grid-template-columns: 2.2fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .detail-page-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.detail-main-col {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.detail-sidebar-col {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  position: sticky;
+  top: 24px;
+}
+
+/* Brand Hero Card */
+.brand-hero-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 32px;
+  background: linear-gradient(to right, var(--bg-card), var(--bg-body));
+  border-radius: 16px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  border: 1px solid var(--border-color);
+  margin-bottom: 8px;
+}
+
+.hero-brand-info {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.hero-logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  object-fit: cover;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  background: white;
+}
+
+.hero-logo-placeholder {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--primary-blue), #60a5fa);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 800;
+  font-size: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.hero-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hero-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background-color: #ecfdf5;
+  color: #10b981;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.hero-subtitle {
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+/* Sidebar Info Card */
+.sidebar-info-card {
+  background: var(--bg-card);
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.sidebar-info-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sidebar-info-content {
+  padding: 0;
+}
+
+.sidebar-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.sidebar-stat-row:last-child {
+  border-bottom: none;
+}
+
+.sidebar-stat-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.sidebar-stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+
+/* ==========================================================================
+   RECHARTS INSIGHTS UI
+   ========================================================================== */
+.chart-card {
+  background: var(--bg-card);
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border-color);
+  margin-bottom: 24px;
+}
+
+.chart-header {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-bottom: 32px;
+}
+
+@media (min-width: 1024px) {
+  .chart-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 40px;
+  }
+}
+
+.chart-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 4px;
+}
+
+.chart-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.chart-mini-kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.mini-kpi-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  flex: 1 1 calc(50% - 6px);
+  /* 2 per row on mobile */
+  min-width: 110px;
+}
+
+@media (min-width: 768px) {
+  .mini-kpi-card {
+    flex: 1;
+    /* evenly distribute */
+    flex-direction: row;
+    align-items: center;
+    padding: 10px 16px;
+  }
+}
+
+.mini-kpi-icon-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.mini-kpi-icon-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.mini-kpi-data {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mini-kpi-value {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-main);
+  line-height: 1;
+}
+
+.mini-kpi-growth {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.growth-positive {
+  color: #0ea5e9;
+}
+
+.growth-neutral {
+  color: var(--text-muted);
+}
+
+@media (max-width: 768px) {
+  /* --- Brand stats --- */
+  .brand-hero-card {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 16px;
+  }
+
+  .hero-brand-info {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center;
+  }
+
+  .top-performing-banner {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 16px;
+  }
+
+}
