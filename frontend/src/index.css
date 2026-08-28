@@ -1,14 +1,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-  --bg-body: #f0f7ff;
+  --bg-body: #e9e9e93f;
   --bg-sidebar: #ffffff;
   --bg-card: #ffffff;
   --text-main: #1b254b;
   --text-muted: #2f4f7c;
   --border-color: #e2e8f0;
 
-  --primary-blue: #3b82f6;
+  --primary-blue: #0077ff;
   --primary-blue-hover: #2563eb;
   --icon-blue: #0ea5e9;
   --icon-purple: #8b5cf6;
@@ -175,6 +175,7 @@ a {
   justify-content: space-between;
   padding: 0 24px;
   flex-shrink: 0;
+  /* margin-bottom: 20px; */
 
   >* {
     flex: 1;
@@ -235,7 +236,7 @@ a {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 0 24px 24px;
+  padding: 24px 24px;
   display: flex;
   flex-direction: column;
   scroll-behavior: smooth;

@@ -707,6 +707,10 @@
     justify-content: space-around;
   }
 
+  .zen-chart-main-body {
+    min-height: 240px !important;
+  }
+
 }
 
 @media (max-width: 768px) {
@@ -766,9 +770,9 @@
     width: 100%;
   }
 
-  .zen-chart-main-body {
-    min-height: 240px !important;
-  }
+
+
+
 
 }
 

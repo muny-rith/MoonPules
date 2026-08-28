@@ -21,7 +21,7 @@ export const RevenueAttributionChart = ({ data, loading }) => {
 
     data.all_posts_profit.forEach(post => {
       if (!post.published_time) return;
-      
+
       const dateStr = new Date(post.published_time).toISOString().split('T')[0];
       if (!dataMap[dateStr]) {
         dataMap[dateStr] = { views: 0, reach: 0 };
@@ -34,7 +34,7 @@ export const RevenueAttributionChart = ({ data, loading }) => {
     });
 
     const today = new Date();
-    today.setHours(0,0,0,0);
+    today.setHours(0, 0, 0, 0);
 
     let start = new Date(today);
     let end = new Date(today);
@@ -60,14 +60,14 @@ export const RevenueAttributionChart = ({ data, loading }) => {
       const d = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
       const dateStr = d.toISOString().split('T')[0];
       const monthDay = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      
+
       let dateLabel = monthDay;
       if (rangeType === 'this_week') {
         dateLabel = d.toLocaleDateString('en-US', { weekday: 'short' });
       } else if (rangeType === 'this_month') {
         dateLabel = d.getDate().toString();
       }
-      
+
       generatedData.push({
         date: dateLabel,
         fullDate: monthDay,
@@ -82,12 +82,12 @@ export const RevenueAttributionChart = ({ data, loading }) => {
     if (rangeType === 'this_month') rangeLabel = 'This Month';
     if (rangeType === 'three_months') rangeLabel = '3 Months';
 
-    return { 
-      chartData: generatedData, 
+    return {
+      chartData: generatedData,
       rangeString,
       rangeLabel,
-      totals: { 
-        views: totalViews, 
+      totals: {
+        views: totalViews,
         reach: totalReach
       }
     };
@@ -122,16 +122,16 @@ export const RevenueAttributionChart = ({ data, loading }) => {
           {loading ? (
             <Skeleton width="120px" height={32} borderRadius={8} />
           ) : (
-            <button 
+            <button
               onClick={() => setIsPlatformOpen(!isPlatformOpen)}
               onBlur={() => setTimeout(() => setIsPlatformOpen(false), 200)}
               className="zen-platform-dropdown-wrapper"
               style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fff', cursor: 'pointer', outline: 'none', justifyContent: 'space-between' }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                {activePlatform === 'all' ? <Sparkles size={14} color="#64748b" /> : 
-                 activePlatform === 'tiktok' ? <FaTiktok size={14} color="#000000" /> : 
-                 <FaFacebook size={14} color="#1877F2" />}
+                {activePlatform === 'all' ? <Sparkles size={14} color="#64748b" /> :
+                  activePlatform === 'tiktok' ? <FaTiktok size={14} color="#000000" /> :
+                    <FaFacebook size={14} color="#1877F2" />}
                 <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>
                   {activePlatform === 'all' ? 'All Platforms' : activePlatform === 'tiktok' ? 'Tiktok' : 'Facebook'}
                 </span>
@@ -174,7 +174,7 @@ export const RevenueAttributionChart = ({ data, loading }) => {
             <>
               <h3 className="zen-growth-heading">Views vs Reach</h3>
               <div style={{ position: 'relative', display: 'inline-block', marginTop: '6px' }}>
-                <button 
+                <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: '#0f172a', background: '#fff', cursor: 'pointer', width: '100%', outline: 'none', justifyContent: 'flex-start' }}
@@ -246,7 +246,7 @@ export const RevenueAttributionChart = ({ data, loading }) => {
         </div>
       </div>
 
-      <div className="zen-chart-main-body" style={{ flex: 1, minHeight: '280px', padding: '0 24px 24px 12px', width: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div className="zen-chart-main-body" style={{ flex: 1, padding: '0 24px 24px 12px', width: '100%', display: 'flex', flexDirection: 'column' }}>
         {loading ? (
           <div style={{ height: '100%', width: '100%', padding: '20px', position: 'relative' }}>
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
@@ -264,63 +264,63 @@ export const RevenueAttributionChart = ({ data, loading }) => {
             </div>
             {/* Keeping the custom gradient overlay block since it represents the area chart uniquely, 
                 but using the Skeleton component base for consistency. */}
-            <Skeleton 
-              style={{ position: 'absolute', bottom: '40px', left: '40px', right: '20px', height: '80px', borderRadius: '12px', background: 'linear-gradient(180deg, rgba(226, 232, 240, 0.5) 0%, rgba(241, 245, 249, 0.2) 100%)', opacity: 0.6 }} 
+            <Skeleton
+              style={{ position: 'absolute', bottom: '40px', left: '40px', right: '20px', height: '80px', borderRadius: '12px', background: 'linear-gradient(180deg, rgba(226, 232, 240, 0.5) 0%, rgba(241, 245, 249, 0.2) 100%)', opacity: 0.6 }}
             />
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height="100%" minHeight={280}>
+          <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="colorReach" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 4" vertical={false} stroke="#e8edf2" />
-              
-              <YAxis 
-                orientation="left" 
-                tickFormatter={(val) => val >= 1000 ? `${(val/1000).toFixed(0)}k` : val}
+
+              <YAxis
+                orientation="left"
+                tickFormatter={(val) => val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val}
                 axisLine={false}
                 tickLine={false}
                 tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 500 }}
                 tickMargin={12}
               />
-              
-              <XAxis 
-                dataKey="date" 
-                axisLine={false} 
-                tickLine={false} 
+
+              <XAxis
+                dataKey="date"
+                axisLine={false}
+                tickLine={false}
                 tick={{ fill: '#64748b', fontSize: 11, fontWeight: 500 }}
                 dy={12}
               />
-              
+
               <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(226, 232, 240, 0.4)' }} />
-              
-              <Area 
-                type="monotone" 
-                dataKey="reach" 
+
+              <Area
+                type="monotone"
+                dataKey="reach"
                 name="Reach"
-                stroke="#8b5cf6" 
+                stroke="#8b5cf6"
                 strokeWidth={2}
-                fillOpacity={1} 
-                fill="url(#colorReach)" 
+                fillOpacity={1}
+                fill="url(#colorReach)"
                 activeDot={{ r: 6, stroke: '#fff', strokeWidth: 2 }}
               />
-              
-              <Area 
-                type="monotone" 
-                dataKey="views" 
+
+              <Area
+                type="monotone"
+                dataKey="views"
                 name="Views"
-                stroke="#3b82f6" 
+                stroke="#3b82f6"
                 strokeWidth={2}
-                fillOpacity={1} 
-                fill="url(#colorViews)" 
+                fillOpacity={1}
+                fill="url(#colorViews)"
                 activeDot={{ r: 6, stroke: '#fff', strokeWidth: 2 }}
               />
             </AreaChart>
