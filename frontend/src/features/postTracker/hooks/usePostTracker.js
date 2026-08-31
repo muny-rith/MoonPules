@@ -48,9 +48,20 @@ export const usePostTracker = () => {
     }
   };
 
+  const triggerSync = async () => {
+    try {
+      setLoading(true);
+      await api.syncPosts();
+      await loadPosts();
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadPosts();
   }, []);
 
-  return { posts, loading, error, addPost, updatePost, deletePost, reload: loadPosts };
+  return { posts, loading, error, addPost, updatePost, deletePost, reload: loadPosts, triggerSync };
 };

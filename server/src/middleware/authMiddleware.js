@@ -1,3 +1,4 @@
+const jwt = require('jsonwebtoken');
 const env = require('../config/env');
 
 const requireAuth = (req, res, next) => {
@@ -6,14 +7,13 @@ const requireAuth = (req, res, next) => {
     return res.status(401).json({ error: 'Missing Authorization header' });
   }
 
-  // Mock implementation for now. In a real app, verify the JWT here.
   const token = authHeader.replace('Bearer ', '');
-  if (token) {
-    // Mock user object
-    req.user = { id: 1, name: 'Mock User' };
+  try {
+    const decoded = jwt.verify(token, env.JWT_SECRET);
+    req.user = decoded; // { id, name, email }
     next();
-  } else {
-    res.status(401).json({ error: 'Invalid token' });
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
   }
 };
 

@@ -34,3 +34,8 @@ export const updatePostData = async (id, data) => {
   const response = await apiClient.put(`/post-tracker/${id}`, data);
   return response.data;
 };
+
+export const syncPosts = async () => {
+  const response = await apiClient.post('/post-tracker/sync');
+  return response.data;
+};

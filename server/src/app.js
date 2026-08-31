@@ -4,6 +4,7 @@ const requestLogger = require('./middleware/requestLogger');
 const errorHandler = require('./middleware/errorHandler');
 const requireAuth = require('./middleware/authMiddleware');
 
+const authRoutes = require('./modules/auth/auth.routes');
 const postTrackerRoutes = require('./modules/postTracker/postTracker.routes');
 const facebookRoutes = require('./modules/facebook/facebook.routes');
 const productsRoutes = require('./modules/products/products.routes');
@@ -22,7 +23,10 @@ app.use('/api/health', (req, res) => {
     res.json({ message: 'OK' });
 });
 
-// Authentication for API routes
+// Login route (unauthenticated — must come before requireAuth)
+app.use('/api/auth', authRoutes);
+
+// Authentication for API routes below this line
 app.use('/api', requireAuth);
 
 // Routes

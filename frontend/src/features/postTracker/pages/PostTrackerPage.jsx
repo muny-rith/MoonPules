@@ -102,7 +102,8 @@ const FilterDropdown = ({ icon: Icon, value, options, onChange, minWidth = '130p
 };
 
 export const PostTrackerPage = () => {
-  const { posts, loading, error, addPost, updatePost, deletePost, reload } = usePostTracker();
+  const { posts, loading, error, addPost, updatePost, deletePost, reload, triggerSync } = usePostTracker();
+  const [isSyncing, setIsSyncing] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [postToEdit, setPostToEdit] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -227,8 +228,12 @@ export const PostTrackerPage = () => {
         </div>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: "center", alignSelf: "end" }}>
-          <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }} onClick={reload}>
-            <RefreshCw size={14} /> Sync Now
+          <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap', opacity: isSyncing ? 0.7 : 1, cursor: isSyncing ? 'not-allowed' : 'pointer' }} disabled={isSyncing} onClick={async () => {
+            setIsSyncing(true);
+            await triggerSync();
+            setIsSyncing(false);
+          }}>
+            <RefreshCw size={14} className={isSyncing ? "spin-animation" : ""} /> {isSyncing ? 'Syncing...' : 'Sync Now'}
           </button>
           <button className="btn-primary" style={{ whiteSpace: 'nowrap' }} onClick={() => setIsModalOpen(true)}>
             Mark Post

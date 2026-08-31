@@ -1,4 +1,5 @@
 const service = require('./postTracker.service');
+const { syncPostStatus } = require('../../jobs/syncPostStatus.job');
 
 const getPosts = async (req, res, next) => {
   try {
@@ -66,4 +67,15 @@ const updatePostCosts = async (req, res, next) => {
   }
 };
 
-module.exports = { getPosts, createPost, updatePost, updatePostData, deletePost, updatePostCosts };
+const triggerSync = async (req, res, next) => {
+  try {
+    // Run the sync job asynchronously without awaiting, or await it if we want to wait.
+    // It's better to await it so the frontend knows when it finishes.
+    await syncPostStatus();
+    res.json({ message: 'Sync completed successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { getPosts, createPost, updatePost, updatePostData, deletePost, updatePostCosts, triggerSync };

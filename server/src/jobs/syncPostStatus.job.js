@@ -27,7 +27,7 @@ const syncPostStatus = async () => {
     for (const row of publishedRows) {
       try {
         const metrics = await facebookService.getPostMetrics(row.fb_post_id, row.page_id);
-        
+
         let views = 0;
         let reach = 0;
         try {

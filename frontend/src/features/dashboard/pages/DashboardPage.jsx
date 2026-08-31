@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, TrendingUp, Users, CheckCircle2, Clock, Sparkles } from 'lucide-react';
+import { Eye, TrendingUp, Users, CheckCircle2, Clock, Sparkles, RefreshCw } from 'lucide-react';
 import { FaFacebook, FaTiktok, FaInstagram, FaYoutube } from 'react-icons/fa';
 import { RevenueAttributionChart } from '../components/RevenueAttributionChart';
 import { ProfitKPICards } from '../components/ProfitKPICards';
 import { ConversionFunnel } from '../components/ConversionFunnel';
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 import apiClient from '../../../shared/utils/apiClient';
+import { syncPosts } from '../../postTracker/api/postTrackerApi';
+import '../dashboard.css';
 
 const formatCompactNumber = (number) => {
   if (number === undefined || number === null) return '0';
@@ -127,10 +129,10 @@ const SchedulePostList = ({ posts, loading }) => {
                   {post.status.charAt(0).toUpperCase() + post.status.slice(1)}
                 </span>
                 <span className="date">
-                  {post.published_time 
+                  {post.published_time
                     ? new Date(post.published_time).toLocaleDateString()
-                    : post.scheduled_time 
-                      ? new Date(post.scheduled_time).toLocaleDateString() 
+                    : post.scheduled_time
+                      ? new Date(post.scheduled_time).toLocaleDateString()
                       : ''}
                 </span>
               </div>
@@ -149,42 +151,78 @@ export const DashboardPage = () => {
   const [profitData, setProfitData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [profitLoading, setProfitLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [user, setUser] = useState(null);
+
+  const fetchDashboard = async () => {
+    try {
+      setLoading(true);
+      const res = await apiClient.get('/statistics/dashboard');
+      if (res.data && res.data.success) {
+        setStats(res.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch dashboard stats', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchProfit = async () => {
+    try {
+      setProfitLoading(true);
+      const res = await apiClient.get('/profit/dashboard');
+      if (res.data && res.data.success) {
+        setProfitData(res.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch profit data', err);
+    } finally {
+      setProfitLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchDashboard = async () => {
-      try {
-        setLoading(true);
-        const res = await apiClient.get('/statistics/dashboard');
-        if (res.data && res.data.success) {
-          setStats(res.data.data);
-        }
-      } catch (err) {
-        console.error('Failed to fetch dashboard stats', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    const fetchProfit = async () => {
-      try {
-        setProfitLoading(true);
-        const res = await apiClient.get('/profit/dashboard');
-        if (res.data && res.data.success) {
-          setProfitData(res.data.data);
-        }
-      } catch (err) {
-        console.error('Failed to fetch profit data', err);
-      } finally {
-        setProfitLoading(false);
-      }
-    };
-
     fetchDashboard();
     fetchProfit();
+    
+    try {
+      const storedUser = localStorage.getItem('moonpulse.auth.user');
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+      }
+    } catch (e) {
+      console.error('Failed to parse user from local storage', e);
+    }
   }, []);
+
+  const handleSync = async () => {
+    try {
+      setIsSyncing(true);
+      await syncPosts();
+      await Promise.all([fetchDashboard(), fetchProfit()]);
+    } catch (err) {
+      console.error('Failed to sync posts', err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   return (
     <div className="dashboard-page">
+      <div className="dashboard-top">
+        <h1 className="dashboard-welcome">
+          Welcome back, {user?.name || 'User'}! 👋
+        </h1>
+        <button
+          onClick={handleSync}
+          disabled={isSyncing}
+          className="btn-sync"
+        >
+          <RefreshCw size={14} className={isSyncing ? "spin-animation" : ""} />
+          {isSyncing ? 'Syncing...' : 'Sync Data'}
+        </button>
+      </div>
       <div className="dashboard-grid">
         <div className="left-column">
           <ViewPercentageCard stats={stats} loading={loading} />

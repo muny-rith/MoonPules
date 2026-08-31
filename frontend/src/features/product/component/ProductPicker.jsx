@@ -57,8 +57,8 @@ export const ProductPicker = ({ value, onChange, placeholder = 'Select a product
     if (!q) return true;
     return (
       p.product_name?.toLowerCase().includes(q) ||
-      p.product_code?.toLowerCase().includes(q) ||
-      p.category_name?.toLowerCase().includes(q)
+      p.category_name?.toLowerCase().includes(q) ||
+      String(p.product_id).includes(q)
     );
   });
 
@@ -79,9 +79,9 @@ export const ProductPicker = ({ value, onChange, placeholder = 'Select a product
     <div className="product-picker-container" ref={dropdownRef}>
       {selectedProduct && !isOpen ? (
         <div className="product-picker-selected" onClick={() => setIsOpen(true)}>
-          <img 
-            src={selectedProduct.image_url} 
-            alt={selectedProduct.product_name} 
+          <img
+            src={selectedProduct.image_url}
+            alt={selectedProduct.product_name}
             className="product-picker-thumb"
             onError={(e) => {
               e.target.src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80';
@@ -90,7 +90,7 @@ export const ProductPicker = ({ value, onChange, placeholder = 'Select a product
           <div className="product-picker-selected-info">
             <div className="product-picker-selected-name">{selectedProduct.product_name}</div>
             <div className="product-picker-selected-meta">
-              <span className="product-code-chip"><Tag size={10} /> {selectedProduct.product_code}</span>
+              <span className="product-code-chip"><Tag size={10} /> #{selectedProduct.product_id}</span>
               <span className="product-picker-price">${Number(selectedProduct.unit_price).toFixed(2)}</span>
             </div>
           </div>
@@ -99,7 +99,7 @@ export const ProductPicker = ({ value, onChange, placeholder = 'Select a product
           </button>
         </div>
       ) : (
-        <div 
+        <div
           className={`product-picker-input-trigger ${isOpen ? 'active' : ''}`}
           onClick={() => setIsOpen(true)}
         >
@@ -124,9 +124,9 @@ export const ProductPicker = ({ value, onChange, placeholder = 'Select a product
               autoFocus
             />
             {search && (
-              <button 
-                type="button" 
-                className="picker-search-clear" 
+              <button
+                type="button"
+                className="picker-search-clear"
                 onClick={() => setSearch('')}
               >
                 <X size={12} />
@@ -151,9 +151,9 @@ export const ProductPicker = ({ value, onChange, placeholder = 'Select a product
                     className={`product-picker-item ${isSelected ? 'selected' : ''}`}
                     onClick={() => handleSelect(p)}
                   >
-                    <img 
-                      src={p.image_url} 
-                      alt={p.product_name} 
+                    <img
+                      src={p.image_url}
+                      alt={p.product_name}
                       className="product-picker-item-thumb"
                       onError={(e) => {
                         e.target.src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80';
@@ -162,7 +162,7 @@ export const ProductPicker = ({ value, onChange, placeholder = 'Select a product
                     <div className="product-picker-item-details">
                       <div className="product-picker-item-title">{p.product_name}</div>
                       <div className="product-picker-item-sub">
-                        <span className="sku">{p.product_code}</span>
+                        <span className="sku">#{p.product_id}</span>
                         <span className="dot">•</span>
                         <span className="cat">{p.category_name}</span>
                         <span className="dot">•</span>

@@ -4,6 +4,7 @@ import { BarChart2, Package, Calendar, CheckCircle2, AlertTriangle, ExternalLink
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 import { getBrandDetail } from '../services/brandStatsService';
 import { BrandInsightsChart } from '../components/BrandInsightsChart';
+import { syncPosts } from '../../postTracker/api/postTrackerApi';
 
 export const BrandDetailPage = () => {
   const { id } = useParams();
@@ -14,6 +15,7 @@ export const BrandDetailPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPosts, setSelectedPosts] = useState([]);
   const [showCompareModal, setShowCompareModal] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   
   // Custom Filter State
   const [filterOpen, setFilterOpen] = useState(false);
@@ -50,6 +52,18 @@ export const BrandDetailPage = () => {
       setError(err.message || 'Failed to fetch brand details');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSync = async () => {
+    try {
+      setIsSyncing(true);
+      await syncPosts();
+      await fetchDetail();
+    } catch (err) {
+      console.error('Failed to sync posts', err);
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -273,8 +287,8 @@ export const BrandDetailPage = () => {
                 <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '10px', fontWeight: '600', backgroundColor: 'white', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }} onClick={handleExportCSV}>
                   <Download size={16} /> Export CSV
                 </button>
-                <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '10px', fontWeight: '600', backgroundColor: 'white', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }} onClick={fetchDetail}>
-                  <RefreshCw size={16} /> Refresh
+                <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '10px', fontWeight: '600', backgroundColor: 'white', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', opacity: isSyncing ? 0.7 : 1, cursor: isSyncing ? 'not-allowed' : 'pointer' }} onClick={handleSync} disabled={isSyncing}>
+                  <RefreshCw size={16} className={isSyncing ? "spin-animation" : ""} /> {isSyncing ? 'Syncing...' : 'Sync Data'}
                 </button>
               </div>
 
