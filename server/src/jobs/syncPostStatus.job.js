@@ -17,7 +17,11 @@ const syncPostStatus = async () => {
           console.log(`[Cron] Post ${row.id} marked as published.`);
         }
       } catch (err) {
-        console.error(`[Cron] Error checking post ${row.id}:`, err.message);
+        if (err.isTokenExpired) {
+          console.error(`[Cron] TOKEN EXPIRED for post ${row.id} (page_id ${row.page_id}) — needs manual reconnect.`);
+        } else {
+          console.error(`[Cron] Error checking post ${row.id}:`, err.message);
+        }
       }
     }
 
@@ -32,19 +36,26 @@ const syncPostStatus = async () => {
         let reach = 0;
         try {
           const insights = await facebookService.getInsights(row.fb_post_id, row.page_id);
-          // insights.data is an array of metrics
           const viewsData = insights.data?.find(m => m.name === 'post_media_view');
           const reachData = insights.data?.find(m => m.name === 'post_total_media_view_unique');
           views = viewsData?.values?.[0]?.value || 0;
           reach = reachData?.values?.[0]?.value || 0;
         } catch (e) {
-          console.error(`[Cron] Error fetching insights for post ${row.id}:`, e.message);
+          if (e.isTokenExpired) {
+            console.error(`[Cron] TOKEN EXPIRED fetching insights for post ${row.id} (page_id ${row.page_id}) — needs manual reconnect.`);
+          } else {
+            console.error(`[Cron] Error fetching insights for post ${row.id}:`, e.message);
+          }
         }
 
         await postTrackerService.updateMetrics(row.id, metrics.likes, metrics.comments, metrics.shares, views, reach);
         console.log(`[Cron] Metrics updated for post ${row.id}: L=${metrics.likes} C=${metrics.comments} S=${metrics.shares} V=${views} R=${reach}`);
       } catch (err) {
-        console.error(`[Cron] Error syncing metrics for post ${row.id}:`, err.message);
+        if (err.isTokenExpired) {
+          console.error(`[Cron] TOKEN EXPIRED syncing metrics for post ${row.id} (page_id ${row.page_id}) — needs manual reconnect.`);
+        } else {
+          console.error(`[Cron] Error syncing metrics for post ${row.id}:`, err.message);
+        }
       }
     }
   } catch (error) {
