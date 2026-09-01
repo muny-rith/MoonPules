@@ -1,0 +1,199 @@
+.login-screen {
+    display: flex;
+    min-height: 100vh;
+    overflow-y: auto;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+/* Dark identity panel */
+.login-panel-brand {
+    flex: 0 0 42%;
+    min-width: 320px;
+    background: linear-gradient(160deg, #0B1220 0%, #16213E 100%);
+    color: #F7F8FA;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 56px 48px;
+    box-sizing: border-box;
+}
+
+.login-brand-mark {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.login-pulse-icon {
+    width: 32px;
+    height: 32px;
+    color: #2DD4BF;
+    flex-shrink: 0;
+}
+
+.login-pulse-path {
+    stroke-dasharray: 120;
+    stroke-dashoffset: 120;
+    animation: pulse-draw 1.1s ease-out forwards;
+}
+
+@keyframes pulse-draw {
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .login-pulse-path {
+        animation: none;
+        stroke-dashoffset: 0;
+    }
+}
+
+.login-brand-name {
+    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.login-brand-copy {
+    font-size: 15px;
+    line-height: 1.6;
+    color: #A9B4C9;
+    max-width: 34ch;
+    margin: 32px 0 0;
+}
+
+.login-brand-footer {
+    font-size: 13px;
+    color: #5D6B87;
+}
+
+/* Light form panel */
+.login-panel-form {
+    flex: 1;
+    background: #F7F8FA;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    box-sizing: border-box;
+}
+
+.login-form {
+    width: 100%;
+    max-width: 360px;
+    display: flex;
+    flex-direction: column;
+}
+
+.login-title {
+    font-size: 26px;
+    font-weight: 600;
+    color: #12172B;
+    margin: 0 0 6px;
+}
+
+.login-subtitle {
+    font-size: 14px;
+    color: #6B7280;
+    margin: 0 0 32px;
+}
+
+.login-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #12172B;
+    margin-bottom: 6px;
+}
+
+.login-input {
+    font-size: 15px;
+    min-height: 44px;
+    padding: 10px 12px;
+    margin-bottom: 20px;
+    border: 1px solid #D6DAE3;
+    border-radius: 6px;
+    background: #FFFFFF;
+    color: #12172B;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.login-input:focus-visible {
+    outline: none;
+    border-color: #2DD4BF;
+    box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.15);
+}
+
+.login-error {
+    font-size: 13px;
+    color: #B91C1C;
+    margin: -8px 0 16px;
+}
+
+.login-submit {
+    font-size: 15px;
+    font-weight: 600;
+    min-height: 44px;
+    padding: 11px;
+    margin-top: 8px;
+    background: #12172B;
+    color: #F7F8FA;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.login-submit:hover:not(:disabled) {
+    background: #2DD4BF;
+    color: #0B1220;
+}
+
+.login-submit:focus-visible {
+    outline: 2px solid #2DD4BF;
+    outline-offset: 2px;
+}
+
+.login-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Tablet and below: stack panels instead of splitting side-by-side */
+@media (max-width: 720px) {
+    .login-screen {
+        flex-direction: column;
+    }
+
+    .login-panel-brand {
+        flex: none;
+        min-width: 0;
+        padding: 40px 32px;
+    }
+
+    .login-brand-copy {
+        max-width: none;
+    }
+}
+
+/* Small phones: tighter spacing, smaller copy */
+@media (max-width: 400px) {
+    .login-panel-brand {
+        padding: 28px 20px;
+    }
+
+    .login-brand-copy {
+        font-size: 14px;
+    }
+
+    .login-panel-form {
+        padding: 16px;
+    }
+
+    .login-title {
+        font-size: 22px;
+    }
+}
