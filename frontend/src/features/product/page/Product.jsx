@@ -204,7 +204,7 @@ export const Product = () => {
       {/* Loading & Content View */}
       {loading ? (
         <div className="product-loading-grid">
-          {[1, 2, 3, 4, 5, 6].map((n) => (
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
             <div key={n} className="product-card-skeleton card">
               <div className="skeleton-image" />
               <div className="skeleton-content">
