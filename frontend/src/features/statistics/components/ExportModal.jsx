@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import './ExportModal.css';
+import logo from "../../../assets/logo.png"
 
 const EXPORT_COLUMNS = [
     { key: 'product_name', label: 'Product' },
@@ -16,10 +17,18 @@ const EXPORT_COLUMNS = [
     { key: 'reach_count', label: 'Reach' },
 ];
 
+const KHMER_MONTHS = ['មករា', 'កុម្ភៈ', 'មីនា', 'មេសា', 'ឧសភា', 'មិថុនា', 'កក្កដា', 'សីហា', 'កញ្ញា', 'តុលា', 'វិច្ឆិកា', 'ធ្នូ'];
+const formatDateKhmer = (dateString) => {
+    if (!dateString) return '';
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return '';
+    return `${d.getDate()} ${KHMER_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+};
+
 const formatCell = (post, col) => {
     const raw = post[col.key];
     if (col.format === 'date') {
-        return raw ? new Date(raw).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+        return formatDateKhmer(raw);
     }
     if (raw === null || raw === undefined) return col.key.includes('count') ? 0 : '';
     return raw;
@@ -84,7 +93,7 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, startMonth, end
             pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
             heightLeft -= pageHeight;
 
-            while (heightLeft >= 0) {
+            while (heightLeft > 1) {
                 position = heightLeft - pdfHeight;
                 pdf.addPage();
                 pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
@@ -147,13 +156,13 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, startMonth, end
                             <div className='logo' style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0px' }}>
                                 {/* My Logo */}
                                 <div style={{ width: '240px', display: 'flex', alignItems: 'center' }}>
-                                    <img src="/logoBlack.png" alt="My Logo" style={{ maxHeight: '60px', maxWidth: '100%', objectFit: 'contain' }} />
+                                    <img src={logo} alt="My Logo" style={{ maxHeight: '80px', maxWidth: '100%', objectFit: 'contain' }} />
                                 </div>
 
                                 {/* Client Logo */}
                                 <div style={{ width: '240px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
                                     {clientLogo ? (
-                                        <img src={clientLogo} alt="Client Logo" style={{ maxHeight: '60px', maxWidth: '100%', objectFit: 'contain' }} />
+                                        <img src={clientLogo} alt="Client Logo" style={{ maxHeight: '80px', maxWidth: '100%', objectFit: 'contain' }} />
                                     ) : (
                                         <div style={{ border: '1px dashed #cbd5e1', padding: '4px 8px', color: '#94a3b8', fontSize: '10px', textAlign: 'center' }}>Client Logo</div>
                                     )}
@@ -172,7 +181,7 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, startMonth, end
                                 <thead>
                                     <tr>
                                         {headers.map((h) => (
-                                            <th key={h}>{h}</th>
+                                            <th key={h} style={{ fontSize: '12px' }}>{h}</th>
                                         ))}
                                     </tr>
                                 </thead>
@@ -252,13 +261,13 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, startMonth, end
                         <div className='logo' style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0px' }}>
                             {/* My Logo */}
                             <div style={{ width: '200px', display: 'flex', alignItems: 'center' }}>
-                                <img src="/logoBlack.png" alt="My Logo" style={{ maxHeight: '80px', maxWidth: '100%', objectFit: 'contain' }} />
+                                <img src={logo} alt="My Logo" style={{ maxHeight: '90px', maxWidth: '100%', objectFit: 'contain' }} />
                             </div>
 
                             {/* Client Logo */}
                             <div style={{ width: '200px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
                                 {clientLogo ? (
-                                    <img src={clientLogo} alt="Client Logo" style={{ maxHeight: '80px', maxWidth: '100%', objectFit: 'contain' }} />
+                                    <img src={clientLogo} alt="Client Logo" style={{ maxHeight: '90px', maxWidth: '100%', objectFit: 'contain' }} />
                                 ) : (
                                     <div style={{ border: '1px dashed #cbd5e1', padding: '6px 12px', color: '#94a3b8', fontSize: '12px', textAlign: 'center' }}>Client Logo</div>
                                 )}
@@ -276,7 +285,7 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, startMonth, end
                             <thead>
                                 <tr>
                                     {headers.map((h) => (
-                                        <th key={h} style={{ backgroundColor: '#0f172a', color: 'white', padding: '8px', textAlign: 'left' }}>{h}</th>
+                                        <th key={h} style={{ backgroundColor: '#0f172a', color: 'white', padding: '8px', textAlign: 'left', fontSize: '14px' }}>{h}</th>
                                     ))}
                                 </tr>
                             </thead>
@@ -284,7 +293,7 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, startMonth, end
                                 {rows.map((row, i) => (
                                     <tr key={i} style={{ borderBottom: '1px solid #e2e8f0' }}>
                                         {row.map((cell, j) => (
-                                            <td key={j} style={{ padding: '8px', color: '#334155' }}>{cell}</td>
+                                            <td key={j} style={{ padding: '8px', color: '#2b384bff' }}>{cell}</td>
                                         ))}
                                     </tr>
                                 ))}

@@ -125,20 +125,25 @@ export const BrandDetailPage = () => {
   }, [detail, searchTerm, timeFilter]);
 
   const { exportStart, exportEnd } = useMemo(() => {
+    const KHMER_MONTHS = ['មករា', 'កុម្ភៈ', 'មីនា', 'មេសា', 'ឧសភា', 'មិថុនា', 'កក្កដា', 'សីហា', 'កញ្ញា', 'តុលា', 'វិច្ឆិកា', 'ធ្នូ'];
+    const formatDateKhmer = (d) => {
+      if (isNaN(d.getTime())) return '';
+      return `${d.getDate()} ${KHMER_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+    };
+
     const range = getDateRange(timeFilter);
-    const formatter = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     if (range) {
       return {
-        exportStart: formatter.format(range.start),
-        exportEnd: formatter.format(range.end)
+        exportStart: formatDateKhmer(range.start),
+        exportEnd: formatDateKhmer(range.end)
       };
     }
     if (filteredPosts && filteredPosts.length > 0) {
       const dates = filteredPosts.map(p => new Date(p.published_time || p.scheduled_time)).filter(d => !isNaN(d.getTime()));
       if (dates.length > 0) {
         return {
-          exportStart: formatter.format(new Date(Math.min(...dates))),
-          exportEnd: formatter.format(new Date(Math.max(...dates)))
+          exportStart: formatDateKhmer(new Date(Math.min(...dates))),
+          exportEnd: formatDateKhmer(new Date(Math.max(...dates)))
         };
       }
     }
