@@ -5,6 +5,7 @@ import { Skeleton } from '../../../shared/components/ui/Skeleton';
 import { getBrandDetail } from '../services/brandStatsService';
 import { BrandInsightsChart } from '../components/BrandInsightsChart';
 import { syncPosts } from '../../postTracker/api/postTrackerApi';
+import { ExportModal } from '../components/ExportModal';
 
 export const BrandDetailPage = () => {
   const { id } = useParams();
@@ -16,7 +17,8 @@ export const BrandDetailPage = () => {
   const [selectedPosts, setSelectedPosts] = useState([]);
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  
+  const [showExportModal, setShowExportModal] = useState(false);
+
   // Custom Filter State
   const [filterOpen, setFilterOpen] = useState(false);
   const [timeFilter, setTimeFilter] = useState('all');
@@ -39,7 +41,7 @@ export const BrandDetailPage = () => {
     { value: 'last_month', label: 'Last Month' },
     { value: 'last_3_months', label: 'Last 3 Months' }
   ];
-  
+
   const currentFilterLabel = filterOptions.find(o => o.value === timeFilter)?.label || 'All Time';
 
   const fetchDetail = async () => {
@@ -122,6 +124,27 @@ export const BrandDetailPage = () => {
     return posts;
   }, [detail, searchTerm, timeFilter]);
 
+  const { exportStart, exportEnd } = useMemo(() => {
+    const range = getDateRange(timeFilter);
+    const formatter = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    if (range) {
+      return {
+        exportStart: formatter.format(range.start),
+        exportEnd: formatter.format(range.end)
+      };
+    }
+    if (filteredPosts && filteredPosts.length > 0) {
+      const dates = filteredPosts.map(p => new Date(p.published_time || p.scheduled_time)).filter(d => !isNaN(d.getTime()));
+      if (dates.length > 0) {
+        return {
+          exportStart: formatter.format(new Date(Math.min(...dates))),
+          exportEnd: formatter.format(new Date(Math.max(...dates)))
+        };
+      }
+    }
+    return { exportStart: 'N/A', exportEnd: 'N/A' };
+  }, [timeFilter, filteredPosts]);
+
   const topPost = useMemo(() => {
     if (!filteredPosts || filteredPosts.length === 0) return null;
     return [...filteredPosts].sort((a, b) => {
@@ -191,16 +214,16 @@ export const BrandDetailPage = () => {
     <div className="product-page-container">
       {/* Breadcrumb & Back */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
-        <button 
-          onClick={() => navigate('/stats/brands')} 
-          className="btn-secondary" 
+        <button
+          onClick={() => navigate('/stats/brands')}
+          className="btn-secondary"
           style={{ padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px' }}
           title="Back to Brands"
         >
           <ArrowLeft size={18} />
         </button>
         <div className="page-breadcrumb" style={{ margin: 0 }}>
-          <span style={{cursor: 'pointer'}} onClick={() => navigate('/stats/brands')}>Brands</span> / <span style={{ color: 'var(--text-main)', fontWeight: 500 }}>Detail</span>
+          <span style={{ cursor: 'pointer' }} onClick={() => navigate('/stats/brands')}>Brands</span> / <span style={{ color: 'var(--text-main)', fontWeight: 500 }}>Detail</span>
         </div>
       </div>
 
@@ -250,17 +273,17 @@ export const BrandDetailPage = () => {
             <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100px', background: 'linear-gradient(to right, #eff6ff, #f8fafc)', zIndex: 0 }} />
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '24px', zIndex: 1 }}>
-              
+
               {/* Brand Info (Left) */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
                 <div style={{ padding: '8px', backgroundColor: 'white', borderRadius: '20px', boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0,0,0,0.02)' }}>
-                  <img 
+                  <img
                     src={detail.logo_url || detail.image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(detail.brand_name || 'Brand')}&background=e0e7ff&color=3730a3&bold=true&size=128`}
-                    alt={detail.brand_name} 
+                    alt={detail.brand_name}
                     style={{ width: '84px', height: '84px', borderRadius: '14px', objectFit: 'cover' }}
                   />
                 </div>
-                
+
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                     <h1 style={{ margin: 0, fontSize: '32px', fontWeight: '800', color: '#0f172a', letterSpacing: '-0.02em', lineHeight: 1 }}>
@@ -270,7 +293,7 @@ export const BrandDetailPage = () => {
                       <span style={{ backgroundColor: '#dcfce7', color: '#166534', padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active</span>
                     )}
                   </div>
-                  
+
                   <div style={{ display: 'flex', alignItems: 'center', gap: '20px', color: '#64748b', fontSize: '14px', fontWeight: '500', flexWrap: 'wrap', marginTop: '6px' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <Package size={16} color="#94a3b8" /> {detail.total_products} Linked Products
@@ -284,8 +307,8 @@ export const BrandDetailPage = () => {
 
               {/* Action Buttons (Right) */}
               <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '10px', fontWeight: '600', backgroundColor: 'white', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }} onClick={handleExportCSV}>
-                  <Download size={16} /> Export CSV
+                <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '10px', fontWeight: '600', backgroundColor: 'white', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', cursor: 'pointer' }} onClick={() => setShowExportModal(true)}>
+                  <Download size={16} /> Export
                 </button>
                 <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '10px', fontWeight: '600', backgroundColor: 'white', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', opacity: isSyncing ? 0.7 : 1, cursor: isSyncing ? 'not-allowed' : 'pointer' }} onClick={handleSync} disabled={isSyncing}>
                   <RefreshCw size={16} className={isSyncing ? "spin-animation" : ""} /> {isSyncing ? 'Syncing...' : 'Sync Data'}
@@ -300,9 +323,9 @@ export const BrandDetailPage = () => {
             {/* Filter Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
               <h3 style={{ margin: 0, fontSize: 'clamp(20px, 5vw, 26px)', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.02em' }}>Analytics Overview</h3>
-              
+
               <div className="custom-dropdown-container" ref={filterRef} style={{ position: 'relative' }}>
-                <button 
+                <button
                   onClick={() => setFilterOpen(!filterOpen)}
                   className="btn-secondary"
                   style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: filterOpen ? '#f1f5f9' : 'white', padding: '8px 16px', border: '1px solid var(--border-color)', borderRadius: '8px' }}
@@ -313,17 +336,17 @@ export const BrandDetailPage = () => {
                 </button>
 
                 {filterOpen && (
-                  <div style={{ 
-                    position: 'absolute', top: 'calc(100% + 8px)', right: 0, 
-                    backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--border-color)', 
-                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)', minWidth: '160px', zIndex: 100, overflow: 'hidden' 
+                  <div style={{
+                    position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+                    backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--border-color)',
+                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)', minWidth: '160px', zIndex: 100, overflow: 'hidden'
                   }}>
                     {filterOptions.map((option) => (
-                      <div 
+                      <div
                         key={option.value}
                         onClick={() => { setTimeFilter(option.value); setFilterOpen(false); }}
-                        style={{ 
-                          padding: '10px 16px', fontSize: '13px', cursor: 'pointer', 
+                        style={{
+                          padding: '10px 16px', fontSize: '13px', cursor: 'pointer',
                           backgroundColor: timeFilter === option.value ? '#f0f9ff' : 'white',
                           color: timeFilter === option.value ? '#0ea5e9' : 'var(--text-main)',
                           fontWeight: timeFilter === option.value ? 500 : 400,
@@ -350,7 +373,7 @@ export const BrandDetailPage = () => {
 
             {/* Single Column Layout for Main Data */}
             <div className="detail-main-col" style={{ marginTop: '32px' }}>
-              
+
               <div style={{ padding: 0 }}>
                 <div className="card-header" style={{ padding: '0 0 16px 0', margin: 0, borderBottom: '1px solid var(--border-color)' }}>
                   <div>
@@ -372,9 +395,9 @@ export const BrandDetailPage = () => {
                         </p>
                       </div>
                     </div>
-                    <a 
-                      href={`https://facebook.com/${topPost.fb_post_id}`} 
-                      target="_blank" 
+                    <a
+                      href={`https://facebook.com/${topPost.fb_post_id}`}
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="btn-primary"
                       style={{ backgroundColor: '#d97706', border: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}
@@ -384,15 +407,15 @@ export const BrandDetailPage = () => {
                     </a>
                   </div>
                 )}
-                
+
                 {/* Full Bleed Section for Search & Table */}
                 <div style={{ margin: '0 -24px' }}>
                   {/* Search Toolbar for Table */}
                   <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', backgroundColor: 'white', display: 'flex', justifyContent: 'center' }}>
                     <div className="search-input-wrap" style={{ width: '400px', maxWidth: '100%', position: 'relative' }}>
                       <Search size={14} className="search-icon" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         placeholder="Search posts by product name..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -420,7 +443,7 @@ export const BrandDetailPage = () => {
                         {filteredPosts.map((post) => (
                           <tr key={post.id} style={{ backgroundColor: selectedPosts.includes(post.id) ? '#f8fafc' : 'transparent' }}>
                             <td data-label="Select">
-                              <div 
+                              <div
                                 onClick={() => handleSelectPost(post.id)}
                                 style={{ cursor: 'pointer', color: selectedPosts.includes(post.id) ? 'var(--color-primary)' : 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
                               >
@@ -439,22 +462,22 @@ export const BrandDetailPage = () => {
                               {getStatusBadge(post.status)}
                             </td>
                             <td data-label="Scheduled Date">
-                              <span 
-                                className="product-table-qty" 
+                              <span
+                                className="product-table-qty"
                                 title={post.scheduled_time ? new Date(post.scheduled_time).toLocaleString() : 'No exact time'}
                                 style={{ cursor: 'help' }}
                               >
-                                <Calendar size={12} style={{marginRight: '4px'}}/>
+                                <Calendar size={12} style={{ marginRight: '4px' }} />
                                 {post.scheduled_time ? new Date(post.scheduled_time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
                               </span>
                             </td>
                             <td data-label="Published Date">
-                              <span 
-                                className="product-table-qty" 
+                              <span
+                                className="product-table-qty"
                                 title={post.published_time ? new Date(post.published_time).toLocaleString() : 'No exact time'}
                                 style={{ color: post.published_time ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'help' }}
                               >
-                                <Calendar size={12} style={{marginRight: '4px'}}/>
+                                <Calendar size={12} style={{ marginRight: '4px' }} />
                                 {post.published_time ? new Date(post.published_time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not published'}
                               </span>
                             </td>
@@ -478,12 +501,12 @@ export const BrandDetailPage = () => {
                               </div>
                             </td>
                             <td data-label="Actions" style={{ textAlign: 'right' }}>
-                              <a 
-                                href={`https://facebook.com/${post.fb_post_id}`} 
-                                target="_blank" 
+                              <a
+                                href={`https://facebook.com/${post.fb_post_id}`}
+                                target="_blank"
                                 rel="noopener noreferrer"
                                 className="btn-secondary"
-                                style={{display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontSize: '12px', padding: '6px 12px'}}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontSize: '12px', padding: '6px 12px' }}
                               >
                                 <ExternalLink size={12} />
                                 <span>View Post</span>
@@ -509,7 +532,7 @@ export const BrandDetailPage = () => {
                         {/* Header */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
                           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                            <div 
+                            <div
                               onClick={() => handleSelectPost(post.id)}
                               style={{ cursor: 'pointer', color: selectedPosts.includes(post.id) ? 'var(--color-primary)' : 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
                             >
@@ -524,7 +547,7 @@ export const BrandDetailPage = () => {
                           </div>
                           {getStatusBadge(post.status)}
                         </div>
-                  
+
                         {/* Metrics Grid */}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
                           <div>
@@ -556,12 +579,12 @@ export const BrandDetailPage = () => {
                             </div>
                           </div>
                         </div>
-                  
+
                         {/* Footer */}
                         <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
-                          <a 
-                            href={`https://facebook.com/${post.fb_post_id}`} 
-                            target="_blank" 
+                          <a
+                            href={`https://facebook.com/${post.fb_post_id}`}
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="btn-primary-soft"
                             style={{ width: '100%', justifyContent: 'center', textDecoration: 'none', padding: '10px' }}
@@ -589,16 +612,16 @@ export const BrandDetailPage = () => {
       {selectedPosts.length > 0 && (
         <div style={{ position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'white', padding: '12px 24px', borderRadius: '32px', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1)', display: 'flex', alignItems: 'center', gap: '16px', zIndex: 1000, border: '1px solid var(--border-color)' }}>
           <span style={{ fontSize: '14px', fontWeight: 500 }}>{selectedPosts.length} post{selectedPosts.length > 1 ? 's' : ''} selected</span>
-          <button 
-            className="btn-primary" 
+          <button
+            className="btn-primary"
             disabled={selectedPosts.length !== 2}
             onClick={() => setShowCompareModal(true)}
             style={{ borderRadius: '24px', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px', opacity: selectedPosts.length === 2 ? 1 : 0.5 }}
           >
             <BarChart size={14} /> Compare Posts
           </button>
-          <button 
-            onClick={() => setSelectedPosts([])} 
+          <button
+            onClick={() => setSelectedPosts([])}
             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', color: 'var(--text-muted)' }}
           >
             <X size={16} />
@@ -606,24 +629,34 @@ export const BrandDetailPage = () => {
         </div>
       )}
 
+      {/* Export Modal */}
+      <ExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        posts={filteredPosts}
+        brandName={detail?.brand_name}
+        startMonth={exportStart}
+        endMonth={exportEnd}
+        clientLogo={detail?.logo_url || detail?.image_url}
+      />
       {/* Compare Modal */}
       {showCompareModal && selectedPosts.length === 2 && (() => {
         const p1 = detail.posts.find(p => p.id === selectedPosts[0]);
         const p2 = detail.posts.find(p => p.id === selectedPosts[1]);
         if (!p1 || !p2) return null;
-        
+
         return (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div className="card" style={{ width: '800px', maxWidth: '90vw', padding: '32px', position: 'relative', overflowY: 'auto', maxHeight: '90vh' }}>
-              <button 
+              <button
                 onClick={() => setShowCompareModal(false)}
                 style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
               >
                 <X size={20} />
               </button>
-              
+
               <h2 style={{ margin: '0 0 24px', fontSize: '20px', fontWeight: 600 }}>Compare Posts</h2>
-              
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                 {/* Post 1 */}
                 <div style={{ padding: '24px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
@@ -631,7 +664,7 @@ export const BrandDetailPage = () => {
                   <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
                     Published: {p1.published_time ? new Date(p1.published_time).toLocaleDateString() : 'N/A'}
                   </div>
-                  
+
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px solid #e2e8f0' }}>
                       <span style={{ color: 'var(--text-muted)' }}>Views</span>
@@ -661,7 +694,7 @@ export const BrandDetailPage = () => {
                   <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
                     Published: {p2.published_time ? new Date(p2.published_time).toLocaleDateString() : 'N/A'}
                   </div>
-                  
+
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px solid #e2e8f0' }}>
                       <span style={{ color: 'var(--text-muted)' }}>Views</span>
