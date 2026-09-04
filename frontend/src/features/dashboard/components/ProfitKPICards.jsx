@@ -22,13 +22,15 @@ const KPICard = ({ icon: Icon, iconColor, iconBg, label, value, subtitle, trend,
     </div>
     <div className="profit-kpi-info">
       <span className="profit-kpi-label">{label}</span>
-      <span className="profit-kpi-value">{value}</span>
-      {subtitle && (
-        <span className={`profit-kpi-trend ${trendPositive ? 'positive' : 'negative'}`}>
-          {trendPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-          {subtitle}
-        </span>
-      )}
+      <span className='profit-kpi-content'>
+        <span className="profit-kpi-value">{value}</span>
+        {subtitle && (
+          <span className={`profit-kpi-trend ${trendPositive ? 'positive' : 'negative'}`}>
+            {trendPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+            {subtitle}
+          </span>
+        )}
+      </span>
     </div>
   </div>
 );
