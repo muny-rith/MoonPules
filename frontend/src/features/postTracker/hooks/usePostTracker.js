@@ -22,7 +22,7 @@ export const usePostTracker = () => {
   const addPost = async (postData) => {
     try {
       const newPost = await api.createPost(postData);
-      setPosts((prev) => [newPost, ...prev]);
+      await loadPosts();
       return newPost;
     } catch (err) {
       throw err;

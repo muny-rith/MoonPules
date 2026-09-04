@@ -47,12 +47,48 @@ const markPost = async (postData) => {
 
   const now = new Date();
 
-  return await repository.createTrackedPost({
+  const trackedPost = await repository.createTrackedPost({
     ...postData,
     status: isPublished ? 'published' : 'scheduled',
     scheduled_time: now,          // ← always set — "when we marked it"
     published_time: isPublished ? (createdTime || now) : null,
   });
+
+  // If already published on Facebook, immediately fetch initial metrics so data is available right away
+  if (isPublished) {
+    try {
+      const metrics = await facebookService.getPostMetrics(fb_post_id, page_id);
+      let views = 0;
+      let reach = 0;
+      try {
+        const insights = await facebookService.getInsights(fb_post_id, page_id);
+        const viewsData = insights.data?.find(m => m.name === 'post_media_view');
+        const reachData = insights.data?.find(m => m.name === 'post_total_media_view_unique');
+        views = viewsData?.values?.[0]?.value || 0;
+        reach = reachData?.values?.[0]?.value || 0;
+      } catch (e) {
+        // Fallback or restricted
+      }
+
+      await repository.updateTrackedPostMetrics(trackedPost.id, metrics.likes, metrics.comments, metrics.shares, views, reach);
+      trackedPost.likes_count = metrics.likes;
+      trackedPost.comments_count = metrics.comments;
+      trackedPost.shares_count = metrics.shares;
+      trackedPost.views_count = views;
+      trackedPost.reach_count = reach;
+    } catch (err) {
+      console.warn('Initial metrics sync for marked post failed:', err.message);
+    }
+  }
+
+  const products = await productsService.listProducts();
+  const prod = products.find(p => String(p.id) === String(product_id));
+
+  return {
+    ...trackedPost,
+    product_name: prod ? prod.product_name : 'Unknown Product',
+    product_image: prod ? prod.image_url : null,
+  };
 };
 
 const getScheduledPosts = async () => {

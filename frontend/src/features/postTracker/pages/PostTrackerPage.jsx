@@ -172,7 +172,13 @@ export const PostTrackerPage = () => {
     }, { total: 0, views: 0, reach: 0, engagements: 0 });
   }, [posts]);
 
-  const handlePostMarked = (newPost) => {
+  const handlePostMarked = async (newPostData) => {
+    try {
+      await addPost(newPostData);
+    } catch (err) {
+      console.error('Failed to add post in tracker:', err);
+      throw err;
+    }
   };
 
   const handleDeletePost = async (id) => {
