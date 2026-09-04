@@ -45,31 +45,67 @@ export const ConversionFunnel = ({ data, loading }) => {
   // Calculate max for proportional widths
   const maxVal = Math.max(data.views || 1, 1);
 
+  // Step to step rates
+  const getStepRate = (index) => {
+    if (index === 0) return 'Top Stage';
+    if (index === 1) {
+      const rate = data.views > 0 ? ((data.reach / data.views) * 100).toFixed(1) : 0;
+      return `${rate}% of views`;
+    }
+    if (index === 2) {
+      const rate = data.reach > 0 ? ((data.engagement / data.reach) * 100).toFixed(1) : 0;
+      return `${rate}% eng rate`;
+    }
+    if (index === 3) {
+      const rate = data.engagement > 0
+        ? ((data.sales / data.engagement) * 100).toFixed(1)
+        : data.reach > 0
+          ? ((data.sales / data.reach) * 100).toFixed(2)
+          : 0;
+      return `${rate}% conv rate`;
+    }
+    if (index === 4) {
+      const aov = data.sales > 0 ? (data.revenue / data.sales).toFixed(0) : 0;
+      return `$${aov} AOV`;
+    }
+    return '';
+  };
+
+  const reachToSaleConv = data.reach > 0 ? ((data.sales / data.reach) * 100).toFixed(2) : '0.00';
+
   return (
     <div className="card funnel-card">
-      <div className="card-header">
-        <h3>Conversion Funnel</h3>
-        <span className="subtitle">Content → Revenue pipeline</span>
+      <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h3>Conversion Funnel</h3>
+          <span className="subtitle">Content → Revenue pipeline</span>
+        </div>
+        <span className="funnel-efficiency-badge">
+          Conv: <strong>{reachToSaleConv}%</strong>
+        </span>
       </div>
       <div className="funnel-body">
         {FUNNEL_STEPS.map((step, index) => {
           const value = data[step.key] || 0;
           const displayValue = step.isCurrency ? `$${formatCompact(value)}` : formatCompact(value);
-          
+
           const rawPercent = (value / maxVal) * 100;
-          
-          // Display the percentage relative to the top of the funnel
           const displayPercent = index === 0 ? '100%' : `${rawPercent.toFixed(0)}%`;
+          const stepRate = getStepRate(index);
 
           return (
             <div key={step.key} className={`funnel-bar-row fade-in-up delay-${(index + 1) * 100}`}>
               <div className="funnel-bar-info">
-                <span className="funnel-bar-label" style={{ color: step.color }}>{step.label}</span>
+                <div className="funnel-bar-info-top">
+                  <span className="funnel-bar-label" style={{ color: step.color }}>{step.label}</span>
+                  <span className="funnel-step-rate-tag">{stepRate}</span>
+                </div>
+
                 <span className="funnel-bar-value">{displayValue}</span>
               </div>
               <div className="funnel-bar-track-wrapper">
                 <div className="funnel-bar-split-container">
-                  <div 
+                  <div
                     className="funnel-bar-percent-box"
                     style={{ backgroundColor: step.color }}
                   >
@@ -77,11 +113,11 @@ export const ConversionFunnel = ({ data, loading }) => {
                   </div>
                   <div className="funnel-bar-track">
                     {rawPercent > 0 && (
-                      <div 
-                        className="funnel-bar-fill-dynamic" 
-                        style={{ 
+                      <div
+                        className="funnel-bar-fill-dynamic"
+                        style={{
                           width: `${rawPercent}%`,
-                          minWidth: '14px', 
+                          minWidth: '14px',
                           backgroundColor: step.color
                         }}
                       />
@@ -89,6 +125,8 @@ export const ConversionFunnel = ({ data, loading }) => {
                   </div>
                 </div>
               </div>
+
+
             </div>
           );
         })}

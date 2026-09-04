@@ -35,7 +35,7 @@ const KPICard = ({ icon: Icon, iconColor, iconBg, label, value, subtitle, trend,
   </div>
 );
 
-export const ProfitKPICards = ({ data, loading }) => {
+export const ProfitKPICards = ({ data, loading, dateRange = 'this_week' }) => {
   if (loading || !data) {
     return (
       <div className="profit-kpi-section">
@@ -62,6 +62,21 @@ export const ProfitKPICards = ({ data, loading }) => {
   }
 
   const isProfitable = data.net_profit > 0;
+  const marginVal = data.profit_margin !== undefined ? data.profit_margin : (data.total_revenue > 0 ? Math.round((data.net_profit / data.total_revenue) * 1000) / 10 : 0);
+  
+  const rangeLabel = dateRange === 'this_week' ? 'This Week' 
+    : dateRange === 'this_month' ? 'This Month' 
+    : dateRange === 'last_month' ? 'Last Month' 
+    : dateRange === 'three_months' ? '3 Months' 
+    : 'All Time';
+
+  const revenueTrendText = data.revenue_trend !== undefined && data.revenue_trend !== null 
+    ? `${data.revenue_trend >= 0 ? '+' : ''}${data.revenue_trend}% vs prev` 
+    : `${data.total_units_sold} units sold`;
+
+  const profitTrendText = data.profit_trend !== undefined && data.profit_trend !== null 
+    ? `${data.profit_trend >= 0 ? '+' : ''}${data.profit_trend}% vs prev` 
+    : `${isProfitable ? '+' : ''}${formatPercent(data.overall_roi)} ROI`;
 
   return (
     <div className="profit-kpi-section">
@@ -69,11 +84,46 @@ export const ProfitKPICards = ({ data, loading }) => {
         <div className="profit-kpi-section-title">
           <DollarSign size={18} className="profit-section-icon" />
           <h3>Profit Overview</h3>
+          <span className="profit-period-tag">{rangeLabel}</span>
         </div>
-        <span className={`profit-badge ${isProfitable ? 'profit-badge-positive' : 'profit-badge-negative'}`}>
-          {isProfitable ? '● Profitable' : '● Unprofitable'}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {data.total_revenue > 0 && (
+            <span className="profit-margin-pill">
+              Margin: <strong>{marginVal}%</strong>
+            </span>
+          )}
+          <span className={`profit-badge ${isProfitable ? 'profit-badge-positive' : 'profit-badge-negative'}`}>
+            {isProfitable ? '● Profitable' : '● Unprofitable'}
+          </span>
+        </div>
       </div>
+
+      {/* Modern Profit Margin Pipeline Summary */}
+      {data.total_revenue > 0 && (
+        <div className="profit-flow-bar-container">
+          <div className="profit-flow-labels">
+            <span>Revenue: <strong>{formatCurrency(data.total_revenue)}</strong></span>
+            <span>Costs: <strong>{formatCurrency(data.total_spend)}</strong> ({data.total_revenue > 0 ? Math.round((data.total_spend / data.total_revenue) * 100) : 0}%)</span>
+            <span>Net Profit: <strong style={{ color: isProfitable ? '#10b981' : '#ef4444' }}>{formatCurrency(data.net_profit)}</strong></span>
+          </div>
+          <div className="profit-flow-track">
+            <div 
+              className="profit-flow-cost-segment" 
+              style={{ width: `${Math.min(100, Math.round((data.total_spend / data.total_revenue) * 100))}%` }} 
+              title={`Costs: ${formatCurrency(data.total_spend)}`}
+            />
+            <div 
+              className="profit-flow-profit-segment" 
+              style={{ 
+                width: `${Math.max(0, Math.min(100, 100 - Math.round((data.total_spend / data.total_revenue) * 100)))}%`,
+                backgroundColor: isProfitable ? '#10b981' : '#ef4444' 
+              }} 
+              title={`Net Profit: ${formatCurrency(data.net_profit)}`}
+            />
+          </div>
+        </div>
+      )}
+
       <div className="profit-kpi-grid">
         <KPICard
           icon={DollarSign}
@@ -81,8 +131,8 @@ export const ProfitKPICards = ({ data, loading }) => {
           iconBg="rgba(16, 185, 129, 0.12)"
           label="Total Revenue"
           value={formatCurrency(data.total_revenue)}
-          subtitle={`${data.total_units_sold} units sold`}
-          trendPositive={true}
+          subtitle={revenueTrendText}
+          trendPositive={data.revenue_trend !== undefined ? data.revenue_trend >= 0 : true}
           delay="100"
         />
         <KPICard
@@ -101,7 +151,7 @@ export const ProfitKPICards = ({ data, loading }) => {
           iconBg={isProfitable ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)'}
           label="Net Profit"
           value={formatCurrency(data.net_profit)}
-          subtitle={`${isProfitable ? '+' : ''}${formatPercent(data.overall_roi)} ROI`}
+          subtitle={profitTrendText}
           trendPositive={isProfitable}
           delay="300"
         />

@@ -1,6 +1,7 @@
 const postTrackerService = require('../postTracker/postTracker.service');
 const productsService = require('../products/products.service');
 const productsClient = require('../products/products.client');
+const { getDateRangeBounds, isPostInPlatform, isPostInRange, calcTrend } = require('../../utils/filterUtils');
 
 // Fallback sales data when IMS is unavailable
 const FALLBACK_SALES = [
@@ -140,10 +141,16 @@ const getPostProfit = async (postId) => {
 /**
  * Get overall dashboard profit KPIs
  */
-const getDashboardProfit = async () => {
+const getDashboardProfit = async (filters = {}) => {
+  const { platform = 'all', range = 'this_week' } = filters;
   const posts = await postTrackerService.listPosts();
   const products = await productsService.listProducts();
   const sales = await getSalesData();
+
+  const { start, end, prevStart, prevEnd } = getDateRangeBounds(range);
+
+  const filteredPosts = posts.filter(p => isPostInPlatform(p, platform) && isPostInRange(p, start, end));
+  const prevPosts = prevStart ? posts.filter(p => isPostInPlatform(p, platform) && isPostInRange(p, prevStart, prevEnd)) : [];
 
   let totalRevenue = 0;
   let totalContentCost = 0;
@@ -156,7 +163,7 @@ const getDashboardProfit = async () => {
 
   const postProfits = [];
 
-  for (const post of posts) {
+  for (const post of filteredPosts) {
     const publishedDate = post.published_time ? new Date(post.published_time) : new Date(post.created_at);
     const windowDays = post.attribution_window_days || 7;
     const windowEnd = new Date(publishedDate.getTime() + windowDays * 24 * 60 * 60 * 1000);
@@ -187,14 +194,40 @@ const getDashboardProfit = async () => {
       roi: Math.round(roi * 10) / 10,
       views_count: post.views_count || 0,
       reach_count: post.reach_count || 0,
+      platform: post.platform || 'facebook',
       published_time: post.published_time || post.created_at,
     });
   }
+
+  // Previous period calculations for trends
+  let prevRevenue = 0;
+  let prevSpend = 0;
+  let prevUnitsSold = 0;
+
+  for (const post of prevPosts) {
+    const publishedDate = post.published_time ? new Date(post.published_time) : new Date(post.created_at);
+    const windowDays = post.attribution_window_days || 7;
+    const windowEnd = new Date(publishedDate.getTime() + windowDays * 24 * 60 * 60 * 1000);
+
+    const { revenue, units_sold } = getProductRevenue(sales, post.product_id, products, publishedDate, windowEnd);
+    const contentCost = parseFloat(post.content_cost) || 0;
+    const adSpend = parseFloat(post.ad_spend) || 0;
+    prevRevenue += revenue;
+    prevSpend += (contentCost + adSpend);
+    prevUnitsSold += units_sold;
+  }
+  const prevNetProfit = prevRevenue - prevSpend;
 
   const totalSpend = totalContentCost + totalAdSpend;
   const netProfit = totalRevenue - totalSpend;
   const overallRoi = totalSpend > 0 ? ((totalRevenue - totalSpend) / totalSpend * 100) : 0;
   const costPerView = totalViews > 0 && totalSpend > 0 ? totalSpend / totalViews : 0;
+  const profitMargin = totalRevenue > 0 ? ((netProfit / totalRevenue) * 100) : 0;
+
+  const revenueTrend = calcTrend(totalRevenue, prevRevenue);
+  const spendTrend = calcTrend(totalSpend, prevSpend);
+  const profitTrend = calcTrend(netProfit, prevNetProfit);
+  const unitsTrend = calcTrend(totalUnitsSold, prevUnitsSold);
 
   return {
     total_revenue: Math.round(totalRevenue * 100) / 100,
@@ -203,10 +236,17 @@ const getDashboardProfit = async () => {
     total_spend: Math.round(totalSpend * 100) / 100,
     net_profit: Math.round(netProfit * 100) / 100,
     overall_roi: Math.round(overallRoi * 10) / 10,
+    profit_margin: Math.round(profitMargin * 10) / 10,
     cost_per_view: Math.round(costPerView * 1000) / 1000,
-    total_posts: posts.length,
+    total_posts: filteredPosts.length,
     profitable_posts: profitablePosts,
     total_units_sold: totalUnitsSold,
+    // Trend metrics
+    revenue_trend: revenueTrend,
+    spend_trend: spendTrend,
+    profit_trend: profitTrend,
+    units_trend: unitsTrend,
+    filters: { platform, range },
     // Funnel data
     funnel: {
       views: totalViews,
@@ -219,7 +259,7 @@ const getDashboardProfit = async () => {
     top_posts: [...postProfits]
       .sort((a, b) => b.net_profit - a.net_profit)
       .slice(0, 5),
-    // All posts profit for the post tracker table
+    // All posts profit for the post tracker table / chart
     all_posts_profit: postProfits,
   };
 };

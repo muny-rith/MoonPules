@@ -2,7 +2,8 @@ const profitService = require('./profit.service');
 
 const getDashboardProfit = async (req, res, next) => {
   try {
-    const data = await profitService.getDashboardProfit();
+    const { platform, range } = req.query;
+    const data = await profitService.getDashboardProfit({ platform, range });
     res.json({ success: true, data });
   } catch (error) {
     next(error);

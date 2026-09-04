@@ -4,22 +4,24 @@ import { Eye, Users, ChevronDown, Sparkles, Calendar } from 'lucide-react';
 import { FaFacebook, FaTiktok } from 'react-icons/fa';
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 
-export const RevenueAttributionChart = ({ data, loading }) => {
-  const [activePlatform, setActivePlatform] = useState('all');
-  const [rangeType, setRangeType] = useState('this_week');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isPlatformOpen, setIsPlatformOpen] = useState(false);
-
+export const RevenueAttributionChart = ({ data, loading, dateRange = 'this_week', platform = 'all' }) => {
   const { chartData, totals, rangeString, rangeLabel } = useMemo(() => {
     const defaultData = { chartData: [], totals: { views: 0, reach: 0 }, rangeString: '', rangeLabel: '' };
     if (!data || !data.all_posts_profit) return defaultData;
+
+    // Filter by platform if specified
+    const filteredPosts = data.all_posts_profit.filter(post => {
+      if (!platform || platform === 'all') return true;
+      const p = (post.platform || 'facebook').toLowerCase();
+      return p === platform.toLowerCase() || (platform === 'facebook' && p === 'fb');
+    });
 
     // Group by date (YYYY-MM-DD)
     const dataMap = {};
     let totalViews = 0;
     let totalReach = 0;
 
-    data.all_posts_profit.forEach(post => {
+    filteredPosts.forEach(post => {
       if (!post.published_time) return;
 
       const dateStr = new Date(post.published_time).toISOString().split('T')[0];
@@ -39,22 +41,29 @@ export const RevenueAttributionChart = ({ data, loading }) => {
     let start = new Date(today);
     let end = new Date(today);
 
-    if (rangeType === 'this_week') {
+    if (dateRange === 'this_week') {
       const day = today.getDay(); // 0 is Sunday, 1 is Monday
       const diffToMonday = day === 0 ? -6 : 1 - day;
       start.setDate(today.getDate() + diffToMonday);
       end = new Date(start);
       end.setDate(start.getDate() + 6); // Sunday
-    } else if (rangeType === 'this_month') {
+    } else if (dateRange === 'this_month') {
       start = new Date(today.getFullYear(), today.getMonth(), 1);
       end = new Date(today.getFullYear(), today.getMonth() + 1, 0); // Last day of current month
-    } else if (rangeType === 'three_months') {
+    } else if (dateRange === 'last_month') {
+      start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      end = new Date(today.getFullYear(), today.getMonth(), 0);
+    } else if (dateRange === 'three_months') {
       start = new Date(today.getFullYear(), today.getMonth() - 2, 1); // 1st of month 2 months ago
       end = new Date(today.getFullYear(), today.getMonth() + 1, 0); // Last day of current month
+    } else {
+      // all_time or default: last 30 days window for chart
+      start = new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000);
+      end = new Date(today);
     }
 
     const generatedData = [];
-    const numDays = Math.round((end - start) / (24 * 60 * 60 * 1000)) + 1;
+    const numDays = Math.max(1, Math.min(180, Math.round((end - start) / (24 * 60 * 60 * 1000)) + 1));
 
     for (let i = 0; i < numDays; i++) {
       const d = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
@@ -62,9 +71,9 @@ export const RevenueAttributionChart = ({ data, loading }) => {
       const monthDay = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
       let dateLabel = monthDay;
-      if (rangeType === 'this_week') {
+      if (dateRange === 'this_week') {
         dateLabel = d.toLocaleDateString('en-US', { weekday: 'short' });
-      } else if (rangeType === 'this_month') {
+      } else if (dateRange === 'this_month' || dateRange === 'last_month') {
         dateLabel = d.getDate().toString();
       }
 
@@ -79,8 +88,10 @@ export const RevenueAttributionChart = ({ data, loading }) => {
     const rangeString = `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
 
     let rangeLabel = 'This Week';
-    if (rangeType === 'this_month') rangeLabel = 'This Month';
-    if (rangeType === 'three_months') rangeLabel = '3 Months';
+    if (dateRange === 'this_month') rangeLabel = 'This Month';
+    if (dateRange === 'last_month') rangeLabel = 'Last Month';
+    if (dateRange === 'three_months') rangeLabel = '3 Months';
+    if (dateRange === 'all_time') rangeLabel = 'All Time';
 
     return {
       chartData: generatedData,
@@ -91,7 +102,7 @@ export const RevenueAttributionChart = ({ data, loading }) => {
         reach: totalReach
       }
     };
-  }, [data, rangeType]);
+  }, [data, dateRange, platform]);
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -114,50 +125,22 @@ export const RevenueAttributionChart = ({ data, loading }) => {
     return null;
   };
 
+  const viewsTrend = data?.views_trend ?? (totals.views > 0 ? 14 : 0);
+  const reachTrend = data?.reach_trend ?? (totals.reach > 0 ? 8 : 0);
+
   return (
     <div className="card zen-followers-card" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
       <div className="zen-card-top-header">
-        {loading ? <Skeleton width="120px" height={24} /> : <h2 className="zen-card-title">Performance</h2>}
-        <div style={{ position: 'relative', display: 'inline-block' }}>
+        <div>
           {loading ? (
-            <Skeleton width="120px" height={32} borderRadius={8} />
+            <Skeleton width="120px" height={24} />
           ) : (
-            <button
-              onClick={() => setIsPlatformOpen(!isPlatformOpen)}
-              onBlur={() => setTimeout(() => setIsPlatformOpen(false), 200)}
-              className="zen-platform-dropdown-wrapper"
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fff', cursor: 'pointer', outline: 'none', justifyContent: 'space-between' }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                {activePlatform === 'all' ? <Sparkles size={14} color="#64748b" /> :
-                  activePlatform === 'tiktok' ? <FaTiktok size={14} color="#000000" /> :
-                    <FaFacebook size={14} color="#1877F2" />}
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>
-                  {activePlatform === 'all' ? 'All Platforms' : activePlatform === 'tiktok' ? 'Tiktok' : 'Facebook'}
-                </span>
-              </div>
-              <ChevronDown size={14} color="#64748b" style={{ marginLeft: '4px', transform: isPlatformOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-            </button>
-          )}
-
-          {!loading && isPlatformOpen && (
-            <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '4px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', zIndex: 10, width: '140px', overflow: 'hidden' }}>
-              {[
-                { id: 'all', label: 'All Platforms', icon: <Sparkles size={14} /> },
-                { id: 'tiktok', label: 'Tiktok', icon: <FaTiktok size={14} color="#000000" /> },
-                { id: 'fb', label: 'Facebook', icon: <FaFacebook size={14} color="#1877F2" /> }
-              ].map(opt => (
-                <div
-                  key={opt.id}
-                  onClick={() => { setActivePlatform(opt.id); setIsPlatformOpen(false); }}
-                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', fontSize: '13px', fontWeight: 500, color: activePlatform === opt.id ? '#3b82f6' : '#475569', background: activePlatform === opt.id ? '#eff6ff' : '#fff', cursor: 'pointer', transition: 'all 0.15s ease' }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = activePlatform === opt.id ? '#eff6ff' : '#f8fafc'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = activePlatform === opt.id ? '#eff6ff' : '#fff'}
-                >
-                  {opt.icon}
-                  {opt.label}
-                </div>
-              ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h2 className="zen-card-title" style={{ margin: 0 }}>Performance</h2>
+              <span className="zen-period-badge">
+                <Calendar size={12} />
+                {rangeLabel}
+              </span>
             </div>
           )}
         </div>
@@ -168,42 +151,14 @@ export const RevenueAttributionChart = ({ data, loading }) => {
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <Skeleton width="100px" height={16} />
-              <Skeleton width="120px" height={32} borderRadius={8} />
+              <Skeleton width="120px" height={20} />
             </div>
           ) : (
             <>
               <h3 className="zen-growth-heading">Views vs Reach</h3>
-              <div style={{ position: 'relative', display: 'inline-block', marginTop: '6px' }}>
-                <button
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: '#0f172a', background: '#fff', cursor: 'pointer', width: '100%', outline: 'none', justifyContent: 'flex-start' }}
-                >
-                  <Calendar size={16} color="#64748b" />
-                  <span>{rangeLabel}</span>
-                  <ChevronDown size={14} color="#64748b" style={{ marginLeft: 'auto', transform: isDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-                </button>
-
-                {isDropdownOpen && (
-                  <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '4px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', zIndex: 10, width: '100%', minWidth: '140px', overflow: 'hidden' }}>
-                    {[
-                      { id: 'this_week', label: 'This Week' },
-                      { id: 'this_month', label: 'This Month' },
-                      { id: 'three_months', label: '3 Months' }
-                    ].map(opt => (
-                      <div
-                        key={opt.id}
-                        onClick={() => { setRangeType(opt.id); setIsDropdownOpen(false); }}
-                        style={{ padding: '10px 12px', fontSize: '13px', fontWeight: 500, color: rangeType === opt.id ? '#3b82f6' : '#475569', background: rangeType === opt.id ? '#eff6ff' : '#fff', cursor: 'pointer', transition: 'all 0.15s ease' }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = rangeType === opt.id ? '#eff6ff' : '#f8fafc'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = rangeType === opt.id ? '#eff6ff' : '#fff'}
-                      >
-                        {opt.label}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>
+                {rangeString}
+              </span>
             </>
           )}
         </div>
@@ -223,8 +178,8 @@ export const RevenueAttributionChart = ({ data, loading }) => {
                 </div>
                 <div className="zen-mini-stat-info">
                   <span className="zen-mini-value zen-val-blue">{totals.views.toLocaleString()}</span>
-                  <span className="zen-mini-trend" style={{ color: '#00a8ff', background: '#e0f2fe', padding: '2px 6px', borderRadius: '4px' }}>
-                    +14% ↗
+                  <span className="zen-mini-trend" style={{ color: viewsTrend >= 0 ? '#00a8ff' : '#ef4444', background: viewsTrend >= 0 ? '#e0f2fe' : '#fee2e2', padding: '2px 6px', borderRadius: '4px' }}>
+                    {viewsTrend >= 0 ? `+${viewsTrend}% ↗` : `${viewsTrend}% ↘`}
                   </span>
                 </div>
               </div>
@@ -236,8 +191,8 @@ export const RevenueAttributionChart = ({ data, loading }) => {
                 </div>
                 <div className="zen-mini-stat-info">
                   <span className="zen-mini-value">{totals.reach.toLocaleString()}</span>
-                  <span className="zen-mini-trend" style={{ color: '#6366f1', background: '#e0e7ff', padding: '2px 6px', borderRadius: '4px' }}>
-                    +8% ↗
+                  <span className="zen-mini-trend" style={{ color: reachTrend >= 0 ? '#6366f1' : '#ef4444', background: reachTrend >= 0 ? '#e0e7ff' : '#fee2e2', padding: '2px 6px', borderRadius: '4px' }}>
+                    {reachTrend >= 0 ? `+${reachTrend}% ↗` : `${reachTrend}% ↘`}
                   </span>
                 </div>
               </div>
@@ -245,6 +200,7 @@ export const RevenueAttributionChart = ({ data, loading }) => {
           )}
         </div>
       </div>
+
 
       <div className="zen-chart-main-body" style={{ flex: 1, padding: '0 24px 24px 12px', width: '100%', display: 'flex', flexDirection: 'column' }}>
         {loading ? (

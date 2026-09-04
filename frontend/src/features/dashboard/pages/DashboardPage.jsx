@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Eye, TrendingUp, Users, CheckCircle2, Clock, Sparkles, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Eye, TrendingUp, Users, CheckCircle2, Clock, Sparkles, RefreshCw, Calendar, ChevronDown } from 'lucide-react';
 import { FaFacebook, FaTiktok, FaInstagram, FaYoutube } from 'react-icons/fa';
 import { RevenueAttributionChart } from '../components/RevenueAttributionChart';
 import { ProfitKPICards } from '../components/ProfitKPICards';
@@ -8,6 +8,20 @@ import { Skeleton } from '../../../shared/components/ui/Skeleton';
 import apiClient from '../../../shared/utils/apiClient';
 import { syncPosts } from '../../postTracker/api/postTrackerApi';
 import '../dashboard.css';
+
+const DATE_OPTIONS = [
+  { id: 'this_week', label: 'This Week' },
+  { id: 'this_month', label: 'This Month' },
+  { id: 'last_month', label: 'Last Month' },
+  { id: 'three_months', label: '3 Months' },
+  { id: 'all_time', label: 'All Time' },
+];
+
+const PLATFORM_OPTIONS = [
+  { id: 'all', label: 'All Platforms', icon: <Sparkles size={14} color="#64748b" /> },
+  { id: 'facebook', label: 'Facebook', icon: <FaFacebook size={14} color="#1877F2" /> },
+  { id: 'tiktok', label: 'TikTok', icon: <FaTiktok size={14} color="#000000" /> },
+];
 
 const formatCompactNumber = (number) => {
   if (number === undefined || number === null) return '0';
@@ -43,6 +57,11 @@ const ViewPercentageCard = ({ stats, loading }) => {
         <div className="stat-header">
           <Eye size={18} className="icon-blue" />
           <span>Total Views</span>
+          {stats.views_trend !== undefined && stats.views_trend !== null && (
+            <span className={`stat-trend-chip ${stats.views_trend >= 0 ? 'trend-up' : 'trend-down'}`}>
+              {stats.views_trend >= 0 ? `+${stats.views_trend}%` : `${stats.views_trend}%`}
+            </span>
+          )}
         </div>
         <div className="stat-value">{formatCompactNumber(stats.total_views)}</div>
       </div>
@@ -51,6 +70,11 @@ const ViewPercentageCard = ({ stats, loading }) => {
         <div className="stat-header">
           <Users size={18} className="icon-purple" />
           <span>Total Reach</span>
+          {stats.reach_trend !== undefined && stats.reach_trend !== null && (
+            <span className={`stat-trend-chip ${stats.reach_trend >= 0 ? 'trend-up' : 'trend-down'}`}>
+              {stats.reach_trend >= 0 ? `+${stats.reach_trend}%` : `${stats.reach_trend}%`}
+            </span>
+          )}
         </div>
         <div className="stat-value">{formatCompactNumber(stats.total_reach)}</div>
       </div>
@@ -59,6 +83,11 @@ const ViewPercentageCard = ({ stats, loading }) => {
         <div className="stat-header">
           <TrendingUp size={18} className="icon-red" />
           <span>Avg. Engagement</span>
+          {stats.engagement_trend !== undefined && stats.engagement_trend !== null && (
+            <span className={`stat-trend-chip ${stats.engagement_trend >= 0 ? 'trend-up' : 'trend-down'}`}>
+              {stats.engagement_trend >= 0 ? `+${stats.engagement_trend}%` : `${stats.engagement_trend}%`}
+            </span>
+          )}
         </div>
         <div className="stat-value">{stats.engagement_rate}%</div>
       </div>
@@ -139,7 +168,7 @@ const SchedulePostList = ({ posts, loading }) => {
             </div>
           );
         }) : (
-          <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>No posts tracked yet.</div>
+          <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>No posts tracked for this selection.</div>
         )}
       </div>
     </div>
@@ -154,10 +183,31 @@ export const DashboardPage = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [user, setUser] = useState(null);
 
-  const fetchDashboard = async () => {
+  // Global filters
+  const [dateRange, setDateRange] = useState('this_week');
+  const [platform, setPlatform] = useState('all');
+  const [isDateOpen, setIsDateOpen] = useState(false);
+  const [isPlatformOpen, setIsPlatformOpen] = useState(false);
+  const controlsRef = useRef(null);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (controlsRef.current && !controlsRef.current.contains(e.target)) {
+        setIsDateOpen(false);
+        setIsPlatformOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
+  const fetchDashboard = async (range = dateRange, plat = platform) => {
     try {
       setLoading(true);
-      const res = await apiClient.get('/statistics/dashboard');
+      const res = await apiClient.get('/statistics/dashboard', {
+        params: { range, platform: plat }
+      });
       if (res.data && res.data.success) {
         setStats(res.data.data);
       }
@@ -168,10 +218,12 @@ export const DashboardPage = () => {
     }
   };
 
-  const fetchProfit = async () => {
+  const fetchProfit = async (range = dateRange, plat = platform) => {
     try {
       setProfitLoading(true);
-      const res = await apiClient.get('/profit/dashboard');
+      const res = await apiClient.get('/profit/dashboard', {
+        params: { range, platform: plat }
+      });
       if (res.data && res.data.success) {
         setProfitData(res.data.data);
       }
@@ -183,9 +235,11 @@ export const DashboardPage = () => {
   };
 
   useEffect(() => {
-    fetchDashboard();
-    fetchProfit();
-    
+    fetchDashboard(dateRange, platform);
+    fetchProfit(dateRange, platform);
+  }, [dateRange, platform]);
+
+  useEffect(() => {
     try {
       const storedUser = localStorage.getItem('moonpulse.auth.user');
       if (storedUser) {
@@ -200,7 +254,7 @@ export const DashboardPage = () => {
     try {
       setIsSyncing(true);
       await syncPosts();
-      await Promise.all([fetchDashboard(), fetchProfit()]);
+      await Promise.all([fetchDashboard(dateRange, platform), fetchProfit(dateRange, platform)]);
     } catch (err) {
       console.error('Failed to sync posts', err);
     } finally {
@@ -208,26 +262,93 @@ export const DashboardPage = () => {
     }
   };
 
+  const currentRangeLabel = DATE_OPTIONS.find(o => o.id === dateRange)?.label || 'This Week';
+  const currentPlatformObj = PLATFORM_OPTIONS.find(o => o.id === platform) || PLATFORM_OPTIONS[0];
+
   return (
     <div className="dashboard-page">
       <div className="dashboard-top">
+
         <h1 className="dashboard-welcome">
           Welcome back, {user?.name || 'User'}! 👋
         </h1>
-        <button
-          onClick={handleSync}
-          disabled={isSyncing}
-          className="btn-sync"
-        >
-          <RefreshCw size={14} className={isSyncing ? "spin-animation" : ""} />
-          {isSyncing ? 'Syncing...' : 'Sync Data'}
-        </button>
+
+
+        <div className="dashboard-global-controls" ref={controlsRef}>
+          {/* Global Date Range Dropdown */}
+          <div className="global-filter-wrapper">
+            <button
+              onClick={() => { setIsDateOpen(!isDateOpen); setIsPlatformOpen(false); }}
+              className="global-filter-btn"
+              type="button"
+              title="Filter date range"
+            >
+              <Calendar size={14} color="#64748b" />
+              <span>{currentRangeLabel}</span>
+              <ChevronDown size={14} color="#64748b" style={{ transform: isDateOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+            </button>
+
+            {isDateOpen && (
+              <div className="global-filter-dropdown">
+                {DATE_OPTIONS.map(opt => (
+                  <div
+                    key={opt.id}
+                    onClick={() => { setDateRange(opt.id); setIsDateOpen(false); }}
+                    className={`global-filter-option ${dateRange === opt.id ? 'selected' : ''}`}
+                  >
+                    {opt.label}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Global Platform Dropdown */}
+          <div className="global-filter-wrapper">
+            <button
+              onClick={() => { setIsPlatformOpen(!isPlatformOpen); setIsDateOpen(false); }}
+              className="global-filter-btn"
+              type="button"
+              title="Filter platform"
+            >
+              {currentPlatformObj.icon}
+              <span>{currentPlatformObj.label}</span>
+              <ChevronDown size={14} color="#64748b" style={{ transform: isPlatformOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+            </button>
+
+            {isPlatformOpen && (
+              <div className="global-filter-dropdown">
+                {PLATFORM_OPTIONS.map(opt => (
+                  <div
+                    key={opt.id}
+                    onClick={() => { setPlatform(opt.id); setIsPlatformOpen(false); }}
+                    className={`global-filter-option ${platform === opt.id ? 'selected' : ''}`}
+                  >
+                    {opt.icon}
+                    <span>{opt.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Sync Button */}
+          <button
+            onClick={handleSync}
+            disabled={isSyncing}
+            className="btn-sync"
+          >
+            <RefreshCw size={14} className={isSyncing ? "spin-animation" : ""} />
+            {isSyncing ? 'Syncing...' : 'Sync Data'}
+          </button>
+        </div>
       </div>
+
       <div className="dashboard-grid">
         <div className="left-column">
           <ViewPercentageCard stats={stats} loading={loading} />
-          <ProfitKPICards data={profitData} loading={profitLoading} />
-          <RevenueAttributionChart data={profitData} loading={profitLoading} />
+          <ProfitKPICards data={profitData} loading={profitLoading} dateRange={dateRange} />
+          <RevenueAttributionChart data={profitData} loading={profitLoading} dateRange={dateRange} platform={platform} />
         </div>
         <div className="right-column">
           <ConversionFunnel data={profitData?.funnel} loading={profitLoading} />

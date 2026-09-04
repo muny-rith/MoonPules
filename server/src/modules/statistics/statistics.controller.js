@@ -27,7 +27,8 @@ const getBrandDetail = async (req, res, next) => {
 
 const getDashboard = async (req, res, next) => {
   try {
-    const stats = await statisticsService.getDashboardStats();
+    const { platform, range } = req.query;
+    const stats = await statisticsService.getDashboardStats({ platform, range });
     res.json({
       success: true,
       data: stats

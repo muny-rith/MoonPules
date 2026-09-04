@@ -1,5 +1,6 @@
 const productsService = require('../products/products.service');
 const postTrackerService = require('../postTracker/postTracker.service');
+const { getDateRangeBounds, isPostInPlatform, isPostInRange, calcTrend } = require('../../utils/filterUtils');
 
 const getBrandStats = async () => {
   const brands = await productsService.listBrands();
@@ -98,21 +99,41 @@ const getBrandDetail = async (brandId) => {
   };
 };
 
-const getDashboardStats = async () => {
+const getDashboardStats = async (filters = {}) => {
+  const { platform = 'all', range = 'this_week' } = filters;
   const posts = await postTrackerService.listPosts();
   const products = await productsService.listProducts();
   
-  const totalViews = posts.reduce((sum, p) => sum + (p.views_count || 0), 0);
-  const totalReach = posts.reduce((sum, p) => sum + (p.reach_count || 0), 0);
-  const totalLikes = posts.reduce((sum, p) => sum + (p.likes_count || 0), 0);
-  const totalComments = posts.reduce((sum, p) => sum + (p.comments_count || 0), 0);
-  const totalShares = posts.reduce((sum, p) => sum + (p.shares_count || 0), 0);
+  const { start, end, prevStart, prevEnd } = getDateRangeBounds(range);
+
+  const filteredPosts = posts.filter(p => isPostInPlatform(p, platform) && isPostInRange(p, start, end));
+  const prevPosts = prevStart ? posts.filter(p => isPostInPlatform(p, platform) && isPostInRange(p, prevStart, prevEnd)) : [];
+
+  const totalViews = filteredPosts.reduce((sum, p) => sum + (p.views_count || 0), 0);
+  const totalReach = filteredPosts.reduce((sum, p) => sum + (p.reach_count || 0), 0);
+  const totalLikes = filteredPosts.reduce((sum, p) => sum + (p.likes_count || 0), 0);
+  const totalComments = filteredPosts.reduce((sum, p) => sum + (p.comments_count || 0), 0);
+  const totalShares = filteredPosts.reduce((sum, p) => sum + (p.shares_count || 0), 0);
   
   const engagementRate = totalReach > 0 
     ? (((totalLikes + totalComments + totalShares) / totalReach) * 100).toFixed(1)
     : 0;
+
+  // Previous period metrics for trend calculation
+  const prevViews = prevPosts.reduce((sum, p) => sum + (p.views_count || 0), 0);
+  const prevReach = prevPosts.reduce((sum, p) => sum + (p.reach_count || 0), 0);
+  const prevLikes = prevPosts.reduce((sum, p) => sum + (p.likes_count || 0), 0);
+  const prevComments = prevPosts.reduce((sum, p) => sum + (p.comments_count || 0), 0);
+  const prevShares = prevPosts.reduce((sum, p) => sum + (p.shares_count || 0), 0);
+  const prevEngagementRate = prevReach > 0 
+    ? (((prevLikes + prevComments + prevShares) / prevReach) * 100).toFixed(1)
+    : 0;
+
+  const viewsTrend = calcTrend(totalViews, prevViews);
+  const reachTrend = calcTrend(totalReach, prevReach);
+  const engagementTrend = calcTrend(parseFloat(engagementRate), parseFloat(prevEngagementRate));
     
-  const enrichedPosts = posts.map(post => {
+  const enrichedPosts = filteredPosts.map(post => {
      const prod = products.find(p => String(p.id) === String(post.product_id));
      return {
        ...post,
@@ -127,8 +148,12 @@ const getDashboardStats = async () => {
     total_reach: totalReach,
     total_likes: totalLikes,
     engagement_rate: parseFloat(engagementRate),
+    views_trend: viewsTrend,
+    reach_trend: reachTrend,
+    engagement_trend: engagementTrend,
     recent_posts: recentPosts,
-    all_posts_metrics: posts.map(p => ({
+    filters: { platform, range },
+    all_posts_metrics: filteredPosts.map(p => ({
       id: p.id,
       published_time: p.published_time,
       scheduled_time: p.scheduled_time,
