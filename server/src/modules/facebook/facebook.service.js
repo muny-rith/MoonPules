@@ -34,15 +34,17 @@ const checkPublished = async (postId, pageId) => {
   const createdDate = data.created_time ? new Date(data.created_time) : null;
   // Facebook may omit is_published on standard published feed posts. If created_time exists and is in the past, it's published.
   const isPublished = data.is_published === true || (data.is_published !== false && createdDate !== null && createdDate <= new Date());
-  
+
   let mediaType = 'photo';
   const attMedia = data.attachments?.data?.[0]?.media_type?.toLowerCase();
   const attType = data.attachments?.data?.[0]?.type?.toLowerCase();
   const statusType = data.status_type?.toLowerCase();
-  if (attMedia === 'video' || statusType === 'added_video') {
-    mediaType = (attType === 'reel' || statusType === 'created_reel') ? 'reel' : 'video';
-  } else if (statusType === 'live_video_broadcast') {
+  // Check live BEFORE video — a completed live stream's attachments.media_type
+  // becomes "video" after it ends, which would otherwise shadow the live check.
+  if (statusType === 'live_video_broadcast') {
     mediaType = 'live';
+  } else if (attMedia === 'video' || statusType === 'added_video') {
+    mediaType = (attType === 'reel' || statusType === 'created_reel') ? 'reel' : 'video';
   }
 
   return {
@@ -59,11 +61,12 @@ const getPostMediaType = async (postId, pageId) => {
     const attMedia = data.attachments?.data?.[0]?.media_type?.toLowerCase();
     const attType = data.attachments?.data?.[0]?.type?.toLowerCase();
     const statusType = data.status_type?.toLowerCase();
-    if (attMedia === 'video' || statusType === 'added_video') {
-      return (attType === 'reel' || statusType === 'created_reel') ? 'reel' : 'video';
-    }
+    // Same ordering fix as checkPublished above.
     if (statusType === 'live_video_broadcast') {
       return 'live';
+    }
+    if (attMedia === 'video' || statusType === 'added_video') {
+      return (attType === 'reel' || statusType === 'created_reel') ? 'reel' : 'video';
     }
     return 'photo';
   } catch (err) {
@@ -74,56 +77,21 @@ const getPostMediaType = async (postId, pageId) => {
 
 const getInsights = async (postId, pageId) => {
   const { access_token } = await getPageCredentials(pageId);
-  const metrics = 'post_media_view,post_total_media_view_unique';
-  try {
-    return await fbClient.getFbData(`/${postId}/insights?metric=${metrics}`, access_token);
-  } catch (err) {
-    console.warn(`[getInsights] Insights query failed for ${postId}: ${err.message}`);
-    return { data: [] };
-  }
+  const metrics = 'post_engaged_users,views';
+  return await fbClient.getFbData(`/${postId}/insights?metric=${metrics}`, access_token);
 };
 
 const getPostMetrics = async (postId, pageId) => {
   const { access_token } = await getPageCredentials(pageId);
-  let likes = 0;
-  let comments = 0;
-  let shares = 0;
-
-  try {
-    const data = await fbClient.getFbData(
-      `/${postId}?fields=reactions.summary(true),likes.summary(true),comments.summary(true),shares`,
-      access_token
-    );
-    likes = data.reactions?.summary?.total_count ?? data.likes?.summary?.total_count ?? 0;
-    comments = data.comments?.summary?.total_count ?? 0;
-    shares = data.shares?.count ?? 0;
-    return { likes, comments, shares };
-  } catch (err) {
-    console.warn(`[getPostMetrics] Combined query failed for ${postId}: ${err.message}. Trying individual fields...`);
-  }
-
-  // Fallback: try individual fields so one field error doesn't drop the rest
-  try {
-    const rx = await fbClient.getFbData(`/${postId}?fields=reactions.summary(true)`, access_token);
-    likes = rx.reactions?.summary?.total_count ?? 0;
-  } catch (e) {
-    try {
-      const lk = await fbClient.getFbData(`/${postId}?fields=likes.summary(true)`, access_token);
-      likes = lk.likes?.summary?.total_count ?? 0;
-    } catch (_) {}
-  }
-
-  try {
-    const cm = await fbClient.getFbData(`/${postId}?fields=comments.summary(true)`, access_token);
-    comments = cm.comments?.summary?.total_count ?? 0;
-  } catch (_) {}
-
-  try {
-    const sh = await fbClient.getFbData(`/${postId}?fields=shares`, access_token);
-    shares = sh.shares?.count ?? 0;
-  } catch (_) {}
-
-  return { likes, comments, shares };
+  const data = await fbClient.getFbData(
+    `/${postId}?fields=likes.summary(true),comments.summary(true),shares`,
+    access_token
+  );
+  return {
+    likes: data.likes?.summary?.total_count || 0,
+    comments: data.comments?.summary?.total_count || 0,
+    shares: data.shares?.count || 0,
+  };
 };
 
 const getPages = async () => {
@@ -133,7 +101,7 @@ const getPages = async () => {
 module.exports = {
   getPageCredentials,
   getScheduledPosts,
-  getRecentPosts, // ← new
+  getRecentPosts,
   checkPublished,
   getPostMediaType,
   getInsights,

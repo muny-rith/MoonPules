@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   BarChart2, Package, Calendar, ExternalLink, ArrowLeft, Tag, Search,
   RefreshCw, ChevronDown, Filter, Eye, Heart, MessageCircle, Share2, Trophy, Download, X,
-  CheckSquare, Square, BarChart, Layers, Image, Video, Radio, Globe, RotateCcw, Smartphone
+  CheckSquare, Square, BarChart, Layers, Image, Video, Radio, Globe, RotateCcw
 } from 'lucide-react';
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 import { getBrandDetail } from '../services/brandStatsService';
@@ -62,8 +62,8 @@ export const BrandDetailPage = () => {
 
   const formatOptions = [
     { value: 'all', label: 'All Formats', icon: Layers },
-    { value: 'photo', label: 'Photo / Album', icon: Image },
-    { value: 'video', label: 'Video / Reel', icon: Video },
+    { value: 'photo', label: 'Photo', icon: Image },
+    { value: 'video', label: 'Video', icon: Video },
     { value: 'live', label: 'Live Stream', icon: Radio },
   ];
 
@@ -267,11 +267,8 @@ export const BrandDetailPage = () => {
 
   const getFormatBadge = (mediaType) => {
     const m = (mediaType || 'photo').toLowerCase();
-    if (m === 'video') {
+    if (m === 'video' || m === 'reel') {
       return <span className="format-pill-tag format-video"><Video size={11} /> Video</span>;
-    }
-    if (m === 'reel') {
-      return <span className="format-pill-tag format-reel"><Smartphone size={11} /> Reel</span>;
     }
     if (m === 'live') {
       return <span className="format-pill-tag format-live"><Radio size={11} /> Live</span>;
@@ -314,7 +311,7 @@ export const BrandDetailPage = () => {
       `"${(p.product_name || '').replace(/"/g, '""')}"`,
       p.platform || 'facebook',
       `"${(p.page_name || '').replace(/"/g, '""')}"`,
-      p.media_type || 'photo',
+      (p.media_type === 'video' || p.media_type === 'reel') ? 'video' : (p.media_type || 'photo'),
       p.published_time ? new Date(p.published_time).toISOString() : '',
       p.views_count || 0,
       p.reach_count || 0,
