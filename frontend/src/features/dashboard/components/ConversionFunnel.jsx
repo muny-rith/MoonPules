@@ -32,16 +32,18 @@ export const ConversionFunnel = ({ data, loading }) => {
         <div className="funnel-skeleton funnel-body">
           {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="funnel-bar-row">
-              <div className="funnel-step-meta">
-                <Skeleton width="26px" height="26px" borderRadius="7px" />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                  <Skeleton width="50px" height="11px" />
-                  <Skeleton width="65px" height="9px" />
+              <div className="funnel-bar-txt">
+                <div className="funnel-step-meta">
+                  <Skeleton width="26px" height="26px" borderRadius="7px" />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    <Skeleton width="50px" height="11px" />
+                    <Skeleton width="65px" height="9px" />
+                  </div>
                 </div>
+                <Skeleton width="35px" height="15px" />
               </div>
-              <Skeleton width="35px" height="15px" />
               <div className="funnel-bar-track-wrapper">
-                <Skeleton height="26px" style={{ borderRadius: '5px' }} />
+                <Skeleton height="24px" style={{ borderRadius: '5px' }} />
               </div>
             </div>
           ))}
@@ -104,17 +106,19 @@ export const ConversionFunnel = ({ data, loading }) => {
 
           return (
             <div key={step.key} className={`funnel-bar-row fade-in-up delay-${(index + 1) * 100}`}>
-              <div className="funnel-step-meta">
-                <span className="funnel-icon-box" style={{ color: step.color, backgroundColor: step.bg }}>
-                  <StepIcon size={15} />
-                </span>
-                <div className="funnel-step-info">
-                  <span className="funnel-step-label">{step.label}</span>
-                  <span className="funnel-step-sub">{stepRate}</span>
+              <div className="funnel-bar-txt">
+                <div className="funnel-step-meta">
+                  <span className="funnel-icon-box" style={{ color: step.color, backgroundColor: step.bg }}>
+                    <StepIcon size={15} />
+                  </span>
+                  <div className="funnel-step-info">
+                    <span className="funnel-step-label">{step.label}</span>
+                    <span className="funnel-step-sub">{stepRate}</span>
+                  </div>
                 </div>
+                <span className="funnel-bar-value">{displayValue}</span>
               </div>
 
-              <span className="funnel-bar-value">{displayValue}</span>
 
               <div className="funnel-bar-track-wrapper">
                 <div className="funnel-bar-split-container">

@@ -769,6 +769,11 @@
   background-color: #f8fafc;
 }
 
+.funnel-bar-txt {
+  display: flex;
+  gap: 10px;
+}
+
 .funnel-step-meta {
   width: 100px;
   display: flex;
@@ -1337,6 +1342,10 @@
     width: 72px;
   }
 
+  .funnel-bar-txt {
+    gap: 0;
+  }
+
   .funnel-bar-info .label {
     font-size: 9px;
   }
@@ -1386,34 +1395,71 @@
 }
 
 @media (max-width: 480px) {
-
-  /* Funnel: tighter */
+  /* Funnel: stacked layout with full-width custom bar */
   .funnel-bar-row {
+    flex-direction: column;
+    align-items: stretch;
+    min-height: auto;
+    max-height: none;
+    gap: 6px;
+    padding: 6px 8px;
+  }
+
+  .funnel-bar-txt {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: 8px;
-    /* margin-bottom: 8px; */
-  }
-
-  .funnel-bar-info {
-    width: 60px;
-  }
-
-  .funnel-bar-split-container {
-    height: 26px;
-  }
-
-  .funnel-bar-percent-box {
-    width: 40px;
-    font-size: 10px;
-  }
-
-  .funnel-bar-value {
-    font-size: 12px;
   }
 
   .funnel-step-meta {
-    width: 110px;
+    width: auto;
+    flex: 1;
+    min-width: 0;
+    gap: 8px;
   }
 
+  .funnel-step-label {
+    font-size: 12px;
+  }
+
+  .funnel-step-sub {
+    font-size: 9.5px;
+  }
+
+  .funnel-bar-value {
+    width: auto;
+    font-size: 13px;
+    flex-shrink: 0;
+    text-align: right;
+  }
+
+  .funnel-bar-track-wrapper {
+    width: 100%;
+    flex: none;
+  }
+
+  .funnel-bar-split-container {
+    width: 100%;
+    height: 24px;
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+  }
+
+  .funnel-bar-percent-box {
+    width: 42px;
+    font-size: 10.5px;
+    font-weight: 700;
+    flex-shrink: 0;
+    border-radius: 5px 0 0 5px;
+  }
+
+  .funnel-bar-track {
+    flex: 1;
+    min-width: 0;
+  }
 }
 
 /* ============================================================
