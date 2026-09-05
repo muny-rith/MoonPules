@@ -443,7 +443,7 @@ export const BrandDetailPage = () => {
           </div>
 
           {/* Unified Analytics Panel */}
-          <div className="card" style={{ padding: '24px' }}>
+          <div className="card analytics-overview-card">
             <div className="analytics-filter-container" ref={filterToolbarRef}>
               {/* Header: Title + Post Count */}
               <div className="analytics-filter-header">
@@ -532,9 +532,7 @@ export const BrandDetailPage = () => {
                     title="Filter by connected page"
                   >
                     <Layers size={13} />
-                    <span style={{ maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {currentPageLabel}
-                    </span>
+                    <span>{currentPageLabel}</span>
                     <ChevronDown size={13} style={{ transform: openDropdown === 'page' ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
                   </button>
 
@@ -568,9 +566,7 @@ export const BrandDetailPage = () => {
                     title="Filter by linked product"
                   >
                     <Package size={13} />
-                    <span style={{ maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {currentProductLabel}
-                    </span>
+                    <span>{currentProductLabel}</span>
                     <ChevronDown size={13} style={{ transform: openDropdown === 'product' ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
                   </button>
 

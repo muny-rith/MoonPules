@@ -351,6 +351,19 @@
   user-select: none;
 }
 
+.analytics-overview-card {
+  padding: 24px;
+}
+
+.filter-dropdown-btn span {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .filter-dropdown-btn:hover {
   background-color: #f8fafc;
   border-color: #cbd5e1;
@@ -583,9 +596,65 @@
 }
 
 @media (max-width: 768px) {
+  .analytics-overview-card {
+    padding: 16px !important;
+  }
+
+  .analytics-filter-container {
+    gap: 12px;
+  }
+
   .analytics-filter-toolbar {
-    flex-direction: column;
-    align-items: stretch;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .filter-dropdown-group {
+    width: 100%;
+  }
+
+  /* When 5 filter buttons and no reset button, the 5th spans both columns */
+  .filter-dropdown-group:last-child:nth-child(odd) {
+    grid-column: span 2;
+  }
+
+  .filter-dropdown-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    font-size: 12px;
+    box-sizing: border-box;
+  }
+
+  .filter-dropdown-btn svg:last-child {
+    flex-shrink: 0;
+    margin-left: 4px;
+  }
+
+  /* Right column dropdowns open anchored to the right so they never overflow */
+  .filter-dropdown-group:nth-child(even) .filter-dropdown-menu {
+    left: auto;
+    right: 0;
+  }
+
+  .filter-dropdown-menu {
+    max-width: min(280px, calc(100vw - 48px));
+  }
+
+  .active-filter-reset {
+    width: 100%;
+    height: 100%;
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    box-sizing: border-box;
+    font-size: 12px;
   }
 
   .status-segmented-control {
@@ -596,5 +665,20 @@
   .status-segment-btn {
     flex: 1;
     justify-content: center;
+  }
+}
+
+@media (max-width: 360px) {
+  .analytics-filter-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-dropdown-group:last-child:nth-child(odd) {
+    grid-column: span 1;
+  }
+
+  .filter-dropdown-group:nth-child(even) .filter-dropdown-menu {
+    left: 0;
+    right: auto;
   }
 }
