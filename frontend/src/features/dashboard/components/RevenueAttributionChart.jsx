@@ -16,6 +16,12 @@ export const RevenueAttributionChart = ({ data, loading, dateRange = 'this_week'
       return p === platform.toLowerCase() || (platform === 'facebook' && p === 'fb');
     });
 
+    // Helper to get local YYYY-MM-DD date key
+    const toLocalDateKey = (date) => {
+      const d = new Date(date);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+
     // Group by date (YYYY-MM-DD)
     const dataMap = {};
     let totalViews = 0;
@@ -24,7 +30,7 @@ export const RevenueAttributionChart = ({ data, loading, dateRange = 'this_week'
     filteredPosts.forEach(post => {
       if (!post.published_time) return;
 
-      const dateStr = new Date(post.published_time).toISOString().split('T')[0];
+      const dateStr = toLocalDateKey(post.published_time);
       if (!dataMap[dateStr]) {
         dataMap[dateStr] = { views: 0, reach: 0 };
       }
@@ -66,8 +72,9 @@ export const RevenueAttributionChart = ({ data, loading, dateRange = 'this_week'
     const numDays = Math.max(1, Math.min(180, Math.round((end - start) / (24 * 60 * 60 * 1000)) + 1));
 
     for (let i = 0; i < numDays; i++) {
-      const d = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
-      const dateStr = d.toISOString().split('T')[0];
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const dateStr = toLocalDateKey(d);
       const monthDay = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
       let dateLabel = monthDay;
