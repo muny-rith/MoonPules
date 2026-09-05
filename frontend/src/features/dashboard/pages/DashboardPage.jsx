@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Eye, TrendingUp, Users, CheckCircle2, Clock, Sparkles, RefreshCw, Calendar, ChevronDown } from 'lucide-react';
 import { FaFacebook, FaTiktok, FaInstagram, FaYoutube } from 'react-icons/fa';
 import { RevenueAttributionChart } from '../components/RevenueAttributionChart';
@@ -108,23 +108,26 @@ const getPlatformIcon = (platform) => {
 const SchedulePostList = ({ posts, loading }) => {
   if (loading) {
     return (
-      <div className="card schedule-card" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <div className="card-header">
+      <div className="card schedule-card">
+        <div className="card-header schedule-card-header">
           <div>
-            <Skeleton width="150px" height={18} style={{ marginBottom: 6 }} />
-            <Skeleton width="120px" height={12} />
+            <Skeleton width="140px" height={16} style={{ marginBottom: 4 }} />
+            <Skeleton width="100px" height={11} />
           </div>
         </div>
         <div className="schedule-list">
-          {[1, 2].map(i => (
-            <div key={i} className="schedule-item">
-              <div className="schedule-meta" style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                <Skeleton width="80px" height={22} borderRadius={12} />
-                <Skeleton width="100px" height={14} />
+          {[1, 2, 3, 4, 5, 6].map(i => (
+            <div key={i} className="schedule-item-compact">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, flex: 1 }}>
+                <Skeleton width={24} height={24} borderRadius={6} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <Skeleton width="100px" height={12} />
+                  <Skeleton width="55px" height={8} />
+                </div>
               </div>
-              <div className="schedule-footer" style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-between' }}>
-                <Skeleton width="70px" height={12} />
-                <Skeleton width="60px" height={12} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Skeleton width="60px" height={18} borderRadius={6} />
+                <Skeleton width="45px" height={16} borderRadius={5} />
               </div>
             </div>
           ))}
@@ -133,42 +136,56 @@ const SchedulePostList = ({ posts, loading }) => {
     );
   }
 
+  const postCount = posts?.length || 0;
+
   return (
-    <div className="card schedule-card" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-      <div className="card-header">
+    <div className="card schedule-card">
+      <div className="card-header schedule-card-header">
         <div>
           <h3>Recent & Upcoming Posts</h3>
           <span className="subtitle">Latest tracked posts</span>
         </div>
+        {postCount > 0 && (
+          <span className="schedule-count-pill">{postCount} {postCount === 1 ? 'post' : 'posts'}</span>
+        )}
       </div>
       <div className="schedule-list">
         {posts && posts.length > 0 ? posts.map(post => {
           const platformName = post.platform || 'facebook';
+          const isPublished = post.status === 'published';
+          const postDate = post.published_time || post.scheduled_time;
+          const formattedDate = postDate
+            ? new Date(postDate).toLocaleDateString()
+            : '';
+
           return (
-            <div key={post.id} className="schedule-item">
-              <div className="schedule-meta">
-                <span className="platform-badge" style={{ backgroundColor: platformName === 'facebook' ? '#e0f2fe' : '#f1f5f9', color: platformName === 'facebook' ? '#0369a1' : '#334155' }}>
-                  {getPlatformIcon(platformName)} {platformName.charAt(0).toUpperCase() + platformName.slice(1)}
+            <div key={post.id} className="schedule-item-compact">
+              <div className="schedule-item-left">
+                <span className={`platform-icon-tag platform-${platformName}`}>
+                  {getPlatformIcon(platformName)}
                 </span>
-                <span className="author" style={{ marginLeft: 'auto' }}>{post.product_name}</span>
+                <div className="schedule-meta-text">
+                  <span className="schedule-product-name" title={post.product_name || 'Post'}>
+                    {post.product_name || 'Untitled Post'}
+                  </span>
+                  <span className="schedule-channel-sub">
+                    {platformName.charAt(0).toUpperCase() + platformName.slice(1)} • {isPublished ? 'Live Post' : 'Scheduled'}
+                  </span>
+                </div>
               </div>
-              <div className="schedule-footer" style={{ marginTop: '12px' }}>
-                <span className={`status ${post.status === 'published' ? 'published' : 'schedule'}`}>
-                  {post.status === 'published' ? <CheckCircle2 size={12} /> : <Clock size={12} />}
-                  {post.status.charAt(0).toUpperCase() + post.status.slice(1)}
+              <div className="schedule-item-right">
+                <span className={`status-pill ${isPublished ? 'status-published' : 'status-scheduled'}`}>
+                  {isPublished ? <CheckCircle2 size={10} /> : <Clock size={10} />}
+                  <span>{isPublished ? 'Published' : 'Scheduled'}</span>
                 </span>
-                <span className="date">
-                  {post.published_time
-                    ? new Date(post.published_time).toLocaleDateString()
-                    : post.scheduled_time
-                      ? new Date(post.scheduled_time).toLocaleDateString()
-                      : ''}
-                </span>
+                {formattedDate && (
+                  <span className="schedule-date">{formattedDate}</span>
+                )}
               </div>
             </div>
           );
         }) : (
-          <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>No posts tracked for this selection.</div>
+          <div className="schedule-empty-state">No posts tracked for this selection.</div>
         )}
       </div>
     </div>
@@ -265,6 +282,33 @@ export const DashboardPage = () => {
   const currentRangeLabel = DATE_OPTIONS.find(o => o.id === dateRange)?.label || 'This Week';
   const currentPlatformObj = PLATFORM_OPTIONS.find(o => o.id === platform) || PLATFORM_OPTIONS[0];
 
+  const recentPostsList = useMemo(() => {
+    if (stats?.recent_posts && stats.recent_posts.length >= 6) {
+      return stats.recent_posts.slice(0, 6);
+    }
+    const base = stats?.recent_posts ? [...stats.recent_posts] : [];
+    const baseIds = new Set(base.map(p => String(p.id)));
+
+    if (profitData?.all_posts_profit && profitData.all_posts_profit.length > 0) {
+      for (const p of profitData.all_posts_profit) {
+        if (base.length >= 6) break;
+        const pid = p.post_id || p.id;
+        if (!baseIds.has(String(pid))) {
+          base.push({
+            id: pid,
+            product_name: p.product_name,
+            platform: p.platform || 'facebook',
+            status: 'scheduled',
+            published_time: p.published_time,
+            scheduled_time: p.published_time,
+          });
+          baseIds.add(String(pid));
+        }
+      }
+    }
+    return base.slice(0, 6);
+  }, [stats?.recent_posts, profitData?.all_posts_profit]);
+
   return (
     <div className="dashboard-page">
       <div className="dashboard-top">
@@ -352,7 +396,7 @@ export const DashboardPage = () => {
         </div>
         <div className="right-column">
           <ConversionFunnel data={profitData?.funnel} loading={profitLoading} />
-          <SchedulePostList posts={stats?.recent_posts} loading={loading} />
+          <SchedulePostList posts={recentPostsList} loading={loading && profitLoading} />
         </div>
       </div>
     </div>

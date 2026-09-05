@@ -37,10 +37,12 @@ const markPost = async (postData) => {
 
   let isPublished = false;
   let createdTime = null;
+  let mediaType = 'photo';
   try {
     const fbStatus = await facebookService.checkPublished(fb_post_id, page_id);
     isPublished = fbStatus.is_published;
     createdTime = fbStatus.created_time;
+    mediaType = fbStatus.media_type || 'photo';
   } catch (err) {
     isPublished = false;
   }
@@ -52,6 +54,7 @@ const markPost = async (postData) => {
     status: isPublished ? 'published' : 'scheduled',
     scheduled_time: now,          // ← always set — "when we marked it"
     published_time: isPublished ? (createdTime || now) : null,
+    media_type: mediaType,
   });
 
   // If already published on Facebook, immediately fetch initial metrics so data is available right away
@@ -112,8 +115,8 @@ const updatePost = async (id, { status, published_time }) => {
   return await repository.updateTrackedPostStatus(id, status, published_time || null);
 };
 
-const updateMetrics = async (id, likes, comments, shares, views, reach) => {
-  return await repository.updateTrackedPostMetrics(id, likes, comments, shares, views, reach);
+const updateMetrics = async (id, likes, comments, shares, views, reach, mediaType) => {
+  return await repository.updateTrackedPostMetrics(id, likes, comments, shares, views, reach, mediaType);
 };
 
 const editPostData = async (id, data) => {

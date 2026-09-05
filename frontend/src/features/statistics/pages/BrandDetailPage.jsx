@@ -1,6 +1,10 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { BarChart2, Package, Calendar, CheckCircle2, AlertTriangle, ExternalLink, ArrowLeft, Tag, Search, RefreshCw, ChevronDown, Filter, Eye, Heart, MessageCircle, Share2, Trophy, Download, X, CheckSquare, Square, BarChart } from 'lucide-react';
+import {
+  BarChart2, Package, Calendar, ExternalLink, ArrowLeft, Tag, Search,
+  RefreshCw, ChevronDown, Filter, Eye, Heart, MessageCircle, Share2, Trophy, Download, X,
+  CheckSquare, Square, BarChart, Layers, Image, Video, Radio, Globe, RotateCcw, Smartphone
+} from 'lucide-react';
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 import { getBrandDetail } from '../services/brandStatsService';
 import { BrandInsightsChart } from '../components/BrandInsightsChart';
@@ -19,20 +23,28 @@ export const BrandDetailPage = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
 
-  // Custom Filter State
-  const [filterOpen, setFilterOpen] = useState(false);
+  // Multi-Filter States
+  const [openDropdown, setOpenDropdown] = useState(null); // 'time' | 'platform' | 'page' | 'product' | 'format' | null
   const [timeFilter, setTimeFilter] = useState('all');
-  const filterRef = useRef(null);
+  const [platformFilter, setPlatformFilter] = useState('all');
+  const [pageFilter, setPageFilter] = useState('all');
+  const [productFilter, setProductFilter] = useState('all');
+  const [formatFilter, setFormatFilter] = useState('all');
+  const filterToolbarRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (filterRef.current && !filterRef.current.contains(event.target)) {
-        setFilterOpen(false);
+      if (filterToolbarRef.current && !filterToolbarRef.current.contains(event.target)) {
+        setOpenDropdown(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const toggleDropdown = (name) => {
+    setOpenDropdown(prev => prev === name ? null : name);
+  };
 
   const filterOptions = [
     { value: 'all', label: 'All Time' },
@@ -42,7 +54,58 @@ export const BrandDetailPage = () => {
     { value: 'last_3_months', label: 'Last 3 Months' }
   ];
 
+  const platformOptions = [
+    { value: 'all', label: 'All Platforms', isAll: true },
+    { value: 'facebook', label: 'Facebook', isFb: true },
+    { value: 'tiktok', label: 'TikTok', isTiktok: true }
+  ];
+
+  const formatOptions = [
+    { value: 'all', label: 'All Formats', icon: Layers },
+    { value: 'photo', label: 'Photo / Album', icon: Image },
+    { value: 'video', label: 'Video / Reel', icon: Video },
+    { value: 'live', label: 'Live Stream', icon: Radio },
+  ];
+
+  // Dynamically derive available pages from brand posts
+  const availablePages = useMemo(() => {
+    if (!detail || !detail.posts) return [];
+    const map = new Map();
+    detail.posts.forEach(p => {
+      if (p.page_id && p.page_name && !map.has(String(p.page_id))) {
+        map.set(String(p.page_id), {
+          id: String(p.page_id),
+          name: p.page_name,
+          platform: p.platform || 'facebook'
+        });
+      }
+    });
+    let pages = Array.from(map.values());
+    if (platformFilter !== 'all') {
+      pages = pages.filter(pg => pg.platform.toLowerCase() === platformFilter.toLowerCase());
+    }
+    return pages;
+  }, [detail, platformFilter]);
+
+  // Dynamically derive products from brand details
+  const availableProducts = useMemo(() => {
+    if (!detail || !detail.products) return [];
+    return detail.products.map(prod => ({
+      id: String(prod.id),
+      name: prod.product_name,
+      image: prod.image_url
+    }));
+  }, [detail]);
+
   const currentFilterLabel = filterOptions.find(o => o.value === timeFilter)?.label || 'All Time';
+  const currentPlatformLabel = platformOptions.find(o => o.value === platformFilter)?.label || 'All Platforms';
+  const currentPageLabel = pageFilter === 'all'
+    ? 'All Pages'
+    : (availablePages.find(p => p.id === String(pageFilter))?.name || 'Selected Page');
+  const currentProductLabel = productFilter === 'all'
+    ? 'All Products'
+    : (availableProducts.find(p => p.id === String(productFilter))?.name || 'Selected Product');
+  const currentFormatLabel = formatOptions.find(f => f.value === formatFilter)?.label || 'All Formats';
 
   const fetchDetail = async () => {
     try {
@@ -101,28 +164,68 @@ export const BrandDetailPage = () => {
     }
   };
 
+  const resetAllFilters = () => {
+    setTimeFilter('all');
+    setPlatformFilter('all');
+    setPageFilter('all');
+    setProductFilter('all');
+    setFormatFilter('all');
+    setSearchTerm('');
+  };
+
+  const hasActiveFilters = timeFilter !== 'all' || platformFilter !== 'all' || pageFilter !== 'all' || productFilter !== 'all' || formatFilter !== 'all' || searchTerm !== '';
+
   const filteredPosts = useMemo(() => {
     if (!detail || !detail.posts) return [];
-    let posts = detail.posts;
+    let posts = detail.posts.filter(p => p.status === 'published' || p.published_time);
 
-    // Time filter
+    // 1. Time filter
     const range = getDateRange(timeFilter);
     if (range) {
       posts = posts.filter(p => {
-        const timestamp = p.published_time || p.scheduled_time;
+        const timestamp = p.published_time;
         if (!timestamp) return false;
         const d = new Date(timestamp);
         return d >= range.start && d <= range.end;
       });
     }
 
-    // Search filter
+    // 2. Platform filter
+    if (platformFilter !== 'all') {
+      posts = posts.filter(p => (p.platform || 'facebook').toLowerCase() === platformFilter.toLowerCase());
+    }
+
+    // 3. Page filter
+    if (pageFilter !== 'all') {
+      posts = posts.filter(p => String(p.page_id) === String(pageFilter));
+    }
+
+    // 4. Product filter (Choice 2)
+    if (productFilter !== 'all') {
+      posts = posts.filter(p => String(p.product_id) === String(productFilter));
+    }
+
+    // 5. Content Format filter (Choice 5)
+    if (formatFilter !== 'all') {
+      posts = posts.filter(p => {
+        const m = (p.media_type || 'photo').toLowerCase();
+        if (formatFilter === 'video') return m === 'video' || m === 'reel';
+        return m === formatFilter.toLowerCase();
+      });
+    }
+
+    // 6. Search filter
     if (searchTerm) {
-      posts = posts.filter(p => p.product_name.toLowerCase().includes(searchTerm.toLowerCase()));
+      const q = searchTerm.toLowerCase();
+      posts = posts.filter(p =>
+        (p.product_name && p.product_name.toLowerCase().includes(q)) ||
+        (p.page_name && p.page_name.toLowerCase().includes(q)) ||
+        (p.fb_post_id && p.fb_post_id.toLowerCase().includes(q))
+      );
     }
 
     return posts;
-  }, [detail, searchTerm, timeFilter]);
+  }, [detail, timeFilter, platformFilter, pageFilter, productFilter, formatFilter, searchTerm]);
 
   const { exportStart, exportEnd } = useMemo(() => {
     const KHMER_MONTHS = ['មករា', 'កុម្ភៈ', 'មីនា', 'មេសា', 'ឧសភា', 'មិថុនា', 'កក្កដា', 'សីហា', 'កញ្ញា', 'តុលា', 'វិច្ឆិកា', 'ធ្នូ'];
@@ -161,17 +264,32 @@ export const BrandDetailPage = () => {
     })[0];
   }, [filteredPosts]);
 
-  const getStatusBadge = (status) => {
-    if (status === 'published') {
-      return (
-        <span className="stock-badge in-stock">
-          <CheckCircle2 size={12} /> Published
-        </span>
-      );
+
+  const getFormatBadge = (mediaType) => {
+    const m = (mediaType || 'photo').toLowerCase();
+    if (m === 'video') {
+      return <span className="format-pill-tag format-video"><Video size={11} /> Video</span>;
     }
+    if (m === 'reel') {
+      return <span className="format-pill-tag format-reel"><Smartphone size={11} /> Reel</span>;
+    }
+    if (m === 'live') {
+      return <span className="format-pill-tag format-live"><Radio size={11} /> Live</span>;
+    }
+    return <span className="format-pill-tag format-photo"><Image size={11} /> Photo</span>;
+  };
+
+  const getChannelBadge = (post) => {
+    const platform = (post.platform || 'facebook').toLowerCase();
+    const pageName = post.page_name || 'Facebook Page';
     return (
-      <span className="stock-badge low-stock">
-        <AlertTriangle size={12} /> Scheduled
+      <span className="channel-page-badge" title={`${pageName} (${platform})`}>
+        {platform === 'tiktok' ? (
+          <svg style={{ flexShrink: 0 }} width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.298-.002.595.042.88.13V9.4a6.33 6.33 0 0 0-1-.08A6.34 6.34 0 0 0 3 15.66a6.34 6.34 0 0 0 10.82 4.46v-7.05a8.28 8.28 0 0 0 5.77 2.29V11.9a4.84 4.84 0 0 1-3-1.07 4.82 4.82 0 0 1-1.39-2.14h4.39v-2z"/></svg>
+        ) : (
+          <svg style={{ flexShrink: 0 }} width="12" height="12" viewBox="0 0 24 24" fill="#1877f2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+        )}
+        <span>{pageName}</span>
       </span>
     );
   };
@@ -191,11 +309,12 @@ export const BrandDetailPage = () => {
 
   const handleExportCSV = () => {
     if (!filteredPosts || filteredPosts.length === 0) return;
-    const headers = ['Linked Product', 'Status', 'Scheduled Date', 'Published Date', 'Views', 'Reach', 'Likes', 'Comments', 'Shares', 'FB Post ID'];
+    const headers = ['Linked Product', 'Platform', 'Page', 'Format', 'Published Date', 'Views', 'Reach', 'Likes', 'Comments', 'Shares', 'FB Post ID'];
     const rows = filteredPosts.map(p => [
       `"${(p.product_name || '').replace(/"/g, '""')}"`,
-      p.status,
-      p.scheduled_time ? new Date(p.scheduled_time).toISOString() : '',
+      p.platform || 'facebook',
+      `"${(p.page_name || '').replace(/"/g, '""')}"`,
+      p.media_type || 'photo',
       p.published_time ? new Date(p.published_time).toISOString() : '',
       p.views_count || 0,
       p.reach_count || 0,
@@ -304,7 +423,7 @@ export const BrandDetailPage = () => {
                       <Package size={16} color="#94a3b8" /> {detail.total_products} Linked Products
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <BarChart2 size={16} color="#94a3b8" /> {detail.total_posts} Tracked Posts
+                      <BarChart2 size={16} color="#94a3b8" /> {detail.total_posts} Published Posts
                     </span>
                   </div>
                 </div>
@@ -325,52 +444,245 @@ export const BrandDetailPage = () => {
 
           {/* Unified Analytics Panel */}
           <div className="card" style={{ padding: '24px' }}>
-            {/* Filter Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
-              <h3 style={{ margin: 0, fontSize: 'clamp(20px, 5vw, 26px)', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.02em' }}>Analytics Overview</h3>
+            <div className="analytics-filter-container" ref={filterToolbarRef}>
+              {/* Header: Title + Post Count */}
+              <div className="analytics-filter-header">
+                <div className="analytics-title-group">
+                  <h3>Analytics Overview</h3>
+                  <span className="analytics-post-count-badge">
+                    Showing {filteredPosts.length} of {detail.posts?.length || 0} published posts
+                  </span>
+                </div>
+              </div>
 
-              <div className="custom-dropdown-container" ref={filterRef} style={{ position: 'relative' }}>
-                <button
-                  onClick={() => setFilterOpen(!filterOpen)}
-                  className="btn-secondary"
-                  style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: filterOpen ? '#f1f5f9' : 'white', padding: '8px 16px', border: '1px solid var(--border-color)', borderRadius: '8px' }}
-                >
-                  <Filter size={14} color="var(--text-muted)" />
-                  <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)' }}>{currentFilterLabel}</span>
-                  <ChevronDown size={14} color="var(--text-muted)" style={{ transition: 'transform 0.2s', transform: filterOpen ? 'rotate(180deg)' : 'none' }} />
-                </button>
+              {/* Filter Toolbar: Dropdowns */}
+              <div className="analytics-filter-toolbar">
+                {/* 1. Date Range Dropdown */}
+                <div className="filter-dropdown-group">
+                  <button
+                    type="button"
+                    onClick={() => toggleDropdown('time')}
+                    className={`filter-dropdown-btn ${timeFilter !== 'all' ? 'active-filter' : ''}`}
+                  >
+                    <Calendar size={13} />
+                    <span>{currentFilterLabel}</span>
+                    <ChevronDown size={13} style={{ transform: openDropdown === 'time' ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                  </button>
 
-                {filterOpen && (
-                  <div style={{
-                    position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-                    backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--border-color)',
-                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)', minWidth: '160px', zIndex: 100, overflow: 'hidden'
-                  }}>
-                    {filterOptions.map((option) => (
+                  {openDropdown === 'time' && (
+                    <div className="filter-dropdown-menu">
+                      {filterOptions.map(opt => (
+                        <div
+                          key={opt.value}
+                          onClick={() => { setTimeFilter(opt.value); setOpenDropdown(null); }}
+                          className={`filter-dropdown-item ${timeFilter === opt.value ? 'selected' : ''}`}
+                        >
+                          {opt.label}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Platform Dropdown */}
+                <div className="filter-dropdown-group">
+                  <button
+                    type="button"
+                    onClick={() => toggleDropdown('platform')}
+                    className={`filter-dropdown-btn ${platformFilter !== 'all' ? 'active-filter' : ''}`}
+                  >
+                    <Globe size={13} />
+                    <span>{currentPlatformLabel}</span>
+                    <ChevronDown size={13} style={{ transform: openDropdown === 'platform' ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                  </button>
+
+                  {openDropdown === 'platform' && (
+                    <div className="filter-dropdown-menu">
+                      {platformOptions.map(opt => (
+                        <div
+                          key={opt.value}
+                          onClick={() => {
+                            setPlatformFilter(opt.value);
+                            setOpenDropdown(null);
+                            if (pageFilter !== 'all') {
+                              const pg = availablePages.find(p => p.id === String(pageFilter));
+                              if (pg && opt.value !== 'all' && pg.platform.toLowerCase() !== opt.value.toLowerCase()) {
+                                setPageFilter('all');
+                              }
+                            }
+                          }}
+                          className={`filter-dropdown-item ${platformFilter === opt.value ? 'selected' : ''}`}
+                        >
+                          {opt.isFb && <svg width="12" height="12" viewBox="0 0 24 24" fill="#1877f2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>}
+                          {opt.isTiktok && <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.298-.002.595.042.88.13V9.4a6.33 6.33 0 0 0-1-.08A6.34 6.34 0 0 0 3 15.66a6.34 6.34 0 0 0 10.82 4.46v-7.05a8.28 8.28 0 0 0 5.77 2.29V11.9a4.84 4.84 0 0 1-3-1.07 4.82 4.82 0 0 1-1.39-2.14h4.39v-2z"/></svg>}
+                          {opt.isAll && <Globe size={13} />}
+                          <span>{opt.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Page Dropdown */}
+                <div className="filter-dropdown-group">
+                  <button
+                    type="button"
+                    onClick={() => toggleDropdown('page')}
+                    className={`filter-dropdown-btn ${pageFilter !== 'all' ? 'active-filter' : ''}`}
+                    title="Filter by connected page"
+                  >
+                    <Layers size={13} />
+                    <span style={{ maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {currentPageLabel}
+                    </span>
+                    <ChevronDown size={13} style={{ transform: openDropdown === 'page' ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                  </button>
+
+                  {openDropdown === 'page' && (
+                    <div className="filter-dropdown-menu">
                       <div
-                        key={option.value}
-                        onClick={() => { setTimeFilter(option.value); setFilterOpen(false); }}
-                        style={{
-                          padding: '10px 16px', fontSize: '13px', cursor: 'pointer',
-                          backgroundColor: timeFilter === option.value ? '#f0f9ff' : 'white',
-                          color: timeFilter === option.value ? '#0ea5e9' : 'var(--text-main)',
-                          fontWeight: timeFilter === option.value ? 500 : 400,
-                          borderBottom: '1px solid #f1f5f9',
-                          transition: 'background-color 0.2s'
-                        }}
-                        onMouseEnter={(e) => {
-                          if (timeFilter !== option.value) e.currentTarget.style.backgroundColor = '#f8fafc';
-                        }}
-                        onMouseLeave={(e) => {
-                          if (timeFilter !== option.value) e.currentTarget.style.backgroundColor = 'white';
-                        }}
+                        onClick={() => { setPageFilter('all'); setOpenDropdown(null); }}
+                        className={`filter-dropdown-item ${pageFilter === 'all' ? 'selected' : ''}`}
                       >
-                        {option.label}
+                        All Pages
                       </div>
-                    ))}
-                  </div>
+                      {availablePages.map(page => (
+                        <div
+                          key={page.id}
+                          onClick={() => { setPageFilter(page.id); setOpenDropdown(null); }}
+                          className={`filter-dropdown-item ${pageFilter === page.id ? 'selected' : ''}`}
+                        >
+                          <span>{page.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 4. Product Dropdown (Choice 2) */}
+                <div className="filter-dropdown-group">
+                  <button
+                    type="button"
+                    onClick={() => toggleDropdown('product')}
+                    className={`filter-dropdown-btn ${productFilter !== 'all' ? 'active-filter' : ''}`}
+                    title="Filter by linked product"
+                  >
+                    <Package size={13} />
+                    <span style={{ maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {currentProductLabel}
+                    </span>
+                    <ChevronDown size={13} style={{ transform: openDropdown === 'product' ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                  </button>
+
+                  {openDropdown === 'product' && (
+                    <div className="filter-dropdown-menu" style={{ minWidth: '220px' }}>
+                      <div
+                        onClick={() => { setProductFilter('all'); setOpenDropdown(null); }}
+                        className={`filter-dropdown-item ${productFilter === 'all' ? 'selected' : ''}`}
+                      >
+                        All Products ({availableProducts.length})
+                      </div>
+                      {availableProducts.map(prod => (
+                        <div
+                          key={prod.id}
+                          onClick={() => { setProductFilter(prod.id); setOpenDropdown(null); }}
+                          className={`filter-dropdown-item ${productFilter === prod.id ? 'selected' : ''}`}
+                        >
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{prod.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 5. Format Dropdown (Choice 5) */}
+                <div className="filter-dropdown-group">
+                  <button
+                    type="button"
+                    onClick={() => toggleDropdown('format')}
+                    className={`filter-dropdown-btn ${formatFilter !== 'all' ? 'active-filter' : ''}`}
+                    title="Filter by media format"
+                  >
+                    <Image size={13} />
+                    <span>{currentFormatLabel}</span>
+                    <ChevronDown size={13} style={{ transform: openDropdown === 'format' ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                  </button>
+
+                  {openDropdown === 'format' && (
+                    <div className="filter-dropdown-menu">
+                      {formatOptions.map(opt => {
+                        const IconComponent = opt.icon;
+                        return (
+                          <div
+                            key={opt.value}
+                            onClick={() => { setFormatFilter(opt.value); setOpenDropdown(null); }}
+                            className={`filter-dropdown-item ${formatFilter === opt.value ? 'selected' : ''}`}
+                          >
+                            <IconComponent size={13} />
+                            <span>{opt.label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Reset button if active filters */}
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={resetAllFilters}
+                    className="active-filter-reset"
+                    title="Reset all filters"
+                  >
+                    <RotateCcw size={12} />
+                    <span>Reset</span>
+                  </button>
                 )}
               </div>
+
+              {/* Active Filter Chips */}
+              {hasActiveFilters && (
+                <div className="active-filters-row">
+                  <span className="active-filter-label">Active:</span>
+                  {timeFilter !== 'all' && (
+                    <span className="active-filter-tag">
+                      <span>Date: {currentFilterLabel}</span>
+                      <button type="button" onClick={() => setTimeFilter('all')}><X size={12} /></button>
+                    </span>
+                  )}
+                  {platformFilter !== 'all' && (
+                    <span className="active-filter-tag">
+                      <span>Platform: {currentPlatformLabel}</span>
+                      <button type="button" onClick={() => setPlatformFilter('all')}><X size={12} /></button>
+                    </span>
+                  )}
+                  {pageFilter !== 'all' && (
+                    <span className="active-filter-tag">
+                      <span>Page: {currentPageLabel}</span>
+                      <button type="button" onClick={() => setPageFilter('all')}><X size={12} /></button>
+                    </span>
+                  )}
+                  {productFilter !== 'all' && (
+                    <span className="active-filter-tag">
+                      <span>Product: {currentProductLabel}</span>
+                      <button type="button" onClick={() => setProductFilter('all')}><X size={12} /></button>
+                    </span>
+                  )}
+                  {formatFilter !== 'all' && (
+                    <span className="active-filter-tag">
+                      <span>Format: {currentFormatLabel}</span>
+                      <button type="button" onClick={() => setFormatFilter('all')}><X size={12} /></button>
+                    </span>
+                  )}
+                  {searchTerm && (
+                    <span className="active-filter-tag">
+                      <span>Search: "{searchTerm}"</span>
+                      <button type="button" onClick={() => setSearchTerm('')}><X size={12} /></button>
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Recharts Insights Component */}
@@ -437,8 +749,8 @@ export const BrandDetailPage = () => {
                         <tr>
                           <th style={{ width: '40px' }}></th>
                           <th>Linked Product</th>
-                          <th>Status</th>
-                          <th>Scheduled Date</th>
+                          <th>Channel & Page</th>
+                          <th>Format</th>
                           <th>Published Date</th>
                           <th>Engagement</th>
                           <th style={{ textAlign: 'right' }}>Actions</th>
@@ -463,18 +775,11 @@ export const BrandDetailPage = () => {
                                 <span className="product-table-name">{post.product_name}</span>
                               </div>
                             </td>
-                            <td data-label="Status">
-                              {getStatusBadge(post.status)}
+                            <td data-label="Channel & Page">
+                              {getChannelBadge(post)}
                             </td>
-                            <td data-label="Scheduled Date">
-                              <span
-                                className="product-table-qty"
-                                title={post.scheduled_time ? new Date(post.scheduled_time).toLocaleString() : 'No exact time'}
-                                style={{ cursor: 'help' }}
-                              >
-                                <Calendar size={12} style={{ marginRight: '4px' }} />
-                                {post.scheduled_time ? new Date(post.scheduled_time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
-                              </span>
+                            <td data-label="Format">
+                              {getFormatBadge(post.media_type)}
                             </td>
                             <td data-label="Published Date">
                               <span
@@ -522,7 +827,22 @@ export const BrandDetailPage = () => {
                         {filteredPosts.length === 0 && (
                           <tr>
                             <td colSpan="7" style={{ textAlign: 'center', padding: '64px', color: 'var(--text-muted)' }}>
-                              {searchTerm ? 'No posts match your search.' : 'No posts have been tracked for this brand yet.'}
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                                <Filter size={28} style={{ opacity: 0.3 }} />
+                                <span style={{ fontWeight: 600, fontSize: '15px' }}>
+                                  {hasActiveFilters ? 'No posts match the selected filters.' : (searchTerm ? 'No posts match your search.' : 'No posts have been tracked for this brand yet.')}
+                                </span>
+                                {hasActiveFilters && (
+                                  <button
+                                    type="button"
+                                    onClick={resetAllFilters}
+                                    className="btn-secondary"
+                                    style={{ marginTop: '8px', fontSize: '12px', padding: '6px 14px' }}
+                                  >
+                                    Reset all filters
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         )}
@@ -535,7 +855,7 @@ export const BrandDetailPage = () => {
                     {filteredPosts.map((post) => (
                       <div key={`mob-${post.id}`} style={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
                         {/* Header */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
                           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                             <div
                               onClick={() => handleSelectPost(post.id)}
@@ -550,22 +870,20 @@ export const BrandDetailPage = () => {
                               <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '16px' }}>{post.product_name}</div>
                             </div>
                           </div>
-                          {getStatusBadge(post.status)}
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                            {getChannelBadge(post)}
+                            {getFormatBadge(post.media_type)}
+                          </div>
                         </div>
 
                         {/* Metrics Grid */}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                          <div>
-                            <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Published</div>
-                            <div style={{ fontSize: '14px', fontWeight: 600, color: '#334155' }}>
-                              {post.published_time ? new Date(post.published_time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'N/A'}
-                            </div>
-                          </div>
-                          <div>
-                            <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Scheduled</div>
-                            <div style={{ fontSize: '14px', fontWeight: 500, color: '#64748b' }}>
-                              {post.scheduled_time ? new Date(post.scheduled_time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'N/A'}
-                            </div>
+                          <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Calendar size={13} color="var(--text-muted)" />
+                            <span style={{ fontSize: '12px', color: '#64748b' }}>Published:</span>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: '#334155' }}>
+                              {post.published_time ? new Date(post.published_time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
+                            </span>
                           </div>
                           <div>
                             <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Views</div>
@@ -602,7 +920,7 @@ export const BrandDetailPage = () => {
                     ))}
                     {filteredPosts.length === 0 && (
                       <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
-                        {searchTerm ? 'No posts match your search.' : 'No posts have been tracked for this brand yet.'}
+                        {hasActiveFilters ? 'No posts match the selected filters.' : (searchTerm ? 'No posts match your search.' : 'No posts have been tracked for this brand yet.')}
                       </div>
                     )}
                   </div>

@@ -11,29 +11,37 @@ const formatCompact = (num) => {
 };
 
 const FUNNEL_STEPS = [
-  { key: 'views', label: 'Views', icon: Eye, color: '#0ea5e9', bg: 'rgba(14, 165, 233, 0.10)' },
-  { key: 'reach', label: 'Reach', icon: Users, color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.10)' },
-  { key: 'engagement', label: 'Engagement', icon: Heart, color: '#ec4899', bg: 'rgba(236, 72, 153, 0.10)' },
-  { key: 'sales', label: 'Sales', icon: ShoppingCart, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.10)' },
-  { key: 'revenue', label: 'Revenue', icon: DollarSign, color: '#10b981', bg: 'rgba(16, 185, 129, 0.10)', isCurrency: true },
+  { key: 'views', label: 'Views', icon: Eye, color: '#0ea5e9', bg: 'rgba(14, 165, 233, 0.12)' },
+  { key: 'reach', label: 'Reach', icon: Users, color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.12)' },
+  { key: 'engagement', label: 'Engagement', icon: Heart, color: '#ec4899', bg: 'rgba(236, 72, 153, 0.12)' },
+  { key: 'sales', label: 'Sales', icon: ShoppingCart, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.12)' },
+  { key: 'revenue', label: 'Revenue', icon: DollarSign, color: '#10b981', bg: 'rgba(16, 185, 129, 0.12)', isCurrency: true },
 ];
 
 export const ConversionFunnel = ({ data, loading }) => {
   if (loading || !data) {
     return (
       <div className="card funnel-card">
-        <div className="card-header">
-          <h3>Conversion Funnel</h3>
+        <div className="card-header funnel-header">
+          <div>
+            <Skeleton width="130px" height="15px" style={{ marginBottom: '4px' }} />
+            <Skeleton width="90px" height="11px" />
+          </div>
+          <Skeleton width="75px" height="20px" borderRadius="10px" />
         </div>
         <div className="funnel-skeleton funnel-body">
           {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="funnel-bar-row">
-              <div className="funnel-bar-info">
-                <Skeleton width="60px" height="12px" />
-                <Skeleton width="40px" height="16px" style={{ marginTop: '4px' }} />
+              <div className="funnel-step-meta">
+                <Skeleton width="26px" height="26px" borderRadius="7px" />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  <Skeleton width="50px" height="11px" />
+                  <Skeleton width="65px" height="9px" />
+                </div>
               </div>
+              <Skeleton width="35px" height="15px" />
               <div className="funnel-bar-track-wrapper">
-                <Skeleton height="32px" style={{ borderRadius: '4px' }} />
+                <Skeleton height="26px" style={{ borderRadius: '5px' }} />
               </div>
             </div>
           ))}
@@ -75,7 +83,7 @@ export const ConversionFunnel = ({ data, loading }) => {
 
   return (
     <div className="card funnel-card">
-      <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="card-header funnel-header">
         <div>
           <h3>Conversion Funnel</h3>
           <span className="subtitle">Content → Revenue pipeline</span>
@@ -86,6 +94,7 @@ export const ConversionFunnel = ({ data, loading }) => {
       </div>
       <div className="funnel-body">
         {FUNNEL_STEPS.map((step, index) => {
+          const StepIcon = step.icon;
           const value = data[step.key] || 0;
           const displayValue = step.isCurrency ? `$${formatCompact(value)}` : formatCompact(value);
 
@@ -95,14 +104,18 @@ export const ConversionFunnel = ({ data, loading }) => {
 
           return (
             <div key={step.key} className={`funnel-bar-row fade-in-up delay-${(index + 1) * 100}`}>
-              <div className="funnel-bar-info">
-                <div className="funnel-bar-info-top">
-                  <span className="funnel-bar-label" style={{ color: step.color }}>{step.label}</span>
-                  <span className="funnel-step-rate-tag">{stepRate}</span>
+              <div className="funnel-step-meta">
+                <span className="funnel-icon-box" style={{ color: step.color, backgroundColor: step.bg }}>
+                  <StepIcon size={15} />
+                </span>
+                <div className="funnel-step-info">
+                  <span className="funnel-step-label">{step.label}</span>
+                  <span className="funnel-step-sub">{stepRate}</span>
                 </div>
-
-                <span className="funnel-bar-value">{displayValue}</span>
               </div>
+
+              <span className="funnel-bar-value">{displayValue}</span>
+
               <div className="funnel-bar-track-wrapper">
                 <div className="funnel-bar-split-container">
                   <div
@@ -125,8 +138,6 @@ export const ConversionFunnel = ({ data, loading }) => {
                   </div>
                 </div>
               </div>
-
-
             </div>
           );
         })}

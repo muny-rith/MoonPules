@@ -129,7 +129,7 @@ export const RevenueAttributionChart = ({ data, loading, dateRange = 'this_week'
   const reachTrend = data?.reach_trend ?? (totals.reach > 0 ? 8 : 0);
 
   return (
-    <div className="card zen-followers-card" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+    <div className="card zen-followers-card">
       <div className="zen-card-top-header">
         <div>
           {loading ? (
@@ -156,7 +156,7 @@ export const RevenueAttributionChart = ({ data, loading, dateRange = 'this_week'
           ) : (
             <>
               <h3 className="zen-growth-heading">Views vs Reach</h3>
-              <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>
+              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
                 {rangeString}
               </span>
             </>
@@ -173,12 +173,12 @@ export const RevenueAttributionChart = ({ data, loading, dateRange = 'this_week'
             <>
               <div className="zen-mini-card">
                 <div className="zen-mini-icon-box">
-                  <Eye size={16} color="#00a8ff" />
+                  <Eye size={15} color="#00a8ff" />
                   <span className="zen-mini-label">Total Views</span>
                 </div>
                 <div className="zen-mini-stat-info">
                   <span className="zen-mini-value zen-val-blue">{totals.views.toLocaleString()}</span>
-                  <span className="zen-mini-trend" style={{ color: viewsTrend >= 0 ? '#00a8ff' : '#ef4444', background: viewsTrend >= 0 ? '#e0f2fe' : '#fee2e2', padding: '2px 6px', borderRadius: '4px' }}>
+                  <span className="zen-mini-trend" style={{ color: viewsTrend >= 0 ? '#00a8ff' : '#ef4444', background: viewsTrend >= 0 ? '#e0f2fe' : '#fee2e2', padding: '1px 5px', borderRadius: '4px', fontSize: '10px' }}>
                     {viewsTrend >= 0 ? `+${viewsTrend}% ↗` : `${viewsTrend}% ↘`}
                   </span>
                 </div>
@@ -186,12 +186,12 @@ export const RevenueAttributionChart = ({ data, loading, dateRange = 'this_week'
 
               <div className="zen-mini-card">
                 <div className="zen-mini-icon-box">
-                  <Users size={16} color="#6366f1" />
+                  <Users size={15} color="#6366f1" />
                   <span className="zen-mini-label">Total Reach</span>
                 </div>
                 <div className="zen-mini-stat-info">
                   <span className="zen-mini-value">{totals.reach.toLocaleString()}</span>
-                  <span className="zen-mini-trend" style={{ color: reachTrend >= 0 ? '#6366f1' : '#ef4444', background: reachTrend >= 0 ? '#e0e7ff' : '#fee2e2', padding: '2px 6px', borderRadius: '4px' }}>
+                  <span className="zen-mini-trend" style={{ color: reachTrend >= 0 ? '#6366f1' : '#ef4444', background: reachTrend >= 0 ? '#e0e7ff' : '#fee2e2', padding: '1px 5px', borderRadius: '4px', fontSize: '10px' }}>
                     {reachTrend >= 0 ? `+${reachTrend}% ↗` : `${reachTrend}% ↘`}
                   </span>
                 </div>
@@ -202,9 +202,9 @@ export const RevenueAttributionChart = ({ data, loading, dateRange = 'this_week'
       </div>
 
 
-      <div className="zen-chart-main-body" style={{ flex: 1, padding: '0 24px 24px 12px', width: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div className="zen-chart-main-body">
         {loading ? (
-          <div style={{ height: '100%', width: '100%', padding: '20px', position: 'relative' }}>
+          <div style={{ height: '100%', width: '100%', padding: '14px', position: 'relative' }}>
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
               {[1, 2, 3, 4, 5].map(i => (
                 <div key={i} style={{ display: 'flex', alignItems: 'flex-end', width: '100%' }}>
@@ -212,7 +212,7 @@ export const RevenueAttributionChart = ({ data, loading, dateRange = 'this_week'
                   <Skeleton width="100%" height="1px" />
                 </div>
               ))}
-              <div style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: '30px', marginTop: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: '30px', marginTop: '8px' }}>
                 {[1, 2, 3, 4, 5, 6, 7].map(i => (
                   <Skeleton key={i} width="24px" height="12px" />
                 ))}
@@ -221,12 +221,12 @@ export const RevenueAttributionChart = ({ data, loading, dateRange = 'this_week'
             {/* Keeping the custom gradient overlay block since it represents the area chart uniquely, 
                 but using the Skeleton component base for consistency. */}
             <Skeleton
-              style={{ position: 'absolute', bottom: '40px', left: '40px', right: '20px', height: '80px', borderRadius: '12px', background: 'linear-gradient(180deg, rgba(226, 232, 240, 0.5) 0%, rgba(241, 245, 249, 0.2) 100%)', opacity: 0.6 }}
+              style={{ position: 'absolute', bottom: '30px', left: '40px', right: '20px', height: '60px', borderRadius: '12px', background: 'linear-gradient(180deg, rgba(226, 232, 240, 0.5) 0%, rgba(241, 245, 249, 0.2) 100%)', opacity: 0.6 }}
             />
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <AreaChart data={chartData} margin={{ top: 6, right: 8, left: -24, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
@@ -244,16 +244,16 @@ export const RevenueAttributionChart = ({ data, loading, dateRange = 'this_week'
                 tickFormatter={(val) => val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val}
                 axisLine={false}
                 tickLine={false}
-                tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 500 }}
-                tickMargin={12}
+                tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 500 }}
+                tickMargin={6}
               />
 
               <XAxis
                 dataKey="date"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fill: '#64748b', fontSize: 11, fontWeight: 500 }}
-                dy={12}
+                tick={{ fill: '#64748b', fontSize: 10, fontWeight: 500 }}
+                dy={6}
               />
 
               <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(226, 232, 240, 0.4)' }} />

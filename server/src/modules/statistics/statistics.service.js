@@ -66,12 +66,14 @@ const getBrandDetail = async (brandId) => {
     brandName = brandProducts[0].brand_name;
   }
   const productIds = new Set(brandProducts.map(p => String(p.id)));
-  const brandPosts = posts.filter(post => productIds.has(String(post.product_id)));
+  const brandPosts = posts.filter(post => productIds.has(String(post.product_id)) && post.status === 'published');
 
   const enrichedPosts = brandPosts.map(post => {
      const prod = brandProducts.find(p => String(p.id) === String(post.product_id));
      return {
        ...post,
+       platform: post.platform || 'facebook',
+       media_type: post.media_type || 'photo',
        product_name: prod ? prod.product_name : 'Unknown Product',
        product_image: prod ? prod.image_url : null
      };
@@ -141,7 +143,7 @@ const getDashboardStats = async (filters = {}) => {
      };
   });
     
-  const recentPosts = enrichedPosts.slice(0, 5);
+  const recentPosts = enrichedPosts.slice(0, 6);
 
   return {
     total_views: totalViews,

@@ -31,6 +31,7 @@ const syncPostStatus = async () => {
     for (const row of publishedRows) {
       try {
         const metrics = await facebookService.getPostMetrics(row.fb_post_id, row.page_id);
+        const mediaType = await facebookService.getPostMediaType(row.fb_post_id, row.page_id);
 
         let views = 0;
         let reach = 0;
@@ -48,8 +49,8 @@ const syncPostStatus = async () => {
           }
         }
 
-        await postTrackerService.updateMetrics(row.id, metrics.likes, metrics.comments, metrics.shares, views, reach);
-        console.log(`[Cron] Metrics updated for post ${row.id}: L=${metrics.likes} C=${metrics.comments} S=${metrics.shares} V=${views} R=${reach}`);
+        await postTrackerService.updateMetrics(row.id, metrics.likes, metrics.comments, metrics.shares, views, reach, mediaType);
+        console.log(`[Cron] Metrics updated for post ${row.id}: L=${metrics.likes} C=${metrics.comments} S=${metrics.shares} V=${views} R=${reach} Format=${mediaType}`);
       } catch (err) {
         if (err.isTokenExpired) {
           console.error(`[Cron] TOKEN EXPIRED syncing metrics for post ${row.id} (page_id ${row.page_id}) — needs manual reconnect.`);

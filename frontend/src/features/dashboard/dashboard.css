@@ -1,11 +1,21 @@
 /* Dashboard Page - Flex Stretch for 100vh */
+.content-scroll.content-dashboard {
+  padding: 12px 20px;
+  overflow: hidden;
+  height: calc(100vh - 60px);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
 .dashboard-page {
   flex: 1;
   min-height: 0;
   height: 100%;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 /* Dashboard Top Header */
@@ -13,13 +23,14 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 10px;
+  flex-shrink: 0;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 10px;
 }
 
 .dashboard-welcome {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
   color: #0f172a;
   margin: 0;
@@ -140,21 +151,42 @@
 .dashboard-grid {
   flex: 1;
   min-height: 0;
+  height: 100%;
   display: grid;
-  grid-template-columns: 1.8fr 1.2fr;
-  gap: 18px;
+  grid-template-columns: 1.75fr 1.25fr;
+  grid-template-rows: 1fr;
+  gap: 12px;
 }
 
 .left-column {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
+  min-height: 0;
+  height: 100%;
 }
 
 .right-column {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
+  min-height: 0;
+  height: 100%;
+}
+
+/* Stat card group in dashboard */
+.dashboard-page .stat-card-group {
+  padding: 12px 20px;
+  flex-shrink: 0;
+  border-radius: 14px;
+}
+
+.dashboard-page .stat-card-group .stat-header {
+  font-size: 13px;
+}
+
+.dashboard-page .stat-card-group .stat-value {
+  font-size: 22px;
 }
 
 /* =========================================================
@@ -163,17 +195,18 @@
 
 .zen-followers-card {
   flex: 1;
-  height: 100%;
   min-height: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 18px 22px;
+  padding: 10px 16px;
   background: var(--bg-card);
-  border-radius: 16px;
+  border-radius: 14px;
   box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.04);
   border: 1px solid #edf2f7;
-  gap: 12px;
+  gap: 4px;
+  overflow: hidden;
 }
 
 /* Top Header: Title & Dropdown */
@@ -234,24 +267,25 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .zen-growth-meta {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-width: 130px;
+  gap: 1px;
 }
 
 .zen-growth-heading {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text-main);
+  margin: 0;
 }
 
 .zen-growth-timerange {
-  font-size: 11px;
+  font-size: 10.5px;
   color: #8a99ad;
   font-weight: 500;
 }
@@ -260,7 +294,7 @@
 .zen-mini-cards-group {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   flex: 1;
   justify-content: flex-end;
 }
@@ -268,13 +302,12 @@
 .zen-mini-card {
   display: flex;
   align-items: center;
-  /* justify-content: space-around; */
-  gap: 12px;
-  padding: 8px 14px;
+  gap: 7px;
+  padding: 4px 8px;
   background: var(--bg-card);
   border: 1px solid #edf2f7;
-  border-radius: 10px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .zen-card-active {
@@ -286,11 +319,11 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
 }
 
 .zen-mini-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   color: var(--text-main);
 }
@@ -298,11 +331,11 @@
 .zen-mini-stat-info {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 0px;
 }
 
 .zen-mini-value {
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 800;
   color: var(--text-main);
   letter-spacing: -0.02em;
@@ -313,7 +346,7 @@
 }
 
 .zen-mini-trend {
-  font-size: 10.5px;
+  font-size: 9.5px;
   font-weight: 700;
 }
 
@@ -329,7 +362,8 @@
   flex: 1;
   min-height: 0;
   position: relative;
-  margin-top: 4px;
+  margin-top: 0;
+  padding: 0 2px 0 0;
 }
 
 .zen-y-axis-labels {
@@ -500,29 +534,31 @@
 /* Profit KPI Section */
 .profit-kpi-section {
   background: var(--bg-card);
-  border-radius: 16px;
-  padding: 18px 20px;
+  border-radius: 14px;
+  padding: 14px 18px;
   box-shadow: var(--shadow-card);
   border: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
 
 .profit-kpi-section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .profit-kpi-section-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .profit-kpi-section-title h3 {
   font-size: 15px;
   font-weight: 700;
   color: var(--text-main);
+  margin: 0;
 }
 
 .profit-section-icon {
@@ -530,10 +566,10 @@
 }
 
 .profit-badge {
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 20px;
+  padding: 3px 9px;
+  border-radius: 12px;
   letter-spacing: 0.01em;
 }
 
@@ -551,15 +587,15 @@
 .profit-kpi-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  gap: 10px;
 }
 
 .profit-kpi-card {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 14px;
-  border-radius: 12px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
   background: var(--bg-body);
   border: 1px solid var(--border-color);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
@@ -567,13 +603,13 @@
 
 .profit-kpi-card:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .profit-kpi-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -589,7 +625,7 @@
 }
 
 .profit-kpi-label {
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--text-muted);
   letter-spacing: 0.01em;
@@ -598,10 +634,11 @@
 .profit-kpi-content {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
 }
 
 .profit-kpi-value {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 800;
   color: var(--text-main);
   letter-spacing: -0.02em;
@@ -673,83 +710,146 @@
    ============================================================ */
 
 .funnel-card {
-  flex-shrink: 0;
-}
-
-.funnel-body {
+  flex: 0.95;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 0;
-  padding-top: 4px;
+  padding: 12px 18px;
+  background: var(--bg-card);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
 }
 
-.funnel-bar-row {
+.funnel-card .card-header,
+.funnel-header {
   display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 12px;
-}
-
-.funnel-bar-info {
-  width: 120px;
-  display: flex;
-  align-items: center;
   justify-content: space-between;
-  /* gap: 10px; */
-  /* flex-direction: column; */
-  /* align-items: flex-end; */
-  /* text-align: right; */
+  align-items: center;
+  margin-bottom: 4px;
   flex-shrink: 0;
 }
 
-.funnel-bar-info-top {
-  display: flex;
-  flex-direction: column;
-}
-
-.funnel-bar-label {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.funnel-bar-value {
+.funnel-card .card-header h3 {
   font-size: 15px;
   font-weight: 700;
   color: var(--text-main);
-  margin-top: 2px;
+  margin: 0;
+}
+
+.funnel-card .card-header .subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.funnel-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 2px 0;
+}
+
+.funnel-bar-row {
+  flex: 1;
+  min-height: 32px;
+  max-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  transition: background-color 0.15s ease;
+}
+
+.funnel-bar-row:hover {
+  background-color: #f8fafc;
+}
+
+.funnel-step-meta {
+  width: 100px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-shrink: 0;
+}
+
+.funnel-icon-box {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.funnel-step-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+.funnel-step-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.1;
+}
+
+.funnel-step-sub {
+  font-size: 10px;
+  font-weight: 500;
+  color: #64748b;
+  line-height: 1.1;
+}
+
+.funnel-bar-value {
+  width: 50px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  text-align: right;
+  flex-shrink: 0;
 }
 
 .funnel-bar-track-wrapper {
   flex: 1;
+  min-width: 0;
 }
 
 .funnel-bar-split-container {
   display: flex;
   align-items: stretch;
-  height: 32px;
+  height: 27px;
   width: 100%;
-  gap: 3px;
+  gap: 2px;
 }
 
 .funnel-bar-percent-box {
-  width: 64px;
+  width: 50px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 11.5px;
   z-index: 2;
-  border-radius: 4px 0 0 4px;
+  border-radius: 6px 0 0 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 .funnel-bar-track {
   flex: 1;
-  background-color: var(--border-color);
-  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%);
+  background-color: #e2e8f0;
+  clip-path: polygon(0 0, calc(100% - 11px) 0, 100% 50%, calc(100% - 11px) 100%, 0 100%);
   position: relative;
+  overflow: hidden;
 }
 
 .funnel-bar-fill-dynamic {
@@ -757,15 +857,225 @@
   position: absolute;
   left: 0;
   top: 0;
-  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%);
-  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  clip-path: polygon(0 0, calc(100% - 11px) 0, 100% 50%, calc(100% - 11px) 100%, 0 100%);
+  transition: width 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(0, 0, 0, 0.05) 100%);
+}
+
+/* ============================================================
+   SCHEDULE / RECENT & UPCOMING POSTS OPTIMIZED
+   ============================================================ */
+
+.schedule-card,
+.dashboard-page .schedule-card {
+  flex: 1.10;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 18px;
+  background: var(--bg-card);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.schedule-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  flex-shrink: 0;
+}
+
+.schedule-card-header h3 {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0;
+}
+
+.schedule-card-header .subtitle {
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.schedule-count-pill {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 1px 7px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.schedule-list,
+.dashboard-page .schedule-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+/* Slim modern scrollbar for schedule list */
+.schedule-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.schedule-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.schedule-list::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.schedule-list::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.schedule-item-compact {
+  flex: 1;
+  min-height: 36px;
+  max-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: #ffffff;
+  border: 1px solid #edf2f7;
+  border-radius: 9px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition: all 0.15s ease;
+}
+
+.schedule-item-compact:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+.schedule-item-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.platform-icon-tag {
+  width: 27px;
+  height: 27px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.platform-icon-tag.platform-facebook {
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+}
+
+.platform-icon-tag.platform-tiktok {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+}
+
+.platform-icon-tag.platform-instagram {
+  background: #fdf2f8;
+  border: 1px solid #fce7f3;
+}
+
+.platform-icon-tag.platform-youtube {
+  background: #fef2f2;
+  border: 1px solid #fee2e2;
+}
+
+.schedule-meta-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+.schedule-product-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e293b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.schedule-channel-sub {
+  font-size: 9.5px;
+  font-weight: 500;
+  color: #94a3b8;
+  line-height: 1.1;
+}
+
+.schedule-item-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.status-pill {
+  font-size: 9.5px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.status-pill.status-published {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.status-pill.status-scheduled {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+
+.schedule-date {
+  font-size: 10px;
+  font-weight: 500;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid #e2e8f0;
+}
+
+.schedule-empty-state {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-muted);
+  font-size: 11.5px;
 }
 
 .funnel-skeleton {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 10px 0;
+  gap: 8px;
+  padding: 6px 0;
 }
 
 /* ============================================================
@@ -820,16 +1130,131 @@
   }
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1280px) {
 
-  /* Dashboard: stack columns */
-  .dashboard-grid {
-    grid-template-columns: 1fr;
+  .content-scroll.content-dashboard {
+    overflow-y: auto !important;
+    height: auto !important;
+    min-height: calc(100vh - 60px) !important;
+    padding: 14px 20px 32px !important;
   }
 
-  /* Content padding tighten */
-  .content-scroll {
-    padding: 0 16px 20px;
+  .dashboard-page {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    flex: none !important;
+  }
+
+  /* Dashboard: clean vertical stack to prevent overlapping */
+  .dashboard-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    height: auto !important;
+    max-height: none !important;
+    flex: none !important;
+    gap: 20px !important;
+  }
+
+  .left-column,
+  .right-column {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    flex: none !important;
+    overflow: visible !important;
+    gap: 16px !important;
+  }
+
+  /* Performance Chart height when stacked */
+  .zen-followers-card {
+    height: 380px !important;
+    min-height: 360px !important;
+    max-height: none !important;
+    flex: none !important;
+    position: relative !important;
+  }
+
+  /* Funnel: full width and spacious when dropped */
+  .funnel-card {
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    flex: none !important;
+    padding: 16px 20px !important;
+  }
+
+  .funnel-body {
+    gap: 8px;
+    padding: 6px 0;
+  }
+
+  .funnel-bar-row {
+    min-height: 36px;
+    max-height: 46px;
+    gap: 14px;
+    padding: 4px 10px;
+  }
+
+  .funnel-step-meta {
+    width: 150px;
+  }
+
+  .funnel-bar-split-container {
+    height: 28px;
+  }
+
+  /* Schedule: full width with comfortable item height */
+  .schedule-card,
+  .dashboard-page .schedule-card {
+    height: auto;
+    max-height: none;
+    flex: none;
+    padding: 16px 20px;
+  }
+
+  .schedule-list,
+  .dashboard-page .schedule-list {
+    overflow: visible;
+    gap: 8px;
+    padding: 4px 0;
+  }
+
+  .schedule-item-compact {
+    min-height: 42px;
+    max-height: none;
+    padding: 8px 14px;
+  }
+
+}
+
+@media (max-width: 1024px) {
+
+  .content-scroll.content-dashboard {
+    padding: 12px 16px;
+  }
+
+  .stat-card-group {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0;
+    padding: 10px;
+  }
+
+  .stat-divider {
+    width: 100% !important;
+    height: 1px !important;
+    margin: 0 !important;
+  }
+
+  .stat-item {
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 10px 0;
   }
 
   /* Profit KPI: 2 columns */
@@ -851,7 +1276,7 @@
   }
 
   .zen-chart-main-body {
-    min-height: 240px !important;
+    min-height: 200px !important;
   }
 
 }
@@ -864,25 +1289,11 @@
   }
 
   /* --- Stat card group (Views/Reach/Engagement) --- */
-  .stat-card-group {
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: 0;
-    padding: 10px;
-  }
 
-  .stat-item {
-    flex-direction: row !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    padding: 10px 0;
-  }
 
-  .stat-divider {
-    width: 100% !important;
-    height: 1px !important;
-    margin: 0 !important;
-  }
+
+
+
 
   .stat-value {
     font-size: 20px;
@@ -979,7 +1390,7 @@
   /* Funnel: tighter */
   .funnel-bar-row {
     gap: 8px;
-    margin-bottom: 8px;
+    /* margin-bottom: 8px; */
   }
 
   .funnel-bar-info {
@@ -993,6 +1404,14 @@
   .funnel-bar-percent-box {
     width: 40px;
     font-size: 10px;
+  }
+
+  .funnel-bar-value {
+    font-size: 12px;
+  }
+
+  .funnel-step-meta {
+    width: 110px;
   }
 
 }

@@ -21,13 +21,13 @@ const getTrackedPostsByStatus = async (status) => {
 };
 
 const createTrackedPost = async (postData) => {
-  const { product_id, page_id, fb_post_id, status, scheduled_time, marked_by, published_time, content_cost, ad_spend, attribution_window_days } = postData;
+  const { product_id, page_id, fb_post_id, status, scheduled_time, marked_by, published_time, content_cost, ad_spend, attribution_window_days, media_type } = postData;
   try {
     const result = await db.query(`
-      INSERT INTO tb_post_tracker (product_id, page_id, fb_post_id, status, scheduled_time, published_time, marked_by, content_cost, ad_spend, attribution_window_days)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      INSERT INTO tb_post_tracker (product_id, page_id, fb_post_id, status, scheduled_time, published_time, marked_by, content_cost, ad_spend, attribution_window_days, media_type)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING *
-    `, [product_id, page_id, fb_post_id, status, scheduled_time || null, published_time || null, marked_by, content_cost || 0, ad_spend || 0, attribution_window_days || 7]);
+    `, [product_id, page_id, fb_post_id, status, scheduled_time || null, published_time || null, marked_by, content_cost || 0, ad_spend || 0, attribution_window_days || 7, media_type || 'photo']);
     return result.rows[0];
   } catch (err) {
     if (err.code === '23505') {
@@ -49,13 +49,22 @@ const updateTrackedPostStatus = async (id, status, published_time) => {
   return result.rows[0];
 };
 
-const updateTrackedPostMetrics = async (id, likes, comments, shares, views, reach) => {
-  const result = await db.query(`
+const updateTrackedPostMetrics = async (id, likes, comments, shares, views, reach, mediaType) => {
+  const query = mediaType ? `
+    UPDATE tb_post_tracker
+    SET likes_count = $1, comments_count = $2, shares_count = $3, views_count = $4, reach_count = $5, media_type = $6, updated_at = CURRENT_TIMESTAMP
+    WHERE id = $7
+    RETURNING *
+  ` : `
     UPDATE tb_post_tracker
     SET likes_count = $1, comments_count = $2, shares_count = $3, views_count = $4, reach_count = $5, updated_at = CURRENT_TIMESTAMP
     WHERE id = $6
     RETURNING *
-  `, [likes, comments, shares, views, reach, id]);
+  `;
+  const params = mediaType
+    ? [likes, comments, shares, views, reach, mediaType, id]
+    : [likes, comments, shares, views, reach, id];
+  const result = await db.query(query, params);
   return result.rows[0];
 };
 

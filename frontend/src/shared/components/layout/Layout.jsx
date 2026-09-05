@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Menu, Bell } from 'lucide-react';
 
 export const Layout = ({ children }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const location = useLocation();
+  const isDashboard = location.pathname === '/';
 
   const toggleCollapse = () => setIsCollapsed(!isCollapsed);
   const toggleMobileOpen = () => setIsMobileOpen(!isMobileOpen);
@@ -59,7 +62,7 @@ export const Layout = ({ children }) => {
             </div>
           </div>
         </header>
-        <div className="content-scroll">
+        <div className={`content-scroll ${isDashboard ? 'content-dashboard' : ''}`}>
           {children}
         </div>
       </main>
