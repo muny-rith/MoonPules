@@ -30,7 +30,7 @@ const getRecentPosts = async (pageId) => {
 
 const checkPublished = async (postId, pageId) => {
   const { access_token } = await getPageCredentials(pageId);
-  const data = await fbClient.getFbData(`/${postId}?fields=is_published,created_time,status_type,attachments{media_type,type}`, access_token);
+  const data = await fbClient.getFbData(`/${postId}?fields=is_published,created_time,status_type,attachments{media_type,type,target{id}}`, access_token);
   const createdDate = data.created_time ? new Date(data.created_time) : null;
   // Facebook may omit is_published on standard published feed posts. If created_time exists and is in the past, it's published.
   const isPublished = data.is_published === true || (data.is_published !== false && createdDate !== null && createdDate <= new Date());
@@ -38,10 +38,20 @@ const checkPublished = async (postId, pageId) => {
   let mediaType = 'photo';
   const attMedia = data.attachments?.data?.[0]?.media_type?.toLowerCase();
   const statusType = data.status_type?.toLowerCase();
-  if (attMedia === 'video' || statusType === 'added_video') {
-    mediaType = 'video';
-  } else if (statusType === 'live_video_broadcast') {
+  const targetId = data.attachments?.data?.[0]?.target?.id || postId.split('_')[1];
+
+  if (statusType === 'live_video_broadcast') {
     mediaType = 'live';
+  } else if (attMedia === 'video' || statusType === 'added_video') {
+    mediaType = 'video';
+    if (targetId) {
+      try {
+        const vid = await fbClient.getFbData(`/${targetId}?fields=live_status`, access_token);
+        if (vid.live_status === 'VOD' || vid.live_status === 'LIVE') {
+          mediaType = 'live';
+        }
+      } catch (_) {}
+    }
   }
 
   return {
@@ -54,14 +64,24 @@ const checkPublished = async (postId, pageId) => {
 const getPostMediaType = async (postId, pageId) => {
   try {
     const { access_token } = await getPageCredentials(pageId);
-    const data = await fbClient.getFbData(`/${postId}?fields=status_type,attachments{media_type,type}`, access_token);
+    const data = await fbClient.getFbData(`/${postId}?fields=status_type,attachments{media_type,type,target{id}}`, access_token);
     const attMedia = data.attachments?.data?.[0]?.media_type?.toLowerCase();
     const statusType = data.status_type?.toLowerCase();
-    if (attMedia === 'video' || statusType === 'added_video') {
-      return 'video';
-    }
+    const targetId = data.attachments?.data?.[0]?.target?.id || postId.split('_')[1];
+
     if (statusType === 'live_video_broadcast') {
       return 'live';
+    }
+    if (attMedia === 'video' || statusType === 'added_video') {
+      if (targetId) {
+        try {
+          const vid = await fbClient.getFbData(`/${targetId}?fields=live_status`, access_token);
+          if (vid.live_status === 'VOD' || vid.live_status === 'LIVE') {
+            return 'live';
+          }
+        } catch (_) {}
+      }
+      return 'video';
     }
     return 'photo';
   } catch (err) {
