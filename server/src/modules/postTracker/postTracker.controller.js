@@ -14,10 +14,43 @@ const createPost = async (req, res, next) => {
   try {
     const postData = {
       ...req.body,
-      marked_by: req.user.id,
+      marked_by: req.user?.id || 1,
     };
+
+    // If direct scheduling / publishing mode (Method 1)
+    if (req.body.mode === 'schedule' || !req.body.fb_post_id) {
+      const newPost = await service.createAndSchedulePost(postData);
+      return res.status(201).json(newPost);
+    }
+
+    // Legacy: tracking existing post by pasting Facebook URL
     const newPost = await service.markPost(postData);
     res.status(201).json(newPost);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const publishNow = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const published = await service.publishNow(id);
+    res.json(published);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const uploadImage = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    const relativePath = `/uploads/posts/${req.file.filename}`;
+    res.json({
+      url: relativePath,
+      filename: req.file.filename,
+    });
   } catch (error) {
     next(error);
   }
@@ -69,8 +102,6 @@ const updatePostCosts = async (req, res, next) => {
 
 const triggerSync = async (req, res, next) => {
   try {
-    // Run the sync job asynchronously without awaiting, or await it if we want to wait.
-    // It's better to await it so the frontend knows when it finishes.
     await syncPostStatus();
     res.json({ message: 'Sync completed successfully' });
   } catch (error) {
@@ -78,4 +109,14 @@ const triggerSync = async (req, res, next) => {
   }
 };
 
-module.exports = { getPosts, createPost, updatePost, updatePostData, deletePost, updatePostCosts, triggerSync };
+module.exports = {
+  getPosts,
+  createPost,
+  publishNow,
+  uploadImage,
+  updatePost,
+  updatePostData,
+  deletePost,
+  updatePostCosts,
+  triggerSync,
+};

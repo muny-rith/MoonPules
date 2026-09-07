@@ -1,24 +1,82 @@
 import React, { useState, useEffect } from 'react';
 import { ProductPicker } from '../../product/component/ProductPicker';
-import { X, Edit3 } from 'lucide-react';
+import { parseFbPostUrl } from '../utils/parseFbPostUrl';
+import { X, Edit3, Link2, Calendar, MessageSquare, AlertCircle } from 'lucide-react';
 
 export const EditTrackedPostModal = ({ isOpen, onClose, post, onSave }) => {
   const [productId, setProductId] = useState('');
+  const [fbPostIdInput, setFbPostIdInput] = useState('');
+  const [message, setMessage] = useState('');
+  const [scheduledTime, setScheduledTime] = useState('');
   const [contentCost, setContentCost] = useState(0);
   const [adSpend, setAdSpend] = useState(0);
   const [attributionWindow, setAttributionWindow] = useState(7);
   const [submitting, setSubmitting] = useState(false);
+  const [urlError, setUrlError] = useState('');
 
   useEffect(() => {
     if (isOpen && post) {
-      setProductId(post.product_id);
+      setProductId(post.product_id || '');
+      setFbPostIdInput(post.fb_post_id || '');
+      setMessage(post.message || '');
       setContentCost(post.content_cost || 0);
       setAdSpend(post.ad_spend || 0);
       setAttributionWindow(post.attribution_window_days || 7);
+
+      if (post.scheduled_time) {
+        const d = new Date(post.scheduled_time);
+        const localIso = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        setScheduledTime(localIso);
+      } else {
+        setScheduledTime('');
+      }
+      setUrlError('');
     }
   }, [isOpen, post]);
 
   if (!isOpen || !post) return null;
+
+  const handlePostIdOrUrlChange = (val) => {
+    setFbPostIdInput(val);
+    const trimmed = val.trim();
+    if (!trimmed) {
+      setUrlError('');
+      return;
+    }
+
+    if (/^\d+_\d+$/.test(trimmed)) {
+      setUrlError('');
+      return;
+    }
+
+    if (/^\d+$/.test(trimmed)) {
+      setUrlError('');
+      return;
+    }
+
+    const parsed = parseFbPostUrl(trimmed);
+    if (parsed) {
+      setUrlError('');
+    } else {
+      setUrlError('Paste either the "{pageId}_{postId}", numeric ID, or standard Facebook URL.');
+    }
+  };
+
+  const getCleanFbPostId = () => {
+    const trimmed = fbPostIdInput.trim();
+    if (!trimmed) return null;
+
+    if (/^\d+_\d+$/.test(trimmed)) return trimmed;
+
+    if (/^\d+$/.test(trimmed) && post.fb_page_id) {
+      return `${post.fb_page_id}_${trimmed}`;
+    }
+
+    const parsed = parseFbPostUrl(trimmed);
+    if (parsed) return parsed;
+
+    return trimmed;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -26,11 +84,16 @@ export const EditTrackedPostModal = ({ isOpen, onClose, post, onSave }) => {
       alert("Please select a product");
       return;
     }
+
+    const finalFbPostId = getCleanFbPostId();
     
     setSubmitting(true);
     try {
       await onSave(post.id, { 
         product_id: productId,
+        fb_post_id: finalFbPostId,
+        message: message,
+        scheduled_time: scheduledTime ? new Date(scheduledTime).toISOString() : post.scheduled_time,
         content_cost: parseFloat(contentCost) || 0,
         ad_spend: parseFloat(adSpend) || 0,
         attribution_window_days: parseInt(attributionWindow, 10) || 7,
@@ -45,11 +108,11 @@ export const EditTrackedPostModal = ({ isOpen, onClose, post, onSave }) => {
 
   return (
     <div className="modal-backdrop">
-      <div className="modal-content modal-card overflow-visible" style={{ maxWidth: '420px', minHeight: '400px' }}>
+      <div className="modal-content modal-card overflow-visible" style={{ maxWidth: '480px', maxHeight: '90vh', overflowY: 'auto' }}>
         <div className="modal-header">
           <div className="modal-title-wrap">
             <Edit3 size={20} className="icon-blue" />
-            <h2>Edit Tracked Post</h2>
+            <h2>Edit Tracked Post #{post.id}</h2>
           </div>
           <button onClick={onClose} className="modal-close-btn">
             <X size={18} />
@@ -57,16 +120,66 @@ export const EditTrackedPostModal = ({ isOpen, onClose, post, onSave }) => {
         </div>
         
         <p className="modal-subtitle">
-          Update the product assignment for this tracked Facebook post.
+          Update product assignment, Facebook Post ID/URL, schedule timing, or cost settings.
         </p>
         
         <div className="modal-form-group">
-          <label className="modal-label">Select Product</label>
-            <ProductPicker 
-              value={productId} 
-              onChange={setProductId} 
-            />
+          <label className="modal-label">Product Assignment</label>
+          <ProductPicker 
+            value={productId} 
+            onChange={setProductId} 
+          />
         </div>
+
+        <div className="modal-form-group">
+          <label className="modal-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Link2 size={15} className="icon-blue" /> Facebook Post URL or ID
+          </label>
+          <input
+            type="text"
+            className="modal-text-input"
+            placeholder="Paste live Facebook post link or {pageId}_{postId}"
+            value={fbPostIdInput}
+            onChange={(e) => handlePostIdOrUrlChange(e.target.value)}
+          />
+          {urlError && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#ef4444', marginTop: '4px' }}>
+              <AlertCircle size={12} /> {urlError}
+            </div>
+          )}
+          <span style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', display: 'block' }}>
+            Updating this automatically verifies the post with Facebook and pulls live metrics.
+          </span>
+        </div>
+
+        {post.status === 'scheduled' && (
+          <>
+            <div className="modal-form-group">
+              <label className="modal-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Calendar size={15} className="icon-blue" /> Scheduled Publish Time
+              </label>
+              <input
+                type="datetime-local"
+                className="modal-text-input"
+                value={scheduledTime}
+                onChange={(e) => setScheduledTime(e.target.value)}
+              />
+            </div>
+
+            <div className="modal-form-group">
+              <label className="modal-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <MessageSquare size={15} className="icon-blue" /> Caption / Message
+              </label>
+              <textarea
+                className="modal-text-input"
+                rows="3"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Post caption..."
+              />
+            </div>
+          </>
+        )}
 
         <div className="modal-form-group">
           <label className="modal-label">Costs & Attribution</label>
@@ -106,7 +219,8 @@ export const EditTrackedPostModal = ({ isOpen, onClose, post, onSave }) => {
             </div>
           </div>
         </div>
-        <div className="modal-actions" style={{ marginTop: 'auto' }}>
+
+        <div className="modal-actions" style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
           <button type="button" onClick={onClose} className="btn-secondary">
             Cancel
           </button>

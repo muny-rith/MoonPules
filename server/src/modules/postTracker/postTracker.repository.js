@@ -21,13 +21,46 @@ const getTrackedPostsByStatus = async (status) => {
 };
 
 const createTrackedPost = async (postData) => {
-  const { product_id, page_id, fb_post_id, status, scheduled_time, marked_by, published_time, content_cost, ad_spend, attribution_window_days, media_type } = postData;
+  const {
+    product_id,
+    page_id,
+    fb_post_id,
+    status,
+    scheduled_time,
+    marked_by,
+    published_time,
+    content_cost,
+    ad_spend,
+    attribution_window_days,
+    media_type,
+    message,
+    media_url,
+  } = postData;
+
   try {
     const result = await db.query(`
-      INSERT INTO tb_post_tracker (product_id, page_id, fb_post_id, status, scheduled_time, published_time, marked_by, content_cost, ad_spend, attribution_window_days, media_type)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      INSERT INTO tb_post_tracker (
+        product_id, page_id, fb_post_id, status, scheduled_time, published_time, 
+        marked_by, content_cost, ad_spend, attribution_window_days, media_type,
+        message, media_url
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *
-    `, [product_id, page_id, fb_post_id, status, scheduled_time || null, published_time || null, marked_by, content_cost || 0, ad_spend || 0, attribution_window_days || 7, media_type || 'photo']);
+    `, [
+      product_id,
+      page_id,
+      fb_post_id || null,
+      status || 'scheduled',
+      scheduled_time || null,
+      published_time || null,
+      marked_by,
+      content_cost || 0,
+      ad_spend || 0,
+      attribution_window_days || 7,
+      media_type || 'photo',
+      message || null,
+      media_url || null,
+    ]);
     return result.rows[0];
   } catch (err) {
     if (err.code === '23505') {
@@ -37,6 +70,63 @@ const createTrackedPost = async (postData) => {
     }
     throw err;
   }
+};
+
+const getTrackedPostById = async (id) => {
+  const result = await db.query(`
+    SELECT pt.*, fp.page_name, fp.fb_page_id, fp.access_token 
+    FROM tb_post_tracker pt
+    JOIN tb_fb_page fp ON pt.page_id = fp.id
+    WHERE pt.id = $1
+  `, [id]);
+  return result.rows[0];
+};
+
+const getDueScheduledPosts = async () => {
+  const result = await db.query(`
+    SELECT pt.*, fp.page_name, fp.fb_page_id, fp.access_token 
+    FROM tb_post_tracker pt
+    JOIN tb_fb_page fp ON pt.page_id = fp.id
+    WHERE pt.status = 'scheduled' 
+      AND pt.fb_post_id IS NULL 
+      AND pt.scheduled_time <= CURRENT_TIMESTAMP
+    ORDER BY pt.scheduled_time ASC
+  `);
+  return result.rows;
+};
+
+const getUpcomingScheduledPosts = async () => {
+  const result = await db.query(`
+    SELECT pt.*, fp.page_name, fp.fb_page_id, fp.access_token 
+    FROM tb_post_tracker pt
+    JOIN tb_fb_page fp ON pt.page_id = fp.id
+    WHERE pt.status = 'scheduled' 
+      AND pt.fb_post_id IS NULL 
+      AND pt.scheduled_time > CURRENT_TIMESTAMP
+    ORDER BY pt.scheduled_time ASC
+  `);
+  return result.rows;
+};
+
+
+const markPostAsPublished = async (id, fbPostId, publishedTime) => {
+  const result = await db.query(`
+    UPDATE tb_post_tracker
+    SET fb_post_id = $1, status = 'published', published_time = $2, publish_error = NULL, updated_at = CURRENT_TIMESTAMP
+    WHERE id = $3
+    RETURNING *
+  `, [fbPostId, publishedTime || new Date(), id]);
+  return result.rows[0];
+};
+
+const markPostAsFailed = async (id, publishError) => {
+  const result = await db.query(`
+    UPDATE tb_post_tracker
+    SET status = 'failed', publish_error = $1, updated_at = CURRENT_TIMESTAMP
+    WHERE id = $2
+    RETURNING *
+  `, [publishError, id]);
+  return result.rows[0];
 };
 
 const updateTrackedPostStatus = async (id, status, published_time) => {
@@ -76,10 +166,25 @@ const updateTrackedPostData = async (id, data) => {
         content_cost = COALESCE($3, content_cost),
         ad_spend = COALESCE($4, ad_spend),
         attribution_window_days = COALESCE($5, attribution_window_days),
+        fb_post_id = COALESCE($6, fb_post_id),
+        message = COALESCE($7, message),
+        media_url = COALESCE($8, media_url),
+        scheduled_time = COALESCE($9, scheduled_time),
         updated_at = CURRENT_TIMESTAMP
-    WHERE id = $6
+    WHERE id = $10
     RETURNING *
-  `, [data.product_id, data.status, data.content_cost, data.ad_spend, data.attribution_window_days, id]);
+  `, [
+    data.product_id,
+    data.status,
+    data.content_cost,
+    data.ad_spend,
+    data.attribution_window_days,
+    data.fb_post_id,
+    data.message,
+    data.media_url,
+    data.scheduled_time,
+    id,
+  ]);
   return result.rows[0];
 };
 
@@ -105,10 +210,16 @@ const deleteTrackedPost = async (id) => {
 module.exports = {
   getAllTrackedPosts,
   getTrackedPostsByStatus,
+  getTrackedPostById,
+  getDueScheduledPosts,
+  getUpcomingScheduledPosts,
   createTrackedPost,
+  markPostAsPublished,
+  markPostAsFailed,
   updateTrackedPostStatus,
   updateTrackedPostMetrics,
   updateTrackedPostData,
   updateTrackedPostCosts,
   deleteTrackedPost,
 };
+

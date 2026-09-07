@@ -11,6 +11,8 @@ const productsRoutes = require('./modules/products/products.routes');
 const statisticsRoutes = require('./modules/statistics/statistics.routes');
 const profitRoutes = require('./modules/profit/profit.routes');
 
+const path = require('path');
+
 const app = express();
 
 // Middleware
@@ -18,7 +20,11 @@ app.use(cors());
 app.use(express.json());
 app.use(requestLogger);
 
+// Static uploads (images/media)
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // Health check route (unauthenticated)
+
 app.use('/api/health', (req, res) => {
     res.json({ message: 'OK' });
 });

@@ -24,6 +24,30 @@ const getFbData = async (endpoint, accessToken) => {
   }
 };
 
+const postFbData = async (endpoint, accessToken, data, customHeaders = {}) => {
+  try {
+    const response = await fbClient.post(endpoint, data, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        ...customHeaders,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    const fbError = error.response?.data?.error;
+    console.error('FB API Error on POST:', fbError || error.message);
+
+    if (fbError?.code === 190) {
+      const err = new Error('Facebook access token is invalid or expired — this Page needs to be reconnected.');
+      err.isTokenExpired = true;
+      throw err;
+    }
+
+    throw new Error(fbError?.message || 'Error publishing to Facebook Graph API');
+  }
+};
+
 module.exports = {
   getFbData,
+  postFbData,
 };

@@ -39,3 +39,18 @@ export const syncPosts = async () => {
   const response = await apiClient.post('/post-tracker/sync');
   return response.data;
 };
+
+export const publishPostNow = async (id) => {
+  const response = await apiClient.post(`/post-tracker/${id}/publish-now`);
+  return response.data;
+};
+
+export const uploadPostImage = async (file) => {
+  const formData = new FormData();
+  formData.append('image', file);
+  const response = await apiClient.post('/post-tracker/upload-image', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+};
+

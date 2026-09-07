@@ -59,9 +59,24 @@ export const usePostTracker = () => {
     }
   };
 
+  const publishNow = async (id) => {
+    try {
+      setLoading(true);
+      const res = await api.publishPostNow(id);
+      await loadPosts();
+      return res;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadPosts();
   }, []);
 
-  return { posts, loading, error, addPost, updatePost, deletePost, reload: loadPosts, triggerSync };
+  return { posts, loading, error, addPost, updatePost, deletePost, publishNow, reload: loadPosts, triggerSync };
 };
+

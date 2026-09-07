@@ -2,10 +2,11 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { usePostTracker } from '../hooks/usePostTracker';
 import { PostStatusBadge } from '../components/PostStatusBadge';
 import { InsightPanel } from '../components/InsightPanel';
-import { MarkPostModal } from '../components/MarkPostModal';
+import { CreatePostComposerModal } from '../components/CreatePostComposerModal';
 import { EditTrackedPostModal } from '../components/EditTrackedPostModal';
 import { POST_STATUS } from '../constants';
-import { Search, Filter, Calendar, ExternalLink, RefreshCw, BarChart2, DollarSign, Image as ImageIcon, Heart, MessageCircle, Share2, Edit2, Trash2, ChevronLeft, ChevronRight, Users, ChevronDown, Eye, TrendingUp } from 'lucide-react';
+import { Search, Filter, Calendar, ExternalLink, RefreshCw, BarChart2, DollarSign, Image as ImageIcon, Heart, MessageCircle, Share2, Edit2, Trash2, ChevronLeft, ChevronRight, Users, ChevronDown, Eye, TrendingUp, Send } from 'lucide-react';
+
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 import axios from 'axios';
 import api from '../../../shared/utils/apiClient';
@@ -102,7 +103,8 @@ const FilterDropdown = ({ icon: Icon, value, options, onChange, minWidth = '130p
 };
 
 export const PostTrackerPage = () => {
-  const { posts, loading, error, addPost, updatePost, deletePost, reload, triggerSync } = usePostTracker();
+  const { posts, loading, error, addPost, updatePost, deletePost, publishNow, reload, triggerSync } = usePostTracker();
+  const [publishingId, setPublishingId] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [postToEdit, setPostToEdit] = useState(null);
@@ -113,6 +115,18 @@ export const PostTrackerPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [postsProfit, setPostsProfit] = useState({});
+
+  const handlePublishNow = async (postId) => {
+    if (!window.confirm('Publish this scheduled post to Facebook immediately?')) return;
+    try {
+      setPublishingId(postId);
+      await publishNow(postId);
+    } catch (err) {
+      alert(err.response?.data?.error || err.message || 'Failed to publish post');
+    } finally {
+      setPublishingId(null);
+    }
+  };
 
   useEffect(() => {
     const fetchProfit = async () => {
@@ -172,11 +186,11 @@ export const PostTrackerPage = () => {
     }, { total: 0, views: 0, reach: 0, engagements: 0 });
   }, [posts]);
 
-  const handlePostMarked = async (newPostData) => {
+  const handlePostCreated = async (newPostData) => {
     try {
       await addPost(newPostData);
     } catch (err) {
-      console.error('Failed to add post in tracker:', err);
+      console.error('Failed to create/track post:', err);
       throw err;
     }
   };
@@ -241,8 +255,12 @@ export const PostTrackerPage = () => {
           }}>
             <RefreshCw size={14} className={isSyncing ? "spin-animation" : ""} /> {isSyncing ? 'Syncing...' : 'Sync Now'}
           </button>
-          <button className="btn-primary" style={{ whiteSpace: 'nowrap' }} onClick={() => setIsModalOpen(true)}>
-            Mark Post
+          <button
+            className="btn-primary"
+            style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}
+            onClick={() => setIsModalOpen(true)}
+          >
+            <Send size={15} /> Create & Schedule Post
           </button>
         </div>
       </div>
@@ -371,10 +389,20 @@ export const PostTrackerPage = () => {
                     <td style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         <div style={{ fontSize: '13px', color: '#334155' }}>
-                          {post.published_time ? new Date(post.published_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}
+                          {post.published_time
+                            ? new Date(post.published_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                            : post.scheduled_time
+                            ? new Date(post.scheduled_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                            : '-'}
                         </div>
-                        <div style={{ fontSize: '12px', color: '#94a3b8' }}>
-                          {post.published_time ? new Date(post.published_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : 'Pending'}
+                        <div style={{ fontSize: '12px', color: post.status === 'scheduled' ? '#d97706' : post.status === 'failed' ? '#dc2626' : '#94a3b8' }}>
+                          {post.published_time
+                            ? new Date(post.published_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+                            : post.scheduled_time
+                            ? `⏰ ${new Date(post.scheduled_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+                            : post.status === 'failed'
+                            ? `⚠️ ${post.publish_error ? 'Failed: ' + post.publish_error.slice(0, 30) + '...' : 'Failed'}`
+                            : 'Pending'}
                         </div>
                       </div>
                     </td>
@@ -424,7 +452,29 @@ export const PostTrackerPage = () => {
                     </td>
                     <td style={{ textAlign: 'center', padding: '16px 24px', borderBottom: '1px solid #f1f5f9' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                        {post.status === POST_STATUS.PUBLISHED && (
+                        {post.status !== POST_STATUS.PUBLISHED && (
+                          <button
+                            title={post.status === 'failed' ? 'Retry Publishing to Facebook' : 'Publish to Facebook Now'}
+                            onClick={() => handlePublishNow(post.id)}
+                            disabled={publishingId === post.id}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '28px',
+                              height: '28px',
+                              borderRadius: '6px',
+                              color: '#16a34a',
+                              backgroundColor: '#f0fdf4',
+                              border: '1px solid #bbf7d0',
+                              cursor: publishingId === post.id ? 'not-allowed' : 'pointer',
+                              transition: 'all 0.2s',
+                            }}
+                          >
+                            <Send size={13} className={publishingId === post.id ? 'spin-animation' : ''} />
+                          </button>
+                        )}
+                        {post.status === POST_STATUS.PUBLISHED && post.fb_post_id && (
                           <a
                             href={`https://facebook.com/${post.fb_post_id}`}
                             target="_blank"
@@ -595,10 +645,10 @@ export const PostTrackerPage = () => {
         )}
       </div>
 
-      <MarkPostModal
+      <CreatePostComposerModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onPostMarked={handlePostMarked}
+        onPostCreated={handlePostCreated}
       />
 
       <EditTrackedPostModal

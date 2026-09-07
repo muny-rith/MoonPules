@@ -1,7 +1,10 @@
 // server/src/modules/facebook/facebook.service.js
+const fs = require('fs');
+const path = require('path');
 const fbClient = require('./facebook.client');
 const db = require('../../config/db');
 const repository = require('./facebook.repository');
+
 
 const getPageCredentials = async (pageId) => {
   const result = await db.query(
@@ -148,13 +151,51 @@ const getPages = async () => {
   return await repository.listPages();
 };
 
+const publishPostToPage = async (pageId, { message, mediaUrl }) => {
+  const { access_token, fb_page_id } = await getPageCredentials(pageId);
+
+  // Case 1: Media post (image/photo)
+  if (mediaUrl) {
+    // If local file path
+    if (mediaUrl.startsWith('/uploads/') || mediaUrl.startsWith('uploads/') || path.isAbsolute(mediaUrl)) {
+      const fullPath = path.isAbsolute(mediaUrl) ? mediaUrl : path.join(__dirname, '../../../', mediaUrl);
+      if (fs.existsSync(fullPath)) {
+        const formData = new FormData();
+        if (message) formData.append('caption', message);
+        const blob = await fs.promises.openAsBlob(fullPath);
+        formData.append('source', blob, path.basename(fullPath));
+        const res = await fbClient.postFbData(`/${fb_page_id}/photos`, access_token, formData);
+        const finalPostId = res.post_id || (res.id ? `${fb_page_id}_${res.id}` : null);
+        return { fb_post_id: finalPostId, photo_id: res.id };
+      }
+    }
+
+    // If web URL (e.g. Moon IMS Supabase storage URL or any public URL)
+    if (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://')) {
+      const res = await fbClient.postFbData(`/${fb_page_id}/photos`, access_token, {
+        caption: message || '',
+        url: mediaUrl,
+      });
+      const finalPostId = res.post_id || (res.id ? `${fb_page_id}_${res.id}` : null);
+      return { fb_post_id: finalPostId, photo_id: res.id };
+    }
+  }
+
+  // Case 2: Text-only post
+  const res = await fbClient.postFbData(`/${fb_page_id}/feed`, access_token, {
+    message: message || '',
+  });
+  return { fb_post_id: res.id };
+};
+
 module.exports = {
   getPageCredentials,
   getScheduledPosts,
-  getRecentPosts, // ← new
+  getRecentPosts,
   checkPublished,
   getPostMediaType,
   getInsights,
   getPostMetrics,
   getPages,
+  publishPostToPage,
 };

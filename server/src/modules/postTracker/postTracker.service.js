@@ -1,6 +1,7 @@
 const repository = require('./postTracker.repository');
 const facebookService = require('../facebook/facebook.service');
 const productsService = require('../products/products.service');
+const publishScheduler = require('./publishScheduler.service');
 
 const listPosts = async () => {
   const posts = await repository.getAllTrackedPosts();
@@ -16,6 +17,73 @@ const listPosts = async () => {
   });
 };
 
+/**
+ * Method 1: Create & Schedule directly from Moon Pulse to Facebook
+ */
+const createAndSchedulePost = async (postData) => {
+  const {
+    product_id,
+    page_id,
+    message,
+    media_url,
+    scheduled_time,
+    publish_now = false,
+    content_cost = 0,
+    ad_spend = 0,
+    attribution_window_days = 7,
+    marked_by,
+  } = postData;
+
+  if (!Number.isInteger(Number(product_id))) {
+    const err = new Error('product_id must be an integer');
+    err.status = 400;
+    throw err;
+  }
+  if (!Number.isInteger(Number(page_id))) {
+    const err = new Error('page_id must be an integer');
+    err.status = 400;
+    throw err;
+  }
+
+  const targetScheduledTime = publish_now ? new Date() : (scheduled_time ? new Date(scheduled_time) : new Date());
+
+  // Create scheduled record in database
+  const created = await repository.createTrackedPost({
+    product_id,
+    page_id,
+    fb_post_id: null,
+    status: 'scheduled',
+    scheduled_time: targetScheduledTime,
+    published_time: null,
+    marked_by,
+    content_cost: parseFloat(content_cost) || 0,
+    ad_spend: parseFloat(ad_spend) || 0,
+    attribution_window_days: parseInt(attribution_window_days, 10) || 7,
+
+    media_type: media_url ? 'photo' : 'photo',
+    message: message || '',
+    media_url: media_url || null,
+  });
+
+  if (publish_now) {
+    // Execute immediate publication
+    try {
+      const published = await publishScheduler.executePublish(created.id);
+      return published;
+    } catch (publishErr) {
+      console.error('Immediate publication failed:', publishErr.message);
+      return await repository.getTrackedPostById(created.id);
+    }
+  } else {
+    // Arm precision timer to execute at exact scheduled_time
+    publishScheduler.armPostTimer(created);
+    return created;
+  }
+};
+
+/**
+ * Legacy: Track an existing Facebook post by pasting URL/ID
+ */
 const markPost = async (postData) => {
   const { product_id, page_id, fb_post_id } = postData;
 
@@ -52,12 +120,12 @@ const markPost = async (postData) => {
   const trackedPost = await repository.createTrackedPost({
     ...postData,
     status: isPublished ? 'published' : 'scheduled',
-    scheduled_time: now,          // ← always set — "when we marked it"
+    scheduled_time: now,
     published_time: isPublished ? (createdTime || now) : null,
     media_type: mediaType,
   });
 
-  // If already published on Facebook, immediately fetch initial metrics so data is available right away
+  // If already published on Facebook, immediately fetch initial metrics
   if (isPublished) {
     try {
       const metrics = await facebookService.getPostMetrics(fb_post_id, page_id);
@@ -69,9 +137,7 @@ const markPost = async (postData) => {
         const reachData = insights.data?.find(m => m.name === 'post_total_media_view_unique');
         views = viewsData?.values?.[0]?.value || 0;
         reach = reachData?.values?.[0]?.value || 0;
-      } catch (e) {
-        // Fallback or restricted
-      }
+      } catch (e) {}
 
       await repository.updateTrackedPostMetrics(trackedPost.id, metrics.likes, metrics.comments, metrics.shares, views, reach);
       trackedPost.likes_count = metrics.likes;
@@ -94,6 +160,13 @@ const markPost = async (postData) => {
   };
 };
 
+/**
+ * Trigger immediate publication of a scheduled post
+ */
+const publishNow = async (id) => {
+  return await publishScheduler.executePublish(id);
+};
+
 const getScheduledPosts = async () => {
   return await repository.getTrackedPostsByStatus('scheduled');
 };
@@ -107,7 +180,7 @@ const setPostPublished = async (id, publishedTime) => {
 };
 
 const updatePost = async (id, { status, published_time }) => {
-  if (!['scheduled', 'published'].includes(status)) {
+  if (!['scheduled', 'published', 'failed'].includes(status)) {
     const err = new Error('Invalid status value');
     err.status = 400;
     throw err;
@@ -120,10 +193,63 @@ const updateMetrics = async (id, likes, comments, shares, views, reach, mediaTyp
 };
 
 const editPostData = async (id, data) => {
-  return await repository.updateTrackedPostData(id, data);
+  const existing = await repository.getTrackedPostById(id);
+  if (!existing) {
+    const err = new Error('Post not found');
+    err.status = 404;
+    throw err;
+  }
+
+  // If fb_post_id is being updated/added
+  if (data.fb_post_id && data.fb_post_id !== existing.fb_post_id) {
+    try {
+      const fbStatus = await facebookService.checkPublished(data.fb_post_id, existing.page_id);
+      if (fbStatus.is_published) {
+        data.status = 'published';
+        data.published_time = fbStatus.created_time || new Date();
+      }
+    } catch (_) {}
+  }
+
+  const updated = await repository.updateTrackedPostData(id, data);
+
+  // If fb_post_id is present and published, fetch fresh metrics
+  if (updated.fb_post_id && updated.status === 'published') {
+    try {
+      const metrics = await facebookService.getPostMetrics(updated.fb_post_id, updated.page_id);
+      let views = 0;
+      let reach = 0;
+      try {
+        const insights = await facebookService.getInsights(updated.fb_post_id, updated.page_id);
+        const viewsData = insights.data?.find(m => m.name === 'post_media_view');
+        const reachData = insights.data?.find(m => m.name === 'post_total_media_view_unique');
+        views = viewsData?.values?.[0]?.value || 0;
+        reach = reachData?.values?.[0]?.value || 0;
+      } catch (_) {}
+
+      await repository.updateTrackedPostMetrics(id, metrics.likes, metrics.comments, metrics.shares, views, reach);
+      updated.likes_count = metrics.likes;
+      updated.comments_count = metrics.comments;
+      updated.shares_count = metrics.shares;
+      updated.views_count = views;
+      updated.reach_count = reach;
+    } catch (err) {
+      console.warn(`Metrics update after editing post ${id} skipped:`, err.message);
+    }
+  }
+
+  // If scheduled_time changed for a scheduled post, re-arm the timer
+  if (updated.status === 'scheduled') {
+    publishScheduler.armPostTimer(updated);
+  } else {
+    publishScheduler.cancelPostTimer(id);
+  }
+
+  return updated;
 };
 
 const removePost = async (id) => {
+  publishScheduler.cancelPostTimer(id);
   return await repository.deleteTrackedPost(id);
 };
 
@@ -133,7 +259,9 @@ const updatePostCosts = async (id, contentCost, adSpend) => {
 
 module.exports = {
   listPosts,
+  createAndSchedulePost,
   markPost,
+  publishNow,
   getScheduledPosts,
   getPublishedPosts,
   setPostPublished,
