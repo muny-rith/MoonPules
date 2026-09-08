@@ -189,40 +189,54 @@ const publishPostToPage = async (pageId, { message, mediaUrl, scheduledTime }) =
     }
   }
 
-  // Step 1: If mediaUrl is provided, upload photo to Facebook as unpublished & temporary
-  let photoId = null;
+  // Step 1: If mediaUrl is provided (Photo feed post / Create Post)
   if (mediaUrl) {
     const isRemoteUrl = mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://');
     const localPath = !isRemoteUrl ? resolveLocalUploadPath(mediaUrl) : null;
+
+    let photoId = null;
 
     if (localPath) {
       const formData = new FormData();
       formData.append('source', fs.createReadStream(localPath));
       formData.append('published', 'false');
-      formData.append('temporary', 'true');
 
       const photoRes = await fbClient.postFbData(`/${fb_page_id}/photos`, access_token, formData, formData.getHeaders());
       photoId = photoRes.id;
     } else if (isRemoteUrl) {
-      const photoRes = await fbClient.postFbData(`/${fb_page_id}/photos`, access_token, {
+      const photoPayload = {
         url: mediaUrl,
         published: false,
-        temporary: true,
-      });
+      };
+
+      const photoRes = await fbClient.postFbData(`/${fb_page_id}/photos`, access_token, photoPayload);
       photoId = photoRes.id;
-    } else {
-      console.warn(`[publishPostToPage] Media URL ${mediaUrl} could not be resolved on disk, publishing text only.`);
+    }
+
+    if (photoId) {
+      // Step 2: Publish/Schedule as a true Feed Post with attached_media
+      const feedPayload = {
+        message: message || '',
+        attached_media: [{ media_fbid: photoId }],
+      };
+
+      if (isScheduled) {
+        feedPayload.published = false;
+        feedPayload.scheduled_publish_time = scheduledPublishTime;
+        feedPayload.unpublished_content_type = 'SCHEDULED';
+      } else {
+        feedPayload.published = true;
+      }
+
+      const feedRes = await fbClient.postFbData(`/${fb_page_id}/feed`, access_token, feedPayload);
+      return { fb_post_id: feedRes.id, photo_id: photoId, is_scheduled: isScheduled };
     }
   }
 
-  // Step 2: Create a genuine Feed Post via /{fb_page_id}/feed (Create Post format, not photo album upload)
+  // Step 2: Text-only post
   const feedPayload = {
     message: message || '',
   };
-
-  if (photoId) {
-    feedPayload.attached_media = [{ media_fbid: photoId }];
-  }
 
   if (isScheduled) {
     feedPayload.published = false;
@@ -233,7 +247,7 @@ const publishPostToPage = async (pageId, { message, mediaUrl, scheduledTime }) =
   }
 
   const res = await fbClient.postFbData(`/${fb_page_id}/feed`, access_token, feedPayload);
-  return { fb_post_id: res.id, photo_id: photoId, is_scheduled: isScheduled };
+  return { fb_post_id: res.id, is_scheduled: isScheduled };
 };
 
 module.exports = {
