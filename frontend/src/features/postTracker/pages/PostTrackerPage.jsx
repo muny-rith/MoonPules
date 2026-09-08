@@ -2,8 +2,8 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { usePostTracker } from '../hooks/usePostTracker';
 import { PostStatusBadge } from '../components/PostStatusBadge';
 import { InsightPanel } from '../components/InsightPanel';
-import { CreatePostComposerModal } from '../components/CreatePostComposerModal';
 import { EditTrackedPostModal } from '../components/EditTrackedPostModal';
+import { useNavigate } from 'react-router-dom';
 import { POST_STATUS } from '../constants';
 import { Search, Filter, Calendar, ExternalLink, RefreshCw, BarChart2, DollarSign, Image as ImageIcon, Heart, MessageCircle, Share2, Edit2, Trash2, ChevronLeft, ChevronRight, Users, ChevronDown, Eye, TrendingUp, Send } from 'lucide-react';
 
@@ -103,10 +103,10 @@ const FilterDropdown = ({ icon: Icon, value, options, onChange, minWidth = '130p
 };
 
 export const PostTrackerPage = () => {
-  const { posts, loading, error, addPost, updatePost, deletePost, publishNow, reload, triggerSync } = usePostTracker();
+  const navigate = useNavigate();
+  const { posts, loading, error, updatePost, deletePost, publishNow, reload, triggerSync } = usePostTracker();
   const [publishingId, setPublishingId] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [postToEdit, setPostToEdit] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -186,15 +186,6 @@ export const PostTrackerPage = () => {
     }, { total: 0, views: 0, reach: 0, engagements: 0 });
   }, [posts]);
 
-  const handlePostCreated = async (newPostData) => {
-    try {
-      await addPost(newPostData);
-    } catch (err) {
-      console.error('Failed to create/track post:', err);
-      throw err;
-    }
-  };
-
   const handleDeletePost = async (id) => {
     if (window.confirm('Are you sure you want to stop tracking this post?')) {
       try {
@@ -258,7 +249,7 @@ export const PostTrackerPage = () => {
           <button
             className="btn-primary"
             style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => navigate('/tasks/create')}
           >
             <Send size={15} /> Create & Schedule Post
           </button>
@@ -644,12 +635,6 @@ export const PostTrackerPage = () => {
           </div>
         )}
       </div>
-
-      <CreatePostComposerModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onPostCreated={handlePostCreated}
-      />
 
       <EditTrackedPostModal
         isOpen={!!postToEdit}

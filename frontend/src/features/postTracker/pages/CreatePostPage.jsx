@@ -3,6 +3,8 @@ import * as api from '../api/postTrackerApi';
 import * as productService from '../../product/services/productService';
 import { parseFbPostUrl } from '../utils/parseFbPostUrl';
 import { ProductPicker } from '../../product/component/ProductPicker';
+import { usePostTracker } from '../hooks/usePostTracker';
+import { useNavigate } from 'react-router-dom';
 import {
   X,
   Send,
@@ -17,11 +19,15 @@ import {
   CheckCircle2,
   FileText,
   Layers,
-  Tag
+  Tag,
+  ArrowLeft
 } from 'lucide-react';
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 
-export const CreatePostComposerModal = ({ isOpen, onClose, onPostCreated }) => {
+export const CreatePostPage = () => {
+  const navigate = useNavigate();
+  const { addPost } = usePostTracker();
+  
   // Main tab mode: 'direct' (Create & Schedule) vs 'legacy' (Track existing post)
   const [tabMode, setTabMode] = useState('direct');
 
@@ -63,17 +69,15 @@ export const CreatePostComposerModal = ({ isOpen, onClose, onPostCreated }) => {
 
   // Load pages and products
   useEffect(() => {
-    if (isOpen) {
-      loadPages();
-      loadProducts();
-      // Set default scheduled time to 1 hour ahead in local time
-      const nextHour = new Date(Date.now() + 60 * 60 * 1000);
-      const localIso = new Date(nextHour.getTime() - nextHour.getTimezoneOffset() * 60000)
-        .toISOString()
-        .slice(0, 16);
-      setScheduledDateTime(localIso);
-    }
-  }, [isOpen]);
+    loadPages();
+    loadProducts();
+    // Set default scheduled time to 1 hour ahead in local time
+    const nextHour = new Date(Date.now() + 60 * 60 * 1000);
+    const localIso = new Date(nextHour.getTime() - nextHour.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16);
+    setScheduledDateTime(localIso);
+  }, []);
 
   useEffect(() => {
     if (productId && productsList.length > 0) {
@@ -86,10 +90,10 @@ export const CreatePostComposerModal = ({ isOpen, onClose, onPostCreated }) => {
 
   // Load recent posts if in legacy pick mode
   useEffect(() => {
-    if (isOpen && tabMode === 'legacy' && legacyMode === 'pick' && pageId) {
+    if (tabMode === 'legacy' && legacyMode === 'pick' && pageId) {
       loadRecentPosts();
     }
-  }, [isOpen, tabMode, legacyMode, pageId]);
+  }, [tabMode, legacyMode, pageId]);
 
   const loadPages = async () => {
     try {
@@ -209,7 +213,7 @@ export const CreatePostComposerModal = ({ isOpen, onClose, onPostCreated }) => {
           }
         }
 
-        await onPostCreated({
+        await addPost({
           mode: 'schedule',
           product_id: parseInt(productId, 10),
           page_id: parseInt(pageId, 10),
@@ -230,7 +234,7 @@ export const CreatePostComposerModal = ({ isOpen, onClose, onPostCreated }) => {
           return;
         }
 
-        await onPostCreated({
+        await addPost({
           mode: 'legacy',
           product_id: parseInt(productId, 10),
           page_id: parseInt(pageId, 10),
@@ -241,7 +245,7 @@ export const CreatePostComposerModal = ({ isOpen, onClose, onPostCreated }) => {
         });
       }
 
-      resetAndClose();
+      navigate('/tasks');
     } catch (err) {
       console.error('Submission error:', err);
       setSubmitError(err?.response?.data?.error || err.message || 'Failed to create post');
@@ -250,51 +254,48 @@ export const CreatePostComposerModal = ({ isOpen, onClose, onPostCreated }) => {
     }
   };
 
-  const resetAndClose = () => {
-    setMessage('');
-    setCustomFile(null);
-    setCustomPreview('');
-    setUploadedMediaUrl('');
-    setPostUrl('');
-    setParsedPostId(null);
-    setUrlError('');
-    setSelectedRecentPostId('');
-    setSubmitError('');
-    setProductId('');
-    setContentCost(0);
-    setAdSpend(0);
-    setAttributionWindow(7);
-    onClose();
+  const handleCancel = () => {
+    navigate('/tasks');
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="modal-backdrop">
-      <div
-        className="modal-content modal-card overflow-visible"
-        style={{ maxWidth: '580px', maxHeight: '92vh', overflowY: 'auto' }}
-      >
-        {/* Header */}
-        <div className="modal-header">
-          <div className="modal-title-wrap">
-            <Send size={20} className="icon-blue" />
-            <h2>Create & Schedule Post</h2>
+    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
+        <button
+          onClick={handleCancel}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            color: '#64748b',
+            marginRight: '16px'
+          }}
+        >
+          <ArrowLeft size={20} />
+        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ background: '#e0e7ff', padding: '10px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Send size={24} color="#4f46e5" />
           </div>
-          <button className="modal-close-btn" onClick={resetAndClose}>
-            <X size={18} />
-          </button>
+          <div>
+            <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 700, color: '#1e293b' }}>Create & Schedule Post</h1>
+            <p style={{ margin: 0, fontSize: '14px', color: '#64748b' }}>Design, preview, and manage your Facebook posts easily.</p>
+          </div>
         </div>
+      </div>
 
+      <div className="table-card" style={{ padding: '32px', backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
         {/* Primary Tab Switcher */}
         <div
           style={{
             display: 'flex',
             gap: '8px',
             background: '#f1f5f9',
-            padding: '4px',
-            borderRadius: '10px',
-            marginBottom: '16px',
+            padding: '6px',
+            borderRadius: '12px',
+            marginBottom: '24px',
           }}
         >
           <button
@@ -302,59 +303,60 @@ export const CreatePostComposerModal = ({ isOpen, onClose, onPostCreated }) => {
             onClick={() => setTabMode('direct')}
             style={{
               flex: 1,
-              padding: '8px 12px',
+              padding: '12px 16px',
               borderRadius: '8px',
               border: 'none',
-              fontSize: '13px',
+              fontSize: '14px',
               fontWeight: 600,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '6px',
+              gap: '8px',
               background: tabMode === 'direct' ? '#ffffff' : 'transparent',
-              color: tabMode === 'direct' ? '#2563eb' : '#64748b',
+              color: tabMode === 'direct' ? '#4f46e5' : '#64748b',
               boxShadow: tabMode === 'direct' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
               transition: 'all 0.2s',
             }}
           >
-            <Sparkles size={15} /> Publish / Schedule Direct
+            <Sparkles size={16} /> Publish / Schedule Direct
           </button>
           <button
             type="button"
             onClick={() => setTabMode('legacy')}
             style={{
               flex: 1,
-              padding: '8px 12px',
+              padding: '12px 16px',
               borderRadius: '8px',
               border: 'none',
-              fontSize: '13px',
+              fontSize: '14px',
               fontWeight: 600,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '6px',
+              gap: '8px',
               background: tabMode === 'legacy' ? '#ffffff' : 'transparent',
-              color: tabMode === 'legacy' ? '#2563eb' : '#64748b',
+              color: tabMode === 'legacy' ? '#4f46e5' : '#64748b',
               boxShadow: tabMode === 'legacy' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
               transition: 'all 0.2s',
             }}
           >
-            <Link2 size={15} /> Track Existing FB Post
+            <Link2 size={16} /> Track Existing FB Post
           </button>
         </div>
 
         {/* 1. Target Page & Product (Shared) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
           <div className="modal-form-group">
-            <label className="modal-label">Facebook Page</label>
+            <label className="modal-label" style={{ fontWeight: 600, color: '#334155' }}>Facebook Page</label>
             <div className="custom-select-wrap">
-              <Globe size={16} className="select-icon icon-blue" />
+              <Globe size={18} className="select-icon" style={{ color: '#4f46e5' }} />
               <select
                 value={pageId}
                 onChange={(e) => setPageId(e.target.value)}
                 className="custom-select modal-select"
+                style={{ padding: '12px 16px 12px 40px', borderRadius: '10px', border: '1px solid #cbd5e1', width: '100%' }}
               >
                 {pages.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -366,7 +368,7 @@ export const CreatePostComposerModal = ({ isOpen, onClose, onPostCreated }) => {
           </div>
 
           <div className="modal-form-group">
-            <label className="modal-label">Product (Moon IMS)</label>
+            <label className="modal-label" style={{ fontWeight: 600, color: '#334155' }}>Product (Moon IMS)</label>
             <ProductPicker
               value={productId}
               onChange={(val) => setProductId(val)}
@@ -377,106 +379,110 @@ export const CreatePostComposerModal = ({ isOpen, onClose, onPostCreated }) => {
 
         {/* TAB 1: DIRECT SCHEDULING / PUBLISHING */}
         {tabMode === 'direct' && (
-          <>
+          <div style={{ background: '#fafaf9', padding: '24px', borderRadius: '12px', border: '1px solid #f3f4f6', marginBottom: '24px' }}>
             {/* Caption & Message */}
-            <div className="modal-form-group">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <label className="modal-label" style={{ margin: 0 }}>Post Caption / Message</label>
+            <div className="modal-form-group" style={{ marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <label className="modal-label" style={{ margin: 0, fontWeight: 600, color: '#334155' }}>Post Caption / Message</label>
                 {selectedProduct && (
                   <button
                     type="button"
                     onClick={handleInsertProductName}
                     style={{
                       border: 'none',
-                      background: '#eff6ff',
-                      color: '#2563eb',
-                      fontSize: '11px',
+                      background: '#e0e7ff',
+                      color: '#4f46e5',
+                      fontSize: '12px',
                       fontWeight: 600,
-                      padding: '2px 8px',
-                      borderRadius: '4px',
+                      padding: '4px 10px',
+                      borderRadius: '6px',
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '4px',
+                      transition: 'background 0.2s'
                     }}
                   >
-                    <Tag size={11} /> + Insert Product Name
+                    <Tag size={12} /> + Insert Product Name
                   </button>
                 )}
               </div>
               <textarea
                 className="modal-text-input"
-                rows="3"
+                rows="4"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Write your Facebook post caption here..."
-                style={{ resize: 'vertical' }}
+                style={{ resize: 'vertical', width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '14px' }}
               />
             </div>
 
             {/* Media Source Selector */}
-            <div className="modal-form-group">
-              <label className="modal-label">Media Attachment</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+            <div className="modal-form-group" style={{ marginBottom: '20px' }}>
+              <label className="modal-label" style={{ fontWeight: 600, color: '#334155', marginBottom: '8px', display: 'block' }}>Media Attachment</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                 <button
                   type="button"
                   onClick={() => setMediaSource('product')}
                   style={{
-                    padding: '8px 6px',
-                    borderRadius: '8px',
-                    border: mediaSource === 'product' ? '2px solid #2563eb' : '1px solid #e2e8f0',
-                    background: mediaSource === 'product' ? '#eff6ff' : '#ffffff',
-                    color: mediaSource === 'product' ? '#1e40af' : '#475569',
-                    fontSize: '12px',
-                    fontWeight: 500,
+                    padding: '12px 8px',
+                    borderRadius: '10px',
+                    border: mediaSource === 'product' ? '2px solid #4f46e5' : '1px solid #cbd5e1',
+                    background: mediaSource === 'product' ? '#eef2ff' : '#ffffff',
+                    color: mediaSource === 'product' ? '#3730a3' : '#475569',
+                    fontSize: '13px',
+                    fontWeight: 600,
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '6px',
+                    transition: 'all 0.2s'
                   }}
                 >
-                  <Layers size={14} /> Product Image
+                  <Layers size={16} /> Product Image
                 </button>
                 <button
                   type="button"
                   onClick={() => setMediaSource('upload')}
                   style={{
-                    padding: '8px 6px',
-                    borderRadius: '8px',
-                    border: mediaSource === 'upload' ? '2px solid #2563eb' : '1px solid #e2e8f0',
-                    background: mediaSource === 'upload' ? '#eff6ff' : '#ffffff',
-                    color: mediaSource === 'upload' ? '#1e40af' : '#475569',
-                    fontSize: '12px',
-                    fontWeight: 500,
+                    padding: '12px 8px',
+                    borderRadius: '10px',
+                    border: mediaSource === 'upload' ? '2px solid #4f46e5' : '1px solid #cbd5e1',
+                    background: mediaSource === 'upload' ? '#eef2ff' : '#ffffff',
+                    color: mediaSource === 'upload' ? '#3730a3' : '#475569',
+                    fontSize: '13px',
+                    fontWeight: 600,
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '6px',
+                    transition: 'all 0.2s'
                   }}
                 >
-                  <Upload size={14} /> Custom Upload
+                  <Upload size={16} /> Custom Upload
                 </button>
                 <button
                   type="button"
                   onClick={() => setMediaSource('none')}
                   style={{
-                    padding: '8px 6px',
-                    borderRadius: '8px',
-                    border: mediaSource === 'none' ? '2px solid #2563eb' : '1px solid #e2e8f0',
-                    background: mediaSource === 'none' ? '#eff6ff' : '#ffffff',
-                    color: mediaSource === 'none' ? '#1e40af' : '#475569',
-                    fontSize: '12px',
-                    fontWeight: 500,
+                    padding: '12px 8px',
+                    borderRadius: '10px',
+                    border: mediaSource === 'none' ? '2px solid #4f46e5' : '1px solid #cbd5e1',
+                    background: mediaSource === 'none' ? '#eef2ff' : '#ffffff',
+                    color: mediaSource === 'none' ? '#3730a3' : '#475569',
+                    fontSize: '13px',
+                    fontWeight: 600,
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '6px',
+                    transition: 'all 0.2s'
                   }}
                 >
-                  <FileText size={14} /> Text Only
+                  <FileText size={16} /> Text Only
                 </button>
               </div>
 
@@ -484,13 +490,13 @@ export const CreatePostComposerModal = ({ isOpen, onClose, onPostCreated }) => {
               {mediaSource === 'product' && (
                 <div
                   style={{
-                    border: '1px dashed #cbd5e1',
-                    borderRadius: '8px',
-                    padding: '10px',
+                    border: '1px dashed #94a3b8',
+                    borderRadius: '10px',
+                    padding: '16px',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '12px',
-                    background: '#f8fafc',
+                    gap: '16px',
+                    background: '#ffffff',
                   }}
                 >
                   {selectedProduct?.image_url ? (
@@ -498,16 +504,16 @@ export const CreatePostComposerModal = ({ isOpen, onClose, onPostCreated }) => {
                       <img
                         src={selectedProduct.image_url}
                         alt="Product Preview"
-                        style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '6px' }}
+                        style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
                       />
-                      <div style={{ fontSize: '12px', color: '#334155' }}>
-                        <div style={{ fontWeight: 600 }}>Using Moon IMS Product Image</div>
-                        <div style={{ color: '#64748b', fontSize: '11px' }}>{selectedProduct.product_name}</div>
+                      <div style={{ fontSize: '14px', color: '#334155' }}>
+                        <div style={{ fontWeight: 700 }}>Using Moon IMS Product Image</div>
+                        <div style={{ color: '#64748b', fontSize: '13px', marginTop: '4px' }}>{selectedProduct.product_name}</div>
                       </div>
                     </>
                   ) : (
-                    <div style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>
-                      Select a product above to preview its catalog image.
+                    <div style={{ fontSize: '14px', color: '#94a3b8', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <AlertCircle size={16} /> Select a product above to preview its catalog image.
                     </div>
                   )}
                 </div>
@@ -516,11 +522,11 @@ export const CreatePostComposerModal = ({ isOpen, onClose, onPostCreated }) => {
               {mediaSource === 'upload' && (
                 <div
                   style={{
-                    border: '1px dashed #cbd5e1',
-                    borderRadius: '8px',
-                    padding: '12px',
+                    border: '1px dashed #94a3b8',
+                    borderRadius: '10px',
+                    padding: '24px',
                     textAlign: 'center',
-                    background: '#f8fafc',
+                    background: '#ffffff',
                   }}
                 >
                   <input
@@ -531,34 +537,38 @@ export const CreatePostComposerModal = ({ isOpen, onClose, onPostCreated }) => {
                     style={{ display: 'none' }}
                   />
                   {customPreview ? (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
                       <img
                         src={customPreview}
                         alt="Custom upload"
-                        style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '6px' }}
+                        style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
                       />
                       <div style={{ textAlign: 'left' }}>
-                        <div style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>
+                        <div style={{ fontSize: '14px', fontWeight: 600, color: '#334155' }}>
                           {customFile?.name}
                         </div>
                         {uploadingImage ? (
-                          <span style={{ fontSize: '11px', color: '#2563eb' }}>Uploading to server...</span>
+                          <span style={{ fontSize: '13px', color: '#4f46e5', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <div className="spin-animation"><Clock size={12} /></div> Uploading...
+                          </span>
                         ) : (
-                          <span style={{ fontSize: '11px', color: '#16a34a' }}>✓ Uploaded ready</span>
+                          <span style={{ fontSize: '13px', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <CheckCircle2 size={12} /> Upload ready
+                          </span>
                         )}
-                        <div>
+                        <div style={{ marginTop: '8px' }}>
                           <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
                             style={{
-                              border: 'none',
-                              background: 'transparent',
-                              color: '#2563eb',
-                              fontSize: '11px',
+                              border: '1px solid #cbd5e1',
+                              background: '#f1f5f9',
+                              color: '#334155',
+                              fontSize: '12px',
                               cursor: 'pointer',
-                              padding: 0,
-                              textDecoration: 'underline',
-                              marginTop: '2px',
+                              padding: '4px 10px',
+                              borderRadius: '4px',
+                              fontWeight: 500
                             }}
                           >
                             Change image
@@ -567,27 +577,30 @@ export const CreatePostComposerModal = ({ isOpen, onClose, onPostCreated }) => {
                       </div>
                     </div>
                   ) : (
-                    <div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <div style={{ background: '#f1f5f9', padding: '12px', borderRadius: '50%', marginBottom: '12px' }}>
+                        <Upload size={24} color="#64748b" />
+                      </div>
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         style={{
-                          padding: '6px 14px',
-                          borderRadius: '6px',
-                          border: '1px solid #cbd5e1',
-                          background: '#ffffff',
-                          fontSize: '12px',
-                          fontWeight: 500,
+                          padding: '8px 16px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: '#e0e7ff',
+                          fontSize: '14px',
+                          fontWeight: 600,
                           cursor: 'pointer',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '6px',
-                          color: '#334155',
+                          gap: '8px',
+                          color: '#4f46e5',
                         }}
                       >
-                        <Upload size={14} /> Select image from computer
+                         Browse Files
                       </button>
-                      <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
+                      <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '8px' }}>
                         Supports JPG, PNG, WEBP up to 50MB
                       </div>
                     </div>
@@ -598,119 +611,125 @@ export const CreatePostComposerModal = ({ isOpen, onClose, onPostCreated }) => {
 
             {/* Timing Options: Publish Now vs Schedule */}
             <div className="modal-form-group">
-              <label className="modal-label">Publish Timing</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+              <label className="modal-label" style={{ fontWeight: 600, color: '#334155', marginBottom: '8px', display: 'block' }}>Publish Timing</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                 <button
                   type="button"
                   onClick={() => setPublishMode('now')}
                   style={{
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    border: publishMode === 'now' ? '2px solid #16a34a' : '1px solid #e2e8f0',
-                    background: publishMode === 'now' ? '#f0fdf4' : '#ffffff',
-                    color: publishMode === 'now' ? '#15803d' : '#475569',
-                    fontSize: '12px',
+                    padding: '12px 16px',
+                    borderRadius: '10px',
+                    border: publishMode === 'now' ? '2px solid #10b981' : '1px solid #cbd5e1',
+                    background: publishMode === 'now' ? '#ecfdf5' : '#ffffff',
+                    color: publishMode === 'now' ? '#047857' : '#475569',
+                    fontSize: '14px',
                     fontWeight: 600,
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '6px',
+                    gap: '8px',
+                    transition: 'all 0.2s'
                   }}
                 >
-                  <Send size={14} /> Publish Immediately
+                  <Send size={16} /> Publish Immediately
                 </button>
                 <button
                   type="button"
                   onClick={() => setPublishMode('schedule')}
                   style={{
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    border: publishMode === 'schedule' ? '2px solid #2563eb' : '1px solid #e2e8f0',
-                    background: publishMode === 'schedule' ? '#eff6ff' : '#ffffff',
-                    color: publishMode === 'schedule' ? '#1e40af' : '#475569',
-                    fontSize: '12px',
+                    padding: '12px 16px',
+                    borderRadius: '10px',
+                    border: publishMode === 'schedule' ? '2px solid #4f46e5' : '1px solid #cbd5e1',
+                    background: publishMode === 'schedule' ? '#eef2ff' : '#ffffff',
+                    color: publishMode === 'schedule' ? '#3730a3' : '#475569',
+                    fontSize: '14px',
                     fontWeight: 600,
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '6px',
+                    gap: '8px',
+                    transition: 'all 0.2s'
                   }}
                 >
-                  <Clock size={14} /> Schedule for Later
+                  <Clock size={16} /> Schedule for Later
                 </button>
               </div>
 
               {publishMode === 'schedule' && (
-                <div style={{ marginTop: '8px' }}>
-                  <label style={{ fontSize: '11px', color: '#64748b', display: 'block', marginBottom: '4px' }}>
+                <div style={{ marginTop: '16px', background: '#ffffff', padding: '16px', borderRadius: '10px', border: '1px solid #cbd5e1' }}>
+                  <label style={{ fontSize: '13px', color: '#475569', display: 'block', marginBottom: '8px', fontWeight: 600 }}>
                     Select Exact Date & Time (High Precision)
                   </label>
                   <input
                     type="datetime-local"
                     className="modal-text-input"
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
                     value={scheduledDateTime}
                     onChange={(e) => setScheduledDateTime(e.target.value)}
                   />
-                  <span style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', display: 'block' }}>
-                    Server will trigger and publish to Facebook at this exact scheduled second.
+                  <span style={{ fontSize: '12px', color: '#64748b', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <AlertCircle size={14} /> Server will trigger and publish to Facebook at this exact scheduled second.
                   </span>
                 </div>
               )}
             </div>
-          </>
+          </div>
         )}
 
         {/* TAB 2: LEGACY TRACKING */}
         {tabMode === 'legacy' && (
-          <div className="modal-form-group">
-            <label className="modal-label">Choose Published Post</label>
-            <div className="modal-tabs" style={{ marginBottom: '10px' }}>
+          <div className="modal-form-group" style={{ background: '#fafaf9', padding: '24px', borderRadius: '12px', border: '1px solid #f3f4f6', marginBottom: '24px' }}>
+            <label className="modal-label" style={{ fontWeight: 600, color: '#334155', marginBottom: '12px', display: 'block' }}>Choose Published Post</label>
+            <div className="modal-tabs" style={{ marginBottom: '16px', display: 'flex', gap: '8px' }}>
               <button
                 type="button"
                 onClick={() => setLegacyMode('paste')}
                 className={`modal-tab-btn ${legacyMode === 'paste' ? 'active' : ''}`}
+                style={{ flex: 1, padding: '10px', borderRadius: '8px', background: legacyMode === 'paste' ? '#e0e7ff' : '#ffffff', color: legacyMode === 'paste' ? '#4f46e5' : '#475569', border: legacyMode === 'paste' ? '1px solid #4f46e5' : '1px solid #cbd5e1', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
               >
-                <Link2 size={14} /> Paste Link or Post ID
+                <Link2 size={16} /> Paste Link or Post ID
               </button>
               <button
                 type="button"
                 onClick={() => setLegacyMode('pick')}
                 className={`modal-tab-btn ${legacyMode === 'pick' ? 'active' : ''}`}
+                style={{ flex: 1, padding: '10px', borderRadius: '8px', background: legacyMode === 'pick' ? '#e0e7ff' : '#ffffff', color: legacyMode === 'pick' ? '#4f46e5' : '#475569', border: legacyMode === 'pick' ? '1px solid #4f46e5' : '1px solid #cbd5e1', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
               >
-                <Globe size={14} /> Pick from Recent Posts
+                <Globe size={16} /> Pick from Recent Posts
               </button>
             </div>
 
             {legacyMode === 'paste' ? (
-              <div>
+              <div style={{ background: '#ffffff', padding: '16px', borderRadius: '10px', border: '1px solid #cbd5e1' }}>
                 <input
                   type="text"
                   className="modal-text-input"
+                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
                   placeholder="e.g. https://facebook.com/posts/12345 or {pageId}_{postId}"
                   value={postUrl}
                   onChange={(e) => handleUrlChange(e.target.value)}
                 />
                 {parsedPostId && (
-                  <div style={{ fontSize: '11px', color: '#16a34a', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <CheckCircle2 size={12} /> Recognized Post ID: <code>{parsedPostId}</code>
+                  <div style={{ fontSize: '13px', color: '#16a34a', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500 }}>
+                    <CheckCircle2 size={16} /> Recognized Post ID: <code>{parsedPostId}</code>
                   </div>
                 )}
                 {urlError && (
-                  <div style={{ fontSize: '11px', color: '#ef4444', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <AlertCircle size={12} /> {urlError}
+                  <div style={{ fontSize: '13px', color: '#ef4444', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500 }}>
+                    <AlertCircle size={16} /> {urlError}
                   </div>
                 )}
               </div>
             ) : (
-              <div>
+              <div style={{ background: '#ffffff', padding: '16px', borderRadius: '10px', border: '1px solid #cbd5e1' }}>
                 {loadingRecent ? (
-                  <div style={{ padding: '12px', textAlign: 'center', color: '#64748b', fontSize: '12px' }}>
-                    Loading recent Facebook posts...
+                  <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                    <div className="spin-animation"><Clock size={16} /></div> Loading recent Facebook posts...
                   </div>
                 ) : (
-                  <div style={{ maxHeight: '160px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ maxHeight: '240px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px' }}>
                     {recentPosts.map((p) => {
                       const isSel = selectedRecentPostId === p.id;
                       return (
@@ -718,19 +737,21 @@ export const CreatePostComposerModal = ({ isOpen, onClose, onPostCreated }) => {
                           key={p.id}
                           onClick={() => setSelectedRecentPostId(p.id)}
                           style={{
-                            padding: '8px 10px',
-                            borderRadius: '6px',
-                            border: isSel ? '2px solid #2563eb' : '1px solid #e2e8f0',
-                            background: isSel ? '#eff6ff' : '#ffffff',
+                            padding: '12px 16px',
+                            borderRadius: '8px',
+                            border: isSel ? '2px solid #4f46e5' : '1px solid #e2e8f0',
+                            background: isSel ? '#eef2ff' : '#ffffff',
                             cursor: 'pointer',
-                            fontSize: '12px',
+                            fontSize: '13px',
+                            transition: 'all 0.2s'
                           }}
                         >
-                          <div style={{ fontWeight: 600, color: '#1e293b' }}>
-                            {p.message ? p.message.slice(0, 60) + '...' : '(No text caption)'}
+                          <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '14px', marginBottom: '4px' }}>
+                            {p.message ? p.message.slice(0, 80) + '...' : <span style={{ fontStyle: 'italic', color: '#94a3b8' }}>(No text caption)</span>}
                           </div>
-                          <div style={{ fontSize: '11px', color: '#64748b' }}>
-                            {new Date(p.created_time).toLocaleString()} • ID: {p.id}
+                          <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', justifyContent: 'space-between' }}>
+                            <span>{new Date(p.created_time).toLocaleString()}</span>
+                            <span style={{ fontFamily: 'monospace' }}>ID: {p.id}</span>
                           </div>
                         </div>
                       );
@@ -743,44 +764,44 @@ export const CreatePostComposerModal = ({ isOpen, onClose, onPostCreated }) => {
         )}
 
         {/* Costs & Attribution (Shared) */}
-        <div className="modal-form-group">
-          <label className="modal-label">Costs & Attribution</label>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
-            <div>
-              <label style={{ fontSize: '11px', color: '#64748b', display: 'block', marginBottom: '4px' }}>
+        <div className="modal-form-group" style={{ marginBottom: '32px' }}>
+          <label className="modal-label" style={{ fontWeight: 600, color: '#334155', marginBottom: '12px', display: 'block' }}>Costs & Attribution</label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <label style={{ fontSize: '13px', color: '#475569', display: 'block', marginBottom: '8px', fontWeight: 600 }}>
                 Content Cost ($)
               </label>
               <input
                 type="number"
                 value={contentCost}
                 onChange={(e) => setContentCost(e.target.value)}
-                className="modal-text-input"
+                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
                 min="0"
                 step="0.01"
               />
             </div>
-            <div>
-              <label style={{ fontSize: '11px', color: '#64748b', display: 'block', marginBottom: '4px' }}>
+            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <label style={{ fontSize: '13px', color: '#475569', display: 'block', marginBottom: '8px', fontWeight: 600 }}>
                 Ad Spend ($)
               </label>
               <input
                 type="number"
                 value={adSpend}
                 onChange={(e) => setAdSpend(e.target.value)}
-                className="modal-text-input"
+                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
                 min="0"
                 step="0.01"
               />
             </div>
-            <div>
-              <label style={{ fontSize: '11px', color: '#64748b', display: 'block', marginBottom: '4px' }}>
+            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <label style={{ fontSize: '13px', color: '#475569', display: 'block', marginBottom: '8px', fontWeight: 600 }}>
                 Attribution (Days)
               </label>
               <input
                 type="number"
                 value={attributionWindow}
                 onChange={(e) => setAttributionWindow(e.target.value)}
-                className="modal-text-input"
+                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
                 min="1"
                 max="90"
               />
@@ -792,56 +813,70 @@ export const CreatePostComposerModal = ({ isOpen, onClose, onPostCreated }) => {
         {submitError && (
           <div
             style={{
-              padding: '10px',
-              borderRadius: '8px',
+              padding: '16px',
+              borderRadius: '10px',
               background: '#fef2f2',
-              border: '1px solid #fee2e2',
+              border: '1px solid #fecaca',
               color: '#b91c1c',
-              fontSize: '12px',
+              fontSize: '14px',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              marginBottom: '12px',
+              gap: '10px',
+              marginBottom: '24px',
+              fontWeight: 500
             }}
           >
-            <AlertCircle size={15} />
+            <AlertCircle size={20} />
             <span>{submitError}</span>
           </div>
         )}
 
         {/* Actions */}
-        <div className="modal-actions" style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-          <button type="button" onClick={resetAndClose} className="btn-secondary" disabled={submitting}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '24px' }}>
+          <button 
+            type="button" 
+            onClick={handleCancel} 
+            disabled={submitting}
+            style={{ padding: '12px 24px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#475569', fontWeight: 600, fontSize: '15px', cursor: 'pointer', transition: 'background 0.2s' }}
+          >
             Cancel
           </button>
           <button
             type="button"
             onClick={handleSubmit}
             disabled={submitting || !productId || !pageId}
-            className="btn-primary"
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              padding: '8px 18px',
-              background: tabMode === 'direct' && publishMode === 'now' ? '#16a34a' : '#2563eb',
+              gap: '8px',
+              padding: '12px 28px',
+              borderRadius: '10px',
+              border: 'none',
+              color: '#ffffff',
+              fontWeight: 600,
+              fontSize: '15px',
+              cursor: submitting || !productId || !pageId ? 'not-allowed' : 'pointer',
+              opacity: submitting || !productId || !pageId ? 0.7 : 1,
+              background: tabMode === 'direct' && publishMode === 'now' ? '#10b981' : '#4f46e5',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              transition: 'background 0.2s, transform 0.1s'
             }}
           >
             {submitting ? (
-              'Processing...'
+              <><div className="spin-animation"><Clock size={16} /></div> Processing...</>
             ) : tabMode === 'direct' ? (
               publishMode === 'now' ? (
                 <>
-                  <Send size={15} /> Publish to Facebook Now
+                  <Send size={18} /> Publish to Facebook Now
                 </>
               ) : (
                 <>
-                  <Clock size={15} /> Schedule Post
+                  <Clock size={18} /> Schedule Post
                 </>
               )
             ) : (
               <>
-                <CheckCircle2 size={15} /> Track Facebook Post
+                <CheckCircle2 size={18} /> Track Facebook Post
               </>
             )}
           </button>

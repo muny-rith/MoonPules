@@ -11,6 +11,10 @@ const syncPostStatus = async () => {
 
     for (const row of scheduledRows) {
       try {
+        if (!row.fb_post_id) {
+          // Post is scheduled via MoonPulse precision scheduler, has no FB ID yet.
+          continue; 
+        }
         const fbStatus = await facebookService.checkPublished(row.fb_post_id, row.page_id);
         if (fbStatus.is_published) {
           await postTrackerService.setPostPublished(row.id, fbStatus.created_time);

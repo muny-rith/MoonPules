@@ -8,6 +8,7 @@ import { PostTrackerPage } from './features/postTracker';
 import { Product } from './features/product/page/Product';
 import { BrandStatsPage } from './features/statistics/pages/BrandStatsPage';
 import { BrandDetailPage } from './features/statistics/pages/BrandDetailPage';
+import { CreatePostPage } from './features/postTracker/pages/CreatePostPage';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
                 <Routes>
                   <Route path="/" element={<DashboardPage />} />
                   <Route path="/tasks" element={<PostTrackerPage />} />
+                  <Route path="/tasks/create" element={<CreatePostPage />} />
                   <Route path="/product" element={<Product />} />
                   <Route path="/stats/brands" element={<BrandStatsPage />} />
                   <Route path="/stats/brands/:id" element={<BrandDetailPage />} />
