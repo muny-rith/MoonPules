@@ -1,6 +1,7 @@
 // server/src/modules/facebook/facebook.service.js
 const fs = require('fs');
 const path = require('path');
+const FormData = require('form-data');
 const fbClient = require('./facebook.client');
 const db = require('../../config/db');
 const repository = require('./facebook.repository');
@@ -151,41 +152,88 @@ const getPages = async () => {
   return await repository.listPages();
 };
 
-const publishPostToPage = async (pageId, { message, mediaUrl }) => {
+const resolveLocalUploadPath = (mediaUrl) => {
+  if (!mediaUrl) return null;
+  if (path.isAbsolute(mediaUrl) && fs.existsSync(mediaUrl)) return mediaUrl;
+
+  const cleanPath = mediaUrl.startsWith('/') ? mediaUrl.slice(1) : mediaUrl;
+
+  // Check MoonPulse/server/uploads
+  const serverPath = path.join(__dirname, '../../../', cleanPath);
+  if (fs.existsSync(serverPath)) return serverPath;
+
+  // Check MoonPulse/uploads (root uploads)
+  const rootPath = path.join(__dirname, '../../../../', cleanPath);
+  if (fs.existsSync(rootPath)) return rootPath;
+
+  // Check cwd relative
+  const cwdPath = path.resolve(process.cwd(), cleanPath);
+  if (fs.existsSync(cwdPath)) return cwdPath;
+
+  return null;
+};
+
+const publishPostToPage = async (pageId, { message, mediaUrl, scheduledTime }) => {
   const { access_token, fb_page_id } = await getPageCredentials(pageId);
 
-  // Case 1: Media post (image/photo)
-  if (mediaUrl) {
-    // If local file path
-    if (mediaUrl.startsWith('/uploads/') || mediaUrl.startsWith('uploads/') || path.isAbsolute(mediaUrl)) {
-      const fullPath = path.isAbsolute(mediaUrl) ? mediaUrl : path.join(__dirname, '../../../', mediaUrl);
-      if (fs.existsSync(fullPath)) {
-        const formData = new FormData();
-        if (message) formData.append('caption', message);
-        const blob = await fs.promises.openAsBlob(fullPath);
-        formData.append('source', blob, path.basename(fullPath));
-        const res = await fbClient.postFbData(`/${fb_page_id}/photos`, access_token, formData);
-        const finalPostId = res.post_id || (res.id ? `${fb_page_id}_${res.id}` : null);
-        return { fb_post_id: finalPostId, photo_id: res.id };
-      }
-    }
-
-    // If web URL (e.g. Moon IMS Supabase storage URL or any public URL)
-    if (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://')) {
-      const res = await fbClient.postFbData(`/${fb_page_id}/photos`, access_token, {
-        caption: message || '',
-        url: mediaUrl,
-      });
-      const finalPostId = res.post_id || (res.id ? `${fb_page_id}_${res.id}` : null);
-      return { fb_post_id: finalPostId, photo_id: res.id };
+  // Check if native Facebook scheduling is requested (FB requires scheduled_publish_time >= 10m in the future)
+  let isScheduled = false;
+  let scheduledPublishTime = null;
+  if (scheduledTime) {
+    const targetTimestamp = Math.floor(new Date(scheduledTime).getTime() / 1000);
+    const nowTimestamp = Math.floor(Date.now() / 1000);
+    // 10 minutes = 600s. Give a small buffer of 610s
+    if (targetTimestamp >= nowTimestamp + 600) {
+      isScheduled = true;
+      scheduledPublishTime = targetTimestamp;
     }
   }
 
-  // Case 2: Text-only post
-  const res = await fbClient.postFbData(`/${fb_page_id}/feed`, access_token, {
+  // Step 1: If mediaUrl is provided, upload photo to Facebook as unpublished & temporary
+  let photoId = null;
+  if (mediaUrl) {
+    const isRemoteUrl = mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://');
+    const localPath = !isRemoteUrl ? resolveLocalUploadPath(mediaUrl) : null;
+
+    if (localPath) {
+      const formData = new FormData();
+      formData.append('source', fs.createReadStream(localPath));
+      formData.append('published', 'false');
+      formData.append('temporary', 'true');
+
+      const photoRes = await fbClient.postFbData(`/${fb_page_id}/photos`, access_token, formData, formData.getHeaders());
+      photoId = photoRes.id;
+    } else if (isRemoteUrl) {
+      const photoRes = await fbClient.postFbData(`/${fb_page_id}/photos`, access_token, {
+        url: mediaUrl,
+        published: false,
+        temporary: true,
+      });
+      photoId = photoRes.id;
+    } else {
+      console.warn(`[publishPostToPage] Media URL ${mediaUrl} could not be resolved on disk, publishing text only.`);
+    }
+  }
+
+  // Step 2: Create a genuine Feed Post via /{fb_page_id}/feed (Create Post format, not photo album upload)
+  const feedPayload = {
     message: message || '',
-  });
-  return { fb_post_id: res.id };
+  };
+
+  if (photoId) {
+    feedPayload.attached_media = [{ media_fbid: photoId }];
+  }
+
+  if (isScheduled) {
+    feedPayload.published = false;
+    feedPayload.scheduled_publish_time = scheduledPublishTime;
+    feedPayload.unpublished_content_type = 'SCHEDULED';
+  } else {
+    feedPayload.published = true;
+  }
+
+  const res = await fbClient.postFbData(`/${fb_page_id}/feed`, access_token, feedPayload);
+  return { fb_post_id: res.id, photo_id: photoId, is_scheduled: isScheduled };
 };
 
 module.exports = {

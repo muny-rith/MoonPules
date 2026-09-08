@@ -386,13 +386,13 @@ export const PostTrackerPage = () => {
                             ? new Date(post.scheduled_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                             : '-'}
                         </div>
-                        <div style={{ fontSize: '12px', color: post.status === 'scheduled' ? '#d97706' : post.status === 'failed' ? '#dc2626' : '#94a3b8' }}>
-                          {post.published_time
+                        <div style={{ fontSize: '12px', color: post.status === 'failed' ? '#dc2626' : post.status === 'scheduled' ? '#d97706' : '#94a3b8' }}>
+                          {post.status === 'failed'
+                            ? <span title={post.publish_error || 'Publishing failed'} style={{ cursor: 'help' }}>⚠️ {post.publish_error ? (post.publish_error.length > 35 ? post.publish_error.slice(0, 35) + '…' : post.publish_error) : 'Failed'}</span>
+                            : post.published_time
                             ? new Date(post.published_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
                             : post.scheduled_time
                             ? `⏰ ${new Date(post.scheduled_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
-                            : post.status === 'failed'
-                            ? `⚠️ ${post.publish_error ? 'Failed: ' + post.publish_error.slice(0, 30) + '...' : 'Failed'}`
                             : 'Pending'}
                         </div>
                       </div>

@@ -66,15 +66,32 @@ const createAndSchedulePost = async (postData) => {
   });
 
   if (publish_now) {
-    // Execute immediate publication
-    try {
-      const published = await publishScheduler.executePublish(created.id);
-      return published;
-    } catch (publishErr) {
-      console.error('Immediate publication failed:', publishErr.message);
-      return await repository.getTrackedPostById(created.id);
-    }
+    // Execute immediate publication and do not swallow errors
+    return await publishScheduler.executePublish(created.id);
   } else {
+    // If scheduled >= 10 minutes in future, try native Facebook Graph API scheduling
+    const targetMs = targetScheduledTime.getTime();
+    const nowMs = Date.now();
+
+    if (targetMs >= nowMs + 600 * 1000) {
+      try {
+        console.log(`[Scheduler] Attempting native Facebook Graph API scheduling for post ${created.id}...`);
+        const fbResult = await facebookService.publishPostToPage(page_id, {
+          message: created.message,
+          mediaUrl: created.media_url,
+          scheduledTime: targetScheduledTime,
+        });
+
+        if (fbResult && fbResult.fb_post_id) {
+          console.log(`[Scheduler] ✅ Natively scheduled on Facebook for post ${created.id}! FB Post ID: ${fbResult.fb_post_id}`);
+          await repository.setScheduledPostFbId(created.id, fbResult.fb_post_id);
+          return await repository.getTrackedPostById(created.id);
+        }
+      } catch (fbErr) {
+        console.warn(`[Scheduler] Native FB scheduling attempt failed (${fbErr.message}). Falling back to MoonPulse in-memory scheduler.`);
+      }
+    }
+
     // Arm precision timer to execute at exact scheduled_time
     publishScheduler.armPostTimer(created);
     return created;

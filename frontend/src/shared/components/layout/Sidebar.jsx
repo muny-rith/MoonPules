@@ -2,14 +2,12 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, CheckSquare, Package, BarChart2, MessageSquare, Target, Settings, HelpCircle, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { FaFacebook, FaTiktok } from 'react-icons/fa';
-import logo from "../../../../public/logoBlack.png";
-
 export const Sidebar = ({ isCollapsed, isMobileOpen, toggleCollapse, closeMobile }) => {
   return (
     <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''} ${isMobileOpen ? 'mobile-open' : ''}`}>
       <div className="sidebar-header">
         <div className="logo-container">
-          <img src={logo} alt="MoonPulse" style={{ width: '32px', height: '32px', borderRadius: '8px' }} />
+          <img src="/logoBlack.png" alt="MoonPulse" style={{ width: '32px', height: '32px', borderRadius: '8px' }} />
           {!isCollapsed && <h2>MoonPulse</h2>}
         </div>
       </div>

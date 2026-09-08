@@ -20,7 +20,10 @@ const getFbData = async (endpoint, accessToken) => {
       throw err;
     }
 
-    throw new Error(fbError?.message || 'Error calling Facebook Graph API');
+    const message = fbError?.error_user_msg || fbError?.message || error.message || 'Error calling Facebook Graph API';
+    const err = new Error(message);
+    err.fbError = fbError;
+    throw err;
   }
 };
 
@@ -43,7 +46,10 @@ const postFbData = async (endpoint, accessToken, data, customHeaders = {}) => {
       throw err;
     }
 
-    throw new Error(fbError?.message || 'Error publishing to Facebook Graph API');
+    const message = fbError?.error_user_msg || fbError?.message || error.message || 'Error publishing to Facebook Graph API';
+    const err = new Error(message);
+    err.fbError = fbError;
+    throw err;
   }
 };
 

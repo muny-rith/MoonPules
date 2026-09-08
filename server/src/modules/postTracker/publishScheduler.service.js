@@ -16,8 +16,8 @@ const executePublish = async (postId) => {
     return null;
   }
 
-  if (post.status !== 'scheduled') {
-    console.log(`[Scheduler] Post ${postId} is already ${post.status}. Skipping.`);
+  if (post.status === 'published') {
+    console.log(`[Scheduler] Post ${postId} is already published. Skipping.`);
     return post;
   }
 

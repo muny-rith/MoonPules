@@ -109,6 +109,16 @@ const getUpcomingScheduledPosts = async () => {
 };
 
 
+const setScheduledPostFbId = async (id, fbPostId) => {
+  const result = await db.query(`
+    UPDATE tb_post_tracker
+    SET fb_post_id = $1, publish_error = NULL, updated_at = CURRENT_TIMESTAMP
+    WHERE id = $2
+    RETURNING *
+  `, [fbPostId, id]);
+  return result.rows[0];
+};
+
 const markPostAsPublished = async (id, fbPostId, publishedTime) => {
   const result = await db.query(`
     UPDATE tb_post_tracker
@@ -214,6 +224,7 @@ module.exports = {
   getDueScheduledPosts,
   getUpcomingScheduledPosts,
   createTrackedPost,
+  setScheduledPostFbId,
   markPostAsPublished,
   markPostAsFailed,
   updateTrackedPostStatus,
