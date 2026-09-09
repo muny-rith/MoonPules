@@ -75,19 +75,8 @@ export const MetaSchedulePicker = ({
   const hourWheelRef = useRef(null);
   const minuteWheelRef = useRef(null);
 
-  // Close popovers on click outside
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (datePickerRef.current && !datePickerRef.current.contains(e.target)) {
-        setShowCalendar(false);
-      }
-      if (timePickerRef.current && !timePickerRef.current.contains(e.target)) {
-        setShowTimePicker(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  const hourSettleTimerRef = useRef(null);
+  const minuteSettleTimerRef = useRef(null);
 
   const dateValRef = useRef(dateVal);
   dateValRef.current = dateVal;
@@ -96,40 +85,40 @@ export const MetaSchedulePicker = ({
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
-  // Silky smooth, discrete-step roller that always lands dead-center on numbers
+  // Helper to commit time change to parent
+  const commitTime = (h, m) => {
+    const dStr = dateValRef.current || todayStrRef.current;
+    const timeStr = `${dStr}T${h}:${m}`;
+    onChangeRef.current(timeStr);
+  };
+
+  // Close popovers on click outside and commit any pending time
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (datePickerRef.current && !datePickerRef.current.contains(e.target)) {
+        setShowCalendar(false);
+      }
+      if (timePickerRef.current && !timePickerRef.current.contains(e.target)) {
+        clearTimeout(hourSettleTimerRef.current);
+        clearTimeout(minuteSettleTimerRef.current);
+        commitTime(activeHourRef.current, activeMinuteRef.current);
+        setShowTimePicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Discrete 1-step mouse wheel notch handler + native scrollend listener
   useEffect(() => {
     if (!showTimePicker) return;
 
-    const createRoller = (wheelEl, maxIdx, getActiveVal, onCommit) => {
-      if (!wheelEl) return () => {};
+    const attachDiscreteWheel = (wheelEl, maxIdx, onStep) => {
+      if (!wheelEl) return () => { };
 
-      let targetIdx = Math.max(0, Math.min(maxIdx, Math.round(wheelEl.scrollTop / 40)));
-      let rafId = null;
-      let settleTimer = null;
       let accumulatedDelta = 0;
       let deltaResetTimer = null;
       let lastStepTime = 0;
-
-      const animateToTarget = () => {
-        const targetScroll = targetIdx * 40;
-        const currentScroll = wheelEl.scrollTop;
-        const diff = targetScroll - currentScroll;
-
-        if (Math.abs(diff) < 0.8) {
-          wheelEl.scrollTop = targetScroll;
-          rafId = null;
-
-          clearTimeout(settleTimer);
-          settleTimer = setTimeout(() => {
-            onCommit(targetIdx);
-          }, 80);
-          return;
-        }
-
-        // Fluid ease-out curve (silky smooth, responsive, never jerky)
-        wheelEl.scrollTop = currentScroll + diff * 0.28;
-        rafId = requestAnimationFrame(animateToTarget);
-      };
 
       const handleWheel = (e) => {
         e.preventDefault();
@@ -147,21 +136,19 @@ export const MetaSchedulePicker = ({
         }, 100);
 
         const now = performance.now();
-        const threshold = 60;
+        const threshold = 40;
 
-        // Require at least 75ms cooldown between steps to prevent a single mouse notch's multi-tick burst from jumping 1->4
-        if (Math.abs(accumulatedDelta) >= threshold && now - lastStepTime >= 75) {
+        // Prevent rapid multi-tick runaway while ensuring single notch responds instantly
+        if (Math.abs(accumulatedDelta) >= threshold && now - lastStepTime >= 70) {
           const dir = Math.sign(accumulatedDelta);
-          accumulatedDelta = 0; // Discard burst leftovers immediately
+          accumulatedDelta = 0;
           lastStepTime = now;
 
-          const baseIdx = rafId ? targetIdx : Math.round(wheelEl.scrollTop / 40);
-          targetIdx = Math.max(0, Math.min(maxIdx, baseIdx + dir));
+          const currentIdx = Math.round(wheelEl.scrollTop / 40);
+          const nextIdx = Math.max(0, Math.min(maxIdx, currentIdx + dir));
 
-          clearTimeout(settleTimer);
-          if (!rafId) {
-            rafId = requestAnimationFrame(animateToTarget);
-          }
+          wheelEl.scrollTo({ top: nextIdx * 40, behavior: 'smooth' });
+          onStep(nextIdx);
         }
       };
 
@@ -169,35 +156,68 @@ export const MetaSchedulePicker = ({
 
       return () => {
         wheelEl.removeEventListener('wheel', handleWheel);
-        if (rafId) cancelAnimationFrame(rafId);
-        clearTimeout(settleTimer);
         clearTimeout(deltaResetTimer);
       };
     };
 
-    const cleanupHour = createRoller(
+    const cleanupHourWheel = attachDiscreteWheel(
       hourWheelRef.current,
       23,
-      () => activeHourRef.current,
-      (finalIdx) => {
-        const newH = pad(finalIdx);
+      (nextIdx) => {
+        const newH = pad(nextIdx);
         setActiveHour(newH);
         activeHourRef.current = newH;
-        onChangeRef.current(`${dateValRef.current || todayStrRef.current}T${newH}:${activeMinuteRef.current}`);
+        clearTimeout(hourSettleTimerRef.current);
+        hourSettleTimerRef.current = setTimeout(() => {
+          commitTime(newH, activeMinuteRef.current);
+        }, 100);
       }
     );
 
-    const cleanupMinute = createRoller(
+    const cleanupMinuteWheel = attachDiscreteWheel(
       minuteWheelRef.current,
       59,
-      () => activeMinuteRef.current,
-      (finalIdx) => {
-        const newM = pad(finalIdx);
+      (nextIdx) => {
+        const newM = pad(nextIdx);
         setActiveMinute(newM);
         activeMinuteRef.current = newM;
-        onChangeRef.current(`${dateValRef.current || todayStrRef.current}T${activeHourRef.current}:${newM}`);
+        clearTimeout(minuteSettleTimerRef.current);
+        minuteSettleTimerRef.current = setTimeout(() => {
+          commitTime(activeHourRef.current, newM);
+        }, 100);
       }
     );
+
+    // Modern browser scrollend listeners for instantaneous commit
+    const hourEl = hourWheelRef.current;
+    const minuteEl = minuteWheelRef.current;
+
+    const handleHourScrollEnd = () => {
+      clearTimeout(hourSettleTimerRef.current);
+      if (!hourEl) return;
+      const idx = Math.max(0, Math.min(23, Math.round(hourEl.scrollTop / 40)));
+      const newH = pad(idx);
+      setActiveHour(newH);
+      activeHourRef.current = newH;
+      commitTime(newH, activeMinuteRef.current);
+    };
+
+    const handleMinuteScrollEnd = () => {
+      clearTimeout(minuteSettleTimerRef.current);
+      if (!minuteEl) return;
+      const idx = Math.max(0, Math.min(59, Math.round(minuteEl.scrollTop / 40)));
+      const newM = pad(idx);
+      setActiveMinute(newM);
+      activeMinuteRef.current = newM;
+      commitTime(activeHourRef.current, newM);
+    };
+
+    if (hourEl && 'onscrollend' in window) {
+      hourEl.addEventListener('scrollend', handleHourScrollEnd);
+    }
+    if (minuteEl && 'onscrollend' in window) {
+      minuteEl.addEventListener('scrollend', handleMinuteScrollEnd);
+    }
 
     const timeCard = timeCardRef.current;
     const handleCardWheel = (e) => {
@@ -211,8 +231,14 @@ export const MetaSchedulePicker = ({
     }
 
     return () => {
-      cleanupHour();
-      cleanupMinute();
+      cleanupHourWheel();
+      cleanupMinuteWheel();
+      if (hourEl && 'onscrollend' in window) {
+        hourEl.removeEventListener('scrollend', handleHourScrollEnd);
+      }
+      if (minuteEl && 'onscrollend' in window) {
+        minuteEl.removeEventListener('scrollend', handleMinuteScrollEnd);
+      }
       if (timeCard) timeCard.removeEventListener('wheel', handleCardWheel);
     };
   }, [showTimePicker]);
@@ -342,43 +368,67 @@ export const MetaSchedulePicker = ({
     setShowCalendar(false);
   };
 
-  // Real-time lens highlight tracking during smooth scroll
+  // Real-time lens highlight tracking during smooth scroll + debounced commit
   const handleHourWheelScroll = (e) => {
-    const scrollTop = e.target.scrollTop;
+    const el = e.currentTarget || e.target;
+    const scrollTop = el.scrollTop;
     const idx = Math.max(0, Math.min(23, Math.round(scrollTop / 40)));
     const newH = pad(idx);
     if (activeHourRef.current !== newH) {
       setActiveHour(newH);
       activeHourRef.current = newH;
     }
+
+    clearTimeout(hourSettleTimerRef.current);
+    hourSettleTimerRef.current = setTimeout(() => {
+      const snapTop = idx * 40;
+      if (Math.abs(el.scrollTop - snapTop) > 0.5) {
+        el.scrollTo({ top: snapTop, behavior: 'smooth' });
+      }
+      commitTime(newH, activeMinuteRef.current);
+    }, 100);
   };
 
   const handleMinuteWheelScroll = (e) => {
-    const scrollTop = e.target.scrollTop;
+    const el = e.currentTarget || e.target;
+    const scrollTop = el.scrollTop;
     const idx = Math.max(0, Math.min(59, Math.round(scrollTop / 40)));
     const newM = pad(idx);
     if (activeMinuteRef.current !== newM) {
       setActiveMinute(newM);
       activeMinuteRef.current = newM;
     }
+
+    clearTimeout(minuteSettleTimerRef.current);
+    minuteSettleTimerRef.current = setTimeout(() => {
+      const snapTop = idx * 40;
+      if (Math.abs(el.scrollTop - snapTop) > 0.5) {
+        el.scrollTo({ top: snapTop, behavior: 'smooth' });
+      }
+      commitTime(activeHourRef.current, newM);
+    }, 100);
   };
 
   const handleSelectHourItem = (hStr) => {
     const idx = parseInt(hStr, 10) || 0;
     setActiveHour(hStr);
+    activeHourRef.current = hStr;
+    clearTimeout(hourSettleTimerRef.current);
     if (hourWheelRef.current) {
       hourWheelRef.current.scrollTo({ top: idx * 40, behavior: 'smooth' });
     }
-    onChange(`${dateVal || todayStr}T${hStr}:${activeMinute}`);
+    commitTime(hStr, activeMinuteRef.current);
   };
 
   const handleSelectMinuteItem = (mStr) => {
     const idx = parseInt(mStr, 10) || 0;
     setActiveMinute(mStr);
+    activeMinuteRef.current = mStr;
+    clearTimeout(minuteSettleTimerRef.current);
     if (minuteWheelRef.current) {
       minuteWheelRef.current.scrollTo({ top: idx * 40, behavior: 'smooth' });
     }
-    onChange(`${dateVal || todayStr}T${activeHour}:${mStr}`);
+    commitTime(activeHourRef.current, mStr);
   };
 
   const handleQuickMinute = (m) => {
@@ -392,13 +442,24 @@ export const MetaSchedulePicker = ({
     const m = pad(now.getMinutes());
     setActiveHour(h);
     setActiveMinute(m);
-    onChange(`${dateVal || todayStr}T${h}:${m}`);
+    activeHourRef.current = h;
+    activeMinuteRef.current = m;
+    clearTimeout(hourSettleTimerRef.current);
+    clearTimeout(minuteSettleTimerRef.current);
+    commitTime(h, m);
     if (hourWheelRef.current) {
       hourWheelRef.current.scrollTo({ top: parseInt(h, 10) * 40, behavior: 'smooth' });
     }
     if (minuteWheelRef.current) {
       minuteWheelRef.current.scrollTo({ top: parseInt(m, 10) * 40, behavior: 'smooth' });
     }
+  };
+
+  const handleDoneTimePicker = () => {
+    clearTimeout(hourSettleTimerRef.current);
+    clearTimeout(minuteSettleTimerRef.current);
+    commitTime(activeHourRef.current, activeMinuteRef.current);
+    setShowTimePicker(false);
   };
 
   const applyPreset = (presetType) => {
@@ -595,7 +656,7 @@ export const MetaSchedulePicker = ({
             >
               <Clock size={16} className="meta-trigger-icon" />
               <span className="meta-trigger-text" style={{ fontWeight: 700, letterSpacing: '0.5px' }}>
-                {currentHour}:{currentMinute}
+                {showTimePicker ? `${activeHour}:${activeMinute}` : `${currentHour}:${currentMinute}`}
               </span>
               <ChevronDown size={14} className="meta-trigger-arrow" />
             </button>
@@ -603,10 +664,6 @@ export const MetaSchedulePicker = ({
             {/* Floating Luxury 24h Smooth Scroll Wheel Popover */}
             {showTimePicker && (
               <div className="meta-time-card-24h" ref={timeCardRef} onClick={(e) => e.stopPropagation()}>
-                {/* Header Display */}
-                <div className="meta-time-wheel-header">
-                  <span className="meta-time-card-title">Scroll Time (24h)</span>
-                </div>
 
                 {/* Dual Scroll Wheels (Hour 00-23 & Minute 00-59) */}
                 <div className="meta-wheel-picker-wrap">
@@ -694,7 +751,7 @@ export const MetaSchedulePicker = ({
                   <button
                     type="button"
                     className="meta-time-footer-btn primary"
-                    onClick={() => setShowTimePicker(false)}
+                    onClick={handleDoneTimePicker}
                   >
                     Done
                   </button>

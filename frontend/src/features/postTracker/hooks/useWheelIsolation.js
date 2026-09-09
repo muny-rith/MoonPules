@@ -25,27 +25,32 @@ export function useWheelIsolation() {
         return;
       }
 
-      const textarea = node.querySelector('textarea');
+      const textarea = node.tagName === 'TEXTAREA' ? node : node.querySelector('textarea');
       if (!textarea) {
-        e.preventDefault();
         return;
       }
 
-      const isOverTextarea = e.target === textarea || textarea.contains(e.target);
+      const isOverTextarea = e.target === textarea;
 
-      // If hovering over non-textarea areas (header, toolbar, quick action buttons, card padding)
+      // 1. If hovering over panel outside textarea (header, toolbar, quick action buttons, card padding):
+      // Allow the outer main container / page to scroll freely!
       if (!isOverTextarea) {
-        e.preventDefault();
         return;
       }
 
-      // Inside textarea: check if text exceeds clientHeight
+      // 2. Focus-Based: If textarea is NOT focused (user hasn't clicked into it):
+      // Do NOT intercept with JavaScript! Let the browser handle wheel events natively
+      // on the GPU compositor thread with 100% silky-smooth hardware acceleration!
+      if (document.activeElement !== textarea) {
+        return;
+      }
+
+      // 3. User is actively FOCUSED inside the textarea:
       const { scrollTop, scrollHeight, clientHeight } = textarea;
       const maxScrollTop = scrollHeight - clientHeight;
 
-      // If text content does not need scrolling, prevent main content from scrolling
+      // If text fits within textarea without a scrollbar, let browser scroll naturally
       if (maxScrollTop <= 1) {
-        e.preventDefault();
         return;
       }
 
