@@ -39,6 +39,7 @@ import {
   Edit2
 } from 'lucide-react';
 import { MetaEmojiPicker } from '../components/MetaEmojiPicker';
+import { MetaSchedulePicker } from '../components/MetaSchedulePicker';
 import '../postTracker.css';
 
 export const CreatePostPage = () => {
@@ -933,17 +934,10 @@ export const CreatePostPage = () => {
               </div>
 
               {publishMode === 'schedule' && (
-                <div className="meta-schedule-picker-box">
-                  <input
-                    type="datetime-local"
-                    className="meta-datetime-input"
-                    value={scheduledDateTime}
-                    onChange={(e) => setScheduledDateTime(e.target.value)}
-                  />
-                  <span style={{ fontSize: '11px', color: '#65676b', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Clock size={12} /> Server will publish to Facebook at this exact scheduled minute.
-                  </span>
-                </div>
+                <MetaSchedulePicker
+                  value={scheduledDateTime}
+                  onChange={(newIso) => setScheduledDateTime(newIso)}
+                />
               )}
             </div>
           )}

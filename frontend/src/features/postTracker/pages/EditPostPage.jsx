@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 import { MetaEmojiPicker } from '../components/MetaEmojiPicker';
+import { MetaSchedulePicker } from '../components/MetaSchedulePicker';
 import '../postTracker.css';
 
 export const EditPostPage = () => {
@@ -549,16 +550,11 @@ export const EditPostPage = () => {
               <div className="meta-schedule-row">
                 <span className="meta-schedule-label">Scheduled Publish Time</span>
               </div>
-              <div className="meta-schedule-picker-box" style={{ borderTop: 'none', marginTop: '10px', paddingTop: 0 }}>
-                <input
-                  type="datetime-local"
-                  className="meta-datetime-input"
+              <div style={{ marginTop: '10px' }}>
+                <MetaSchedulePicker
                   value={scheduledDateTime}
-                  onChange={(e) => setScheduledDateTime(e.target.value)}
+                  onChange={(newIso) => setScheduledDateTime(newIso)}
                 />
-                <span style={{ fontSize: '11px', color: '#65676b', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Clock size={12} /> Server will trigger and publish at this exact minute.
-                </span>
               </div>
             </div>
           )}
