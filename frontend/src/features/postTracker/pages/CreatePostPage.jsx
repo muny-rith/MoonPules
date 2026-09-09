@@ -6,7 +6,6 @@ import { ProductPicker } from '../../product/component/ProductPicker';
 import { usePostTracker } from '../hooks/usePostTracker';
 import { useNavigate } from 'react-router-dom';
 import {
-  X,
   Send,
   Calendar,
   Image as ImageIcon,
@@ -20,20 +19,43 @@ import {
   FileText,
   Layers,
   Tag,
-  ArrowLeft
+  ArrowLeft,
+  Monitor,
+  Smartphone,
+  ChevronDown,
+  Smile,
+  Hash,
+  MapPin,
+  MessageCircle,
+  Phone,
+  MoreHorizontal,
+  ThumbsUp,
+  MessageSquare,
+  Share2,
+  Check,
+  X,
+  Images,
+  Trash2,
+  Edit2
 } from 'lucide-react';
-import { Skeleton } from '../../../shared/components/ui/Skeleton';
+import { MetaEmojiPicker } from '../components/MetaEmojiPicker';
+import '../postTracker.css';
 
 export const CreatePostPage = () => {
   const navigate = useNavigate();
   const { addPost } = usePostTracker();
-  
-  // Main tab mode: 'direct' (Create & Schedule) vs 'legacy' (Track existing post)
-  const [tabMode, setTabMode] = useState('direct');
 
-  // Shared state
+  // Layout states
+  const [previewDevice, setPreviewDevice] = useState('desktop'); // 'desktop' | 'mobile'
+  const [tabMode, setTabMode] = useState('direct'); // 'direct' | 'legacy'
+
+  // Data states
   const [pages, setPages] = useState([]);
-  const [pageId, setPageId] = useState('');
+  const [selectedPageIds, setSelectedPageIds] = useState([]);
+  const [isPageDropdownOpen, setIsPageDropdownOpen] = useState(false);
+  const [pageSearchQuery, setPageSearchQuery] = useState('');
+  const pageDropdownRef = useRef(null);
+
   const [productId, setProductId] = useState('');
   const [productsList, setProductsList] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -43,19 +65,18 @@ export const CreatePostPage = () => {
   const [adSpend, setAdSpend] = useState(0);
   const [attributionWindow, setAttributionWindow] = useState(7);
 
-  // 'direct' mode state
+  // Content
   const [message, setMessage] = useState('');
-  const [mediaSource, setMediaSource] = useState('product'); // 'product' | 'upload' | 'none'
-  const [customFile, setCustomFile] = useState(null);
-  const [customPreview, setCustomPreview] = useState('');
-  const [uploadedMediaUrl, setUploadedMediaUrl] = useState('');
-  const [uploadingImage, setUploadingImage] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [mediaSource, setMediaSource] = useState('upload'); // 'upload' | 'product' | 'none'
+  const [mediaItems, setMediaItems] = useState([]); // [{ id, file, previewUrl, serverUrl, dimensions, uploading }]
+  const editItemIndexRef = useRef(null);
   const [publishMode, setPublishMode] = useState('now'); // 'now' | 'schedule'
   const [scheduledDateTime, setScheduledDateTime] = useState('');
   const fileInputRef = useRef(null);
 
-  // 'legacy' mode state
-  const [legacyMode, setLegacyMode] = useState('paste'); // 'paste' | 'pick'
+  // Legacy FB Post tracking
+  const [legacyMode, setLegacyMode] = useState('paste');
   const [postUrl, setPostUrl] = useState('');
   const [parsedPostId, setParsedPostId] = useState(null);
   const [urlError, setUrlError] = useState('');
@@ -63,15 +84,24 @@ export const CreatePostPage = () => {
   const [loadingRecent, setLoadingRecent] = useState(false);
   const [selectedRecentPostId, setSelectedRecentPostId] = useState('');
 
-  // Submission state
+  // Submission
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
-  // Load pages and products
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (pageDropdownRef.current && !pageDropdownRef.current.contains(event.target)) {
+        setIsPageDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   useEffect(() => {
     loadPages();
     loadProducts();
-    // Set default scheduled time to 1 hour ahead in local time
     const nextHour = new Date(Date.now() + 60 * 60 * 1000);
     const localIso = new Date(nextHour.getTime() - nextHour.getTimezoneOffset() * 60000)
       .toISOString()
@@ -88,18 +118,20 @@ export const CreatePostPage = () => {
     }
   }, [productId, productsList]);
 
-  // Load recent posts if in legacy pick mode
   useEffect(() => {
-    if (tabMode === 'legacy' && legacyMode === 'pick' && pageId) {
+    if (tabMode === 'legacy' && legacyMode === 'pick' && selectedPageIds.length > 0) {
       loadRecentPosts();
     }
-  }, [tabMode, legacyMode, pageId]);
+  }, [tabMode, legacyMode, selectedPageIds]);
 
   const loadPages = async () => {
     try {
       const data = await api.fetchPages();
       setPages(data || []);
-      if (data && data.length > 0 && !pageId) setPageId(String(data[0].id));
+      // Automatically pre-select all connected pages so user can post to all in one click!
+      if (data && data.length > 0) {
+        setSelectedPageIds(data.map((p) => String(p.id)));
+      }
     } catch (err) {
       console.error('Failed to load pages', err);
     }
@@ -115,10 +147,12 @@ export const CreatePostPage = () => {
   };
 
   const loadRecentPosts = async () => {
+    const targetPageId = selectedPageIds[0];
+    if (!targetPageId) return;
     try {
       setLoadingRecent(true);
       setSelectedRecentPostId('');
-      const data = await api.fetchRecentPosts(pageId);
+      const data = await api.fetchRecentPosts(targetPageId);
       setRecentPosts(data?.data || []);
     } catch (err) {
       console.error('Failed to load recent posts', err);
@@ -128,24 +162,124 @@ export const CreatePostPage = () => {
     }
   };
 
-  const handleCustomFileChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleTogglePage = (pId) => {
+    const strId = String(pId);
+    setSelectedPageIds((prev) => {
+      if (prev.includes(strId)) {
+        if (prev.length === 1) return prev; // keep at least 1 account selected
+        return prev.filter((id) => id !== strId);
+      } else {
+        return [...prev, strId];
+      }
+    });
+  };
 
-    setCustomFile(file);
-    setCustomPreview(URL.createObjectURL(file));
-
-    // Upload to server immediately
-    try {
-      setUploadingImage(true);
-      const res = await api.uploadPostImage(file);
-      setUploadedMediaUrl(res.url);
-    } catch (err) {
-      console.error('Failed to upload image:', err);
-      alert('Failed to upload image. Please try again.');
-    } finally {
-      setUploadingImage(false);
+  const handleToggleSelectAllPages = () => {
+    if (selectedPageIds.length === pages.length) {
+      if (pages.length > 0) setSelectedPageIds([String(pages[0].id)]);
+    } else {
+      setSelectedPageIds(pages.map((p) => String(p.id)));
     }
+  };
+
+  const handleRemovePageTag = (e, pId) => {
+    e.stopPropagation();
+    handleTogglePage(pId);
+  };
+
+  const getImageDimensions = (file) => {
+    return new Promise((resolve) => {
+      if (!file || !file.type.startsWith('image/')) {
+        resolve('Video');
+        return;
+      }
+      const img = new Image();
+      img.onload = () => {
+        resolve(`${img.naturalWidth} x ${img.naturalHeight}`);
+      };
+      img.onerror = () => resolve('Image');
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  const handleFileSelect = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    e.target.value = '';
+
+    setMediaSource('upload');
+
+    if (editItemIndexRef.current !== null) {
+      const index = editItemIndexRef.current;
+      editItemIndexRef.current = null;
+      const file = files[0];
+      const previewUrl = URL.createObjectURL(file);
+      const dimensions = await getImageDimensions(file);
+      const itemId = `${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+
+      setMediaItems((prev) => {
+        const updated = [...prev];
+        updated[index] = {
+          id: itemId,
+          file,
+          previewUrl,
+          serverUrl: '',
+          dimensions,
+          uploading: true,
+        };
+        return updated;
+      });
+
+      try {
+        const res = await api.uploadPostImage(file);
+        setMediaItems((prev) =>
+          prev.map((it) => (it.id === itemId ? { ...it, serverUrl: res.url, uploading: false } : it))
+        );
+      } catch (err) {
+        console.error('Failed to upload image:', err);
+        setMediaItems((prev) =>
+          prev.map((it) => (it.id === itemId ? { ...it, uploading: false, error: true } : it))
+        );
+      }
+      return;
+    }
+
+    const newItems = await Promise.all(
+      files.map(async (file) => {
+        const previewUrl = URL.createObjectURL(file);
+        const dimensions = await getImageDimensions(file);
+        return {
+          id: `${Date.now()}_${Math.random().toString(36).substr(2, 7)}`,
+          file,
+          previewUrl,
+          serverUrl: '',
+          dimensions,
+          uploading: true,
+        };
+      })
+    );
+
+    setMediaItems((prev) => [...prev, ...newItems]);
+
+    for (const item of newItems) {
+      api
+        .uploadPostImage(item.file)
+        .then((res) => {
+          setMediaItems((prev) =>
+            prev.map((it) => (it.id === item.id ? { ...it, serverUrl: res.url, uploading: false } : it))
+          );
+        })
+        .catch((err) => {
+          console.error('Failed to upload item', err);
+          setMediaItems((prev) =>
+            prev.map((it) => (it.id === item.id ? { ...it, uploading: false, error: true } : it))
+          );
+        });
+    }
+  };
+
+  const handleRemoveMediaItem = (itemId) => {
+    setMediaItems((prev) => prev.filter((it) => it.id !== itemId));
   };
 
   const handleInsertProductName = () => {
@@ -153,98 +287,97 @@ export const CreatePostPage = () => {
     setMessage((prev) => (prev ? `${prev} ${selectedProduct.product_name}` : selectedProduct.product_name));
   };
 
+  const handleAddHashtag = () => {
+    setMessage((prev) => (prev ? `${prev} #deal` : '#deal'));
+  };
+
+  const handleAddEmoji = () => {
+    setShowEmojiPicker((prev) => !prev);
+  };
+
+  const handleSelectEmoji = (emoji) => {
+    setMessage((prev) => (prev ? `${prev} ${emoji}` : emoji));
+  };
+
   const handleUrlChange = (value) => {
     setPostUrl(value);
     const trimmed = value.trim();
-    if (!trimmed) {
-      setParsedPostId(null);
-      setUrlError('');
-      return;
-    }
-
-    if (/^\d+_\d+$/.test(trimmed)) {
-      setParsedPostId(trimmed);
-      setUrlError('');
-      return;
-    }
-
+    if (!trimmed) { setParsedPostId(null); setUrlError(''); return; }
+    if (/^\d+_\d+$/.test(trimmed)) { setParsedPostId(trimmed); setUrlError(''); return; }
     if (/^\d+$/.test(trimmed)) {
-      const page = pages.find((p) => String(p.id) === String(pageId));
-      if (page?.fb_page_id) {
-        setParsedPostId(`${page.fb_page_id}_${trimmed}`);
-        setUrlError('');
-      } else {
-        setParsedPostId(null);
-        setUrlError('Select a page first.');
-      }
+      const page = pages.find((p) => String(p.id) === String(selectedPageIds[0]));
+      if (page?.fb_page_id) { setParsedPostId(`${page.fb_page_id}_${trimmed}`); setUrlError(''); }
+      else { setParsedPostId(null); setUrlError('Select a page first.'); }
       return;
     }
-
     const parsed = parseFbPostUrl(trimmed);
-    if (parsed) {
-      setParsedPostId(parsed);
-      setUrlError('');
-    } else {
-      setParsedPostId(null);
-      setUrlError("Couldn't recognize link. Paste standard Facebook URL or {pageId}_{postId}.");
-    }
+    if (parsed) { setParsedPostId(parsed); setUrlError(''); }
+    else { setParsedPostId(null); setUrlError("Couldn't recognize link. Paste standard Facebook URL or {pageId}_{postId}."); }
   };
 
   const handleSubmit = async () => {
-    if (!productId || !pageId) {
-      setSubmitError('Please select both a Product and a Facebook Page.');
+    if (!productId || selectedPageIds.length === 0) {
+      setSubmitError('Please select both a Product and at least one Facebook Page.');
       return;
     }
-
     setSubmitting(true);
     setSubmitError('');
-
     try {
       if (tabMode === 'direct') {
         let finalMediaUrl = null;
         if (mediaSource === 'product') {
           finalMediaUrl = selectedProduct?.image_url || null;
         } else if (mediaSource === 'upload') {
-          finalMediaUrl = uploadedMediaUrl || null;
-          if (!finalMediaUrl && customFile) {
-            setSubmitError('Please wait for image upload to complete.');
+          if (mediaItems.some((m) => m.uploading)) {
+            setSubmitError('Please wait for all media to finish uploading.');
             setSubmitting(false);
             return;
           }
+          if (mediaItems.length === 1) {
+            finalMediaUrl = mediaItems[0].serverUrl || null;
+          } else if (mediaItems.length > 1) {
+            const urls = mediaItems.map((m) => m.serverUrl).filter(Boolean);
+            finalMediaUrl = JSON.stringify(urls);
+          }
         }
-
-        await addPost({
-          mode: 'schedule',
-          product_id: parseInt(productId, 10),
-          page_id: parseInt(pageId, 10),
-          message: message.trim(),
-          media_url: finalMediaUrl,
-          publish_now: publishMode === 'now',
-          scheduled_time: publishMode === 'schedule' ? new Date(scheduledDateTime).toISOString() : null,
-          content_cost: parseFloat(contentCost) || 0,
-          ad_spend: parseFloat(adSpend) || 0,
-          attribution_window_days: parseInt(attributionWindow, 10) || 7,
-        });
+        // Post/Schedule to all selected Facebook pages in parallel
+        await Promise.all(
+          selectedPageIds.map((pId) =>
+            api.createPost({
+              mode: 'schedule',
+              product_id: parseInt(productId, 10),
+              page_id: parseInt(pId, 10),
+              message: message.trim(),
+              media_url: finalMediaUrl,
+              publish_now: publishMode === 'now',
+              scheduled_time: publishMode === 'schedule' ? new Date(scheduledDateTime).toISOString() : null,
+              content_cost: parseFloat(contentCost) || 0,
+              ad_spend: parseFloat(adSpend) || 0,
+              attribution_window_days: parseInt(attributionWindow, 10) || 7,
+            })
+          )
+        );
       } else {
-        // Legacy Mode
         const fbPostId = legacyMode === 'pick' ? selectedRecentPostId : parsedPostId;
         if (!fbPostId) {
           setSubmitError('Please select or paste a valid Facebook Post ID.');
           setSubmitting(false);
           return;
         }
-
-        await addPost({
-          mode: 'legacy',
-          product_id: parseInt(productId, 10),
-          page_id: parseInt(pageId, 10),
-          fb_post_id: fbPostId,
-          content_cost: parseFloat(contentCost) || 0,
-          ad_spend: parseFloat(adSpend) || 0,
-          attribution_window_days: parseInt(attributionWindow, 10) || 7,
-        });
+        await Promise.all(
+          selectedPageIds.map((pId) =>
+            api.createPost({
+              mode: 'legacy',
+              product_id: parseInt(productId, 10),
+              page_id: parseInt(pId, 10),
+              fb_post_id: fbPostId,
+              content_cost: parseFloat(contentCost) || 0,
+              ad_spend: parseFloat(adSpend) || 0,
+              attribution_window_days: parseInt(attributionWindow, 10) || 7,
+            })
+          )
+        );
       }
-
       navigate('/tasks');
     } catch (err) {
       console.error('Submission error:', err);
@@ -254,633 +387,807 @@ export const CreatePostPage = () => {
     }
   };
 
-  const handleCancel = () => {
-    navigate('/tasks');
-  };
+  const handleCancel = () => navigate('/tasks');
+
+  // Resolved active Facebook Page(s)
+  const selectedPages = pages.filter((p) => selectedPageIds.includes(String(p.id)));
+  const primaryPage = selectedPages[0] || pages[0] || null;
+  const pageDisplayName = primaryPage ? primaryPage.page_name : 'Mae Khon Baby Mart';
+  const filteredPages = pages.filter((p) =>
+    (p.page_name || '').toLowerCase().includes(pageSearchQuery.toLowerCase())
+  );
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
-        <button
-          onClick={handleCancel}
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            color: '#64748b',
-            marginRight: '16px'
-          }}
-        >
-          <ArrowLeft size={20} />
-        </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ background: '#e0e7ff', padding: '10px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Send size={24} color="#4f46e5" />
-          </div>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 700, color: '#1e293b' }}>Create & Schedule Post</h1>
-            <p style={{ margin: 0, fontSize: '14px', color: '#64748b' }}>Design, preview, and manage your Facebook posts easily.</p>
+    <div className="meta-post-page">
+      {/* ── Top Navigation Bar ── */}
+      <div className="meta-top-nav">
+        <div className="meta-top-nav-left">
+          <button type="button" onClick={handleCancel} className="meta-back-btn" title="Back to tasks">
+            <ArrowLeft size={18} />
+          </button>
+          <h1 className="meta-page-title">Create post</h1>
+        </div>
+        <div className="meta-top-nav-right">
+          <span className="meta-preview-title">Facebook Feed preview</span>
+          <div className="meta-device-toggles">
+            <button
+              type="button"
+              className={`meta-device-btn ${previewDevice === 'desktop' ? 'active' : ''}`}
+              onClick={() => setPreviewDevice('desktop')}
+              title="Desktop preview"
+            >
+              <Monitor size={16} />
+            </button>
+            <button
+              type="button"
+              className={`meta-device-btn ${previewDevice === 'mobile' ? 'active' : ''}`}
+              onClick={() => setPreviewDevice('mobile')}
+              title="Mobile preview"
+            >
+              <Smartphone size={16} />
+            </button>
           </div>
         </div>
       </div>
 
-      <div className="table-card" style={{ padding: '32px', backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
-        {/* Primary Tab Switcher */}
-        <div
-          style={{
-            display: 'flex',
-            gap: '8px',
-            background: '#f1f5f9',
-            padding: '6px',
-            borderRadius: '12px',
-            marginBottom: '24px',
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => setTabMode('direct')}
-            style={{
-              flex: 1,
-              padding: '12px 16px',
-              borderRadius: '8px',
-              border: 'none',
-              fontSize: '14px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              background: tabMode === 'direct' ? '#ffffff' : 'transparent',
-              color: tabMode === 'direct' ? '#4f46e5' : '#64748b',
-              boxShadow: tabMode === 'direct' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-              transition: 'all 0.2s',
-            }}
-          >
-            <Sparkles size={16} /> Publish / Schedule Direct
-          </button>
-          <button
-            type="button"
-            onClick={() => setTabMode('legacy')}
-            style={{
-              flex: 1,
-              padding: '12px 16px',
-              borderRadius: '8px',
-              border: 'none',
-              fontSize: '14px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              background: tabMode === 'legacy' ? '#ffffff' : 'transparent',
-              color: tabMode === 'legacy' ? '#4f46e5' : '#64748b',
-              boxShadow: tabMode === 'legacy' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-              transition: 'all 0.2s',
-            }}
-          >
-            <Link2 size={16} /> Track Existing FB Post
-          </button>
-        </div>
+      {/* ── Two-Column Main Layout ── */}
+      <div className="meta-layout-row">
 
-        {/* 1. Target Page & Product (Shared) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
-          <div className="modal-form-group">
-            <label className="modal-label" style={{ fontWeight: 600, color: '#334155' }}>Facebook Page</label>
-            <div className="custom-select-wrap">
-              <Globe size={18} className="select-icon" style={{ color: '#4f46e5' }} />
-              <select
-                value={pageId}
-                onChange={(e) => setPageId(e.target.value)}
-                className="custom-select modal-select"
-                style={{ padding: '12px 16px 12px 40px', borderRadius: '10px', border: '1px solid #cbd5e1', width: '100%' }}
+        {/* ══════════════════════════════════════════════════
+            LEFT COLUMN: Meta Business Suite Editor Panel
+            ══════════════════════════════════════════════════ */}
+        <div className="meta-editor-col">
+
+
+          {/* Mode Switcher: Direct Publish vs Track Existing FB Post */}
+          <div className="meta-tab-switcher">
+            <button
+              type="button"
+              className={`meta-tab-btn ${tabMode === 'direct' ? 'active' : ''}`}
+              onClick={() => setTabMode('direct')}
+            >
+              <Sparkles size={15} /> Publish / Schedule Direct
+            </button>
+            <button
+              type="button"
+              className={`meta-tab-btn ${tabMode === 'legacy' ? 'active' : ''}`}
+              onClick={() => setTabMode('legacy')}
+            >
+              <Link2 size={15} /> Track Existing FB Post
+            </button>
+          </div>
+
+          {/* 2. Card: Post to */}
+          <div className="meta-card">
+            <div className="meta-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 className="meta-card-title">Post to</h3>
+                <p className="meta-card-desc">Select Facebook accounts to publish or schedule</p>
+              </div>
+              {pages.length > 1 && (
+                <button
+                  type="button"
+                  className="meta-select-all-btn"
+                  onClick={handleToggleSelectAllPages}
+                >
+                  {selectedPageIds.length === pages.length ? 'Deselect all' : 'Select all accounts'}
+                </button>
+              )}
+            </div>
+
+            <div className="meta-multi-select-wrap" ref={pageDropdownRef}>
+              <div
+                className={`meta-multi-select-trigger ${isPageDropdownOpen ? 'active' : ''}`}
+                onClick={() => setIsPageDropdownOpen(!isPageDropdownOpen)}
               >
-                {pages.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.page_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="modal-form-group">
-            <label className="modal-label" style={{ fontWeight: 600, color: '#334155' }}>Product (Moon IMS)</label>
-            <ProductPicker
-              value={productId}
-              onChange={(val) => setProductId(val)}
-              placeholder="Search product..."
-            />
-          </div>
-        </div>
-
-        {/* TAB 1: DIRECT SCHEDULING / PUBLISHING */}
-        {tabMode === 'direct' && (
-          <div style={{ background: '#fafaf9', padding: '24px', borderRadius: '12px', border: '1px solid #f3f4f6', marginBottom: '24px' }}>
-            {/* Caption & Message */}
-            <div className="modal-form-group" style={{ marginBottom: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <label className="modal-label" style={{ margin: 0, fontWeight: 600, color: '#334155' }}>Post Caption / Message</label>
-                {selectedProduct && (
-                  <button
-                    type="button"
-                    onClick={handleInsertProductName}
-                    style={{
-                      border: 'none',
-                      background: '#e0e7ff',
-                      color: '#4f46e5',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      padding: '4px 10px',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      transition: 'background 0.2s'
-                    }}
-                  >
-                    <Tag size={12} /> + Insert Product Name
-                  </button>
-                )}
-              </div>
-              <textarea
-                className="modal-text-input"
-                rows="4"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Write your Facebook post caption here..."
-                style={{ resize: 'vertical', width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '14px' }}
-              />
-            </div>
-
-            {/* Media Source Selector */}
-            <div className="modal-form-group" style={{ marginBottom: '20px' }}>
-              <label className="modal-label" style={{ fontWeight: 600, color: '#334155', marginBottom: '8px', display: 'block' }}>Media Attachment</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-                <button
-                  type="button"
-                  onClick={() => setMediaSource('product')}
-                  style={{
-                    padding: '12px 8px',
-                    borderRadius: '10px',
-                    border: mediaSource === 'product' ? '2px solid #4f46e5' : '1px solid #cbd5e1',
-                    background: mediaSource === 'product' ? '#eef2ff' : '#ffffff',
-                    color: mediaSource === 'product' ? '#3730a3' : '#475569',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <Layers size={16} /> Product Image
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMediaSource('upload')}
-                  style={{
-                    padding: '12px 8px',
-                    borderRadius: '10px',
-                    border: mediaSource === 'upload' ? '2px solid #4f46e5' : '1px solid #cbd5e1',
-                    background: mediaSource === 'upload' ? '#eef2ff' : '#ffffff',
-                    color: mediaSource === 'upload' ? '#3730a3' : '#475569',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <Upload size={16} /> Custom Upload
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMediaSource('none')}
-                  style={{
-                    padding: '12px 8px',
-                    borderRadius: '10px',
-                    border: mediaSource === 'none' ? '2px solid #4f46e5' : '1px solid #cbd5e1',
-                    background: mediaSource === 'none' ? '#eef2ff' : '#ffffff',
-                    color: mediaSource === 'none' ? '#3730a3' : '#475569',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <FileText size={16} /> Text Only
-                </button>
-              </div>
-
-              {/* Media Preview / Upload Dropzone */}
-              {mediaSource === 'product' && (
-                <div
-                  style={{
-                    border: '1px dashed #94a3b8',
-                    borderRadius: '10px',
-                    padding: '16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '16px',
-                    background: '#ffffff',
-                  }}
-                >
-                  {selectedProduct?.image_url ? (
+                <div className="meta-selected-pages-display">
+                  {selectedPages.length === 0 ? (
+                    <span style={{ color: '#8a8d91', fontSize: '14px' }}>Select Facebook page(s)...</span>
+                  ) : (
                     <>
-                      <img
-                        src={selectedProduct.image_url}
-                        alt="Product Preview"
-                        style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
-                      />
-                      <div style={{ fontSize: '14px', color: '#334155' }}>
-                        <div style={{ fontWeight: 700 }}>Using Moon IMS Product Image</div>
-                        <div style={{ color: '#64748b', fontSize: '13px', marginTop: '4px' }}>{selectedProduct.product_name}</div>
-                      </div>
+                      {selectedPages.slice(0, 2).map((page) => (
+                        <div key={page.id} className="meta-page-tag">
+                          {page.picture_url ? (
+                            <img
+                              src={page.picture_url}
+                              alt={page.page_name}
+                              className="meta-page-avatar-img"
+                              style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }}
+                            />
+                          ) : (
+                            <div className="meta-page-avatar" style={{ width: '20px', height: '20px', fontSize: '11px' }}>
+                              {page.page_name?.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <span style={{ maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {page.page_name}
+                          </span>
+                          {selectedPages.length > 1 && (
+                            <span
+                              className="meta-page-tag-remove"
+                              onClick={(e) => handleRemovePageTag(e, page.id)}
+                              title="Remove"
+                            >
+                              <X size={12} />
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                      {selectedPages.length > 2 && (
+                        <span className="meta-page-badge-pill">
+                          +{selectedPages.length - 2} more
+                        </span>
+                      )}
                     </>
-                  ) : (
-                    <div style={{ fontSize: '14px', color: '#94a3b8', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <AlertCircle size={16} /> Select a product above to preview its catalog image.
-                    </div>
                   )}
                 </div>
-              )}
-
-              {mediaSource === 'upload' && (
-                <div
+                <ChevronDown
+                  size={16}
+                  color="#65676b"
                   style={{
-                    border: '1px dashed #94a3b8',
-                    borderRadius: '10px',
-                    padding: '24px',
-                    textAlign: 'center',
-                    background: '#ffffff',
+                    transform: isPageDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.2s ease',
+                    flexShrink: 0,
+                    marginLeft: '8px'
                   }}
-                >
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleCustomFileChange}
-                    accept="image/*,video/*"
-                    style={{ display: 'none' }}
-                  />
-                  {customPreview ? (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
-                      <img
-                        src={customPreview}
-                        alt="Custom upload"
-                        style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
-                      />
-                      <div style={{ textAlign: 'left' }}>
-                        <div style={{ fontSize: '14px', fontWeight: 600, color: '#334155' }}>
-                          {customFile?.name}
-                        </div>
-                        {uploadingImage ? (
-                          <span style={{ fontSize: '13px', color: '#4f46e5', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <div className="spin-animation"><Clock size={12} /></div> Uploading...
-                          </span>
-                        ) : (
-                          <span style={{ fontSize: '13px', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <CheckCircle2 size={12} /> Upload ready
-                          </span>
-                        )}
-                        <div style={{ marginTop: '8px' }}>
-                          <button
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            style={{
-                              border: '1px solid #cbd5e1',
-                              background: '#f1f5f9',
-                              color: '#334155',
-                              fontSize: '12px',
-                              cursor: 'pointer',
-                              padding: '4px 10px',
-                              borderRadius: '4px',
-                              fontWeight: 500
-                            }}
-                          >
-                            Change image
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                      <div style={{ background: '#f1f5f9', padding: '12px', borderRadius: '50%', marginBottom: '12px' }}>
-                        <Upload size={24} color="#64748b" />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        style={{
-                          padding: '8px 16px',
-                          borderRadius: '8px',
-                          border: 'none',
-                          background: '#e0e7ff',
-                          fontSize: '14px',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          color: '#4f46e5',
-                        }}
-                      >
-                         Browse Files
-                      </button>
-                      <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '8px' }}>
-                        Supports JPG, PNG, WEBP up to 50MB
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Timing Options: Publish Now vs Schedule */}
-            <div className="modal-form-group">
-              <label className="modal-label" style={{ fontWeight: 600, color: '#334155', marginBottom: '8px', display: 'block' }}>Publish Timing</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-                <button
-                  type="button"
-                  onClick={() => setPublishMode('now')}
-                  style={{
-                    padding: '12px 16px',
-                    borderRadius: '10px',
-                    border: publishMode === 'now' ? '2px solid #10b981' : '1px solid #cbd5e1',
-                    background: publishMode === 'now' ? '#ecfdf5' : '#ffffff',
-                    color: publishMode === 'now' ? '#047857' : '#475569',
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <Send size={16} /> Publish Immediately
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPublishMode('schedule')}
-                  style={{
-                    padding: '12px 16px',
-                    borderRadius: '10px',
-                    border: publishMode === 'schedule' ? '2px solid #4f46e5' : '1px solid #cbd5e1',
-                    background: publishMode === 'schedule' ? '#eef2ff' : '#ffffff',
-                    color: publishMode === 'schedule' ? '#3730a3' : '#475569',
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <Clock size={16} /> Schedule for Later
-                </button>
-              </div>
-
-              {publishMode === 'schedule' && (
-                <div style={{ marginTop: '16px', background: '#ffffff', padding: '16px', borderRadius: '10px', border: '1px solid #cbd5e1' }}>
-                  <label style={{ fontSize: '13px', color: '#475569', display: 'block', marginBottom: '8px', fontWeight: 600 }}>
-                    Select Exact Date & Time (High Precision)
-                  </label>
-                  <input
-                    type="datetime-local"
-                    className="modal-text-input"
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
-                    value={scheduledDateTime}
-                    onChange={(e) => setScheduledDateTime(e.target.value)}
-                  />
-                  <span style={{ fontSize: '12px', color: '#64748b', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <AlertCircle size={14} /> Server will trigger and publish to Facebook at this exact scheduled second.
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 2: LEGACY TRACKING */}
-        {tabMode === 'legacy' && (
-          <div className="modal-form-group" style={{ background: '#fafaf9', padding: '24px', borderRadius: '12px', border: '1px solid #f3f4f6', marginBottom: '24px' }}>
-            <label className="modal-label" style={{ fontWeight: 600, color: '#334155', marginBottom: '12px', display: 'block' }}>Choose Published Post</label>
-            <div className="modal-tabs" style={{ marginBottom: '16px', display: 'flex', gap: '8px' }}>
-              <button
-                type="button"
-                onClick={() => setLegacyMode('paste')}
-                className={`modal-tab-btn ${legacyMode === 'paste' ? 'active' : ''}`}
-                style={{ flex: 1, padding: '10px', borderRadius: '8px', background: legacyMode === 'paste' ? '#e0e7ff' : '#ffffff', color: legacyMode === 'paste' ? '#4f46e5' : '#475569', border: legacyMode === 'paste' ? '1px solid #4f46e5' : '1px solid #cbd5e1', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-              >
-                <Link2 size={16} /> Paste Link or Post ID
-              </button>
-              <button
-                type="button"
-                onClick={() => setLegacyMode('pick')}
-                className={`modal-tab-btn ${legacyMode === 'pick' ? 'active' : ''}`}
-                style={{ flex: 1, padding: '10px', borderRadius: '8px', background: legacyMode === 'pick' ? '#e0e7ff' : '#ffffff', color: legacyMode === 'pick' ? '#4f46e5' : '#475569', border: legacyMode === 'pick' ? '1px solid #4f46e5' : '1px solid #cbd5e1', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-              >
-                <Globe size={16} /> Pick from Recent Posts
-              </button>
-            </div>
-
-            {legacyMode === 'paste' ? (
-              <div style={{ background: '#ffffff', padding: '16px', borderRadius: '10px', border: '1px solid #cbd5e1' }}>
-                <input
-                  type="text"
-                  className="modal-text-input"
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
-                  placeholder="e.g. https://facebook.com/posts/12345 or {pageId}_{postId}"
-                  value={postUrl}
-                  onChange={(e) => handleUrlChange(e.target.value)}
                 />
-                {parsedPostId && (
-                  <div style={{ fontSize: '13px', color: '#16a34a', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500 }}>
-                    <CheckCircle2 size={16} /> Recognized Post ID: <code>{parsedPostId}</code>
-                  </div>
-                )}
-                {urlError && (
-                  <div style={{ fontSize: '13px', color: '#ef4444', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500 }}>
-                    <AlertCircle size={16} /> {urlError}
-                  </div>
-                )}
               </div>
-            ) : (
-              <div style={{ background: '#ffffff', padding: '16px', borderRadius: '10px', border: '1px solid #cbd5e1' }}>
-                {loadingRecent ? (
-                  <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                    <div className="spin-animation"><Clock size={16} /></div> Loading recent Facebook posts...
+
+              {isPageDropdownOpen && (
+                <div className="meta-multi-select-menu">
+                  <div className="meta-multi-select-header">
+                    <span className="meta-multi-select-title">
+                      Connected Accounts ({selectedPageIds.length}/{pages.length})
+                    </span>
+                    <button
+                      type="button"
+                      className="meta-select-all-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleSelectAllPages();
+                      }}
+                    >
+                      {selectedPageIds.length === pages.length ? 'Clear' : 'Select all'}
+                    </button>
                   </div>
-                ) : (
-                  <div style={{ maxHeight: '240px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px' }}>
-                    {recentPosts.map((p) => {
-                      const isSel = selectedRecentPostId === p.id;
+
+                  {pages.length > 3 && (
+                    <div className="meta-multi-select-search">
+                      <input
+                        type="text"
+                        placeholder="Search accounts..."
+                        value={pageSearchQuery}
+                        onChange={(e) => setPageSearchQuery(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="meta-page-search-input"
+                      />
+                    </div>
+                  )}
+
+                  <div className="meta-multi-select-list">
+                    {filteredPages.map((p) => {
+                      const isChecked = selectedPageIds.includes(String(p.id));
                       return (
                         <div
                           key={p.id}
-                          onClick={() => setSelectedRecentPostId(p.id)}
-                          style={{
-                            padding: '12px 16px',
-                            borderRadius: '8px',
-                            border: isSel ? '2px solid #4f46e5' : '1px solid #e2e8f0',
-                            background: isSel ? '#eef2ff' : '#ffffff',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            transition: 'all 0.2s'
+                          className={`meta-page-option-row ${isChecked ? 'selected' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleTogglePage(p.id);
                           }}
                         >
-                          <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '14px', marginBottom: '4px' }}>
-                            {p.message ? p.message.slice(0, 80) + '...' : <span style={{ fontStyle: 'italic', color: '#94a3b8' }}>(No text caption)</span>}
+                          <div className="meta-option-left">
+                            <div className={`meta-checkbox ${isChecked ? 'checked' : ''}`}>
+                              {isChecked && <Check size={12} strokeWidth={3} />}
+                            </div>
+                            {p.picture_url ? (
+                              <img
+                                src={p.picture_url}
+                                alt={p.page_name}
+                                className="meta-page-avatar-img"
+                                style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                              />
+                            ) : (
+                              <div className="meta-page-avatar">
+                                {p.page_name?.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <span style={{ fontSize: '13.5px', fontWeight: 600, color: '#050505' }}>
+                              {p.page_name}
+                            </span>
                           </div>
-                          <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', justifyContent: 'space-between' }}>
-                            <span>{new Date(p.created_time).toLocaleString()}</span>
-                            <span style={{ fontFamily: 'monospace' }}>ID: {p.id}</span>
-                          </div>
+                          {p.category && (
+                            <span style={{ fontSize: '12px', color: '#65676b' }}>
+                              {p.category}
+                            </span>
+                          )}
                         </div>
                       );
                     })}
                   </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 3. Card: Linked Product (Moon IMS) */}
+          <div className="meta-card">
+            <div className="meta-card-header">
+              <h3 className="meta-card-title">Linked Product (Moon IMS)</h3>
+              <p className="meta-card-desc">Connect inventory for sales and ROI attribution</p>
+            </div>
+            <ProductPicker
+              value={productId}
+              onChange={(val) => setProductId(val)}
+              placeholder="Search product from catalog..."
+            />
+          </div>
+
+          {/* 4. Card: Media */}
+          {tabMode === 'direct' && (
+            <div className="meta-card">
+              <div className="meta-card-header">
+                <h3 className="meta-card-title">Media</h3>
+                <p className="meta-card-desc">Share photos and videos.</p>
+              </div>
+
+              {/* Media Selection Chips */}
+              <div className="meta-media-chips">
+                <button
+                  type="button"
+                  onClick={() => { setMediaSource('upload'); fileInputRef.current?.click(); }}
+                  className={`meta-chip-btn ${mediaSource === 'upload' ? 'active' : ''}`}
+                >
+                  <ImageIcon size={14} /> Custom Upload
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMediaSource('product')}
+                  className={`meta-chip-btn ${mediaSource === 'product' ? 'active' : ''}`}
+                >
+                  <Layers size={14} /> Product Image
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMediaSource('none')}
+                  className={`meta-chip-btn ${mediaSource === 'none' ? 'active' : ''}`}
+                >
+                  <FileText size={14} /> Text Only
+                </button>
+              </div>
+
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                accept="image/*,video/*"
+                multiple
+                style={{ display: 'none' }}
+              />
+
+              {/* Active Media Preview Box */}
+              {mediaSource === 'product' && (
+                <div className="meta-media-preview-box">
+                  {selectedProduct?.image_url ? (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <img src={selectedProduct.image_url} alt="Product preview" className="meta-media-thumb" />
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#050505' }}>{selectedProduct.product_name}</div>
+                          <div style={{ fontSize: '11px', color: '#65676b' }}>From Moon IMS Catalog</div>
+                        </div>
+                      </div>
+                      <span style={{ fontSize: '12px', color: '#1877f2', fontWeight: 600 }}>Linked</span>
+                    </>
+                  ) : (
+                    <div style={{ fontSize: '12px', color: '#65676b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <AlertCircle size={14} /> Select a product above to attach its image.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Active Media: Custom Upload (Meta Multi-Upload List) */}
+              {mediaSource === 'upload' && (
+                <div>
+                  {mediaItems.length > 0 && (
+                    <div className="meta-media-items-list">
+                      {mediaItems.map((item, idx) => (
+                        <div key={item.id} className="meta-media-row-item">
+                          <div className="meta-media-row-left">
+                            <img
+                              src={item.previewUrl}
+                              alt="Media item"
+                              className="meta-media-square-thumb"
+                            />
+                            <div>
+                              <div className="meta-media-dim-label">
+                                {item.dimensions || 'Image'}
+                              </div>
+                              <div style={{ fontSize: '11px', color: item.uploading ? '#1877f2' : '#16a34a' }}>
+                                {item.uploading ? 'Uploading...' : '✓ Ready'}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="meta-media-row-actions">
+                            <button
+                              type="button"
+                              className="meta-media-icon-btn"
+                              title="Edit / Change photo"
+                              onClick={() => {
+                                editItemIndexRef.current = idx;
+                                fileInputRef.current?.click();
+                              }}
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button
+                              type="button"
+                              className="meta-media-icon-btn delete"
+                              title="Delete photo"
+                              onClick={() => handleRemoveMediaItem(item.id)}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add photo/video button */}
+                  <div style={{ marginTop: mediaItems.length > 0 ? '12px' : '6px' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        editItemIndexRef.current = null;
+                        fileInputRef.current?.click();
+                      }}
+                      className="meta-media-add-btn"
+                    >
+                      <Images size={16} />
+                      <span>Add photo/video</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 4. Card: Post details (Textarea + Action Toolbar) */}
+          {tabMode === 'direct' && (
+            <div className="meta-card">
+              <div style={{ marginBottom: '8px', fontSize: '13px', fontWeight: 600, color: '#050505' }}>
+                Text
+              </div>
+
+              <div className="meta-textarea-box">
+                <textarea
+                  className="meta-textarea"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Write something..."
+                />
+                <div className="meta-textarea-toolbar">
+                  <div className="meta-toolbar-left">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="meta-toolbar-btn"
+                      title="Add photo"
+                    >
+                      <ImageIcon size={16} />
+                    </button>
+                    {selectedProduct && (
+                      <button
+                        type="button"
+                        onClick={handleInsertProductName}
+                        className="meta-tag-insert-btn"
+                        title="Insert linked product name"
+                      >
+                        <Tag size={11} /> + Insert Product
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <button
+                      type="button"
+                      onClick={handleAddHashtag}
+                      className="meta-toolbar-btn"
+                      title="Add hashtag"
+                    >
+                      <Hash size={16} />
+                    </button>
+                    <div className="meta-emoji-picker-container">
+                      <button
+                        type="button"
+                        onClick={handleAddEmoji}
+                        className={`meta-toolbar-btn ${showEmojiPicker ? 'active' : ''}`}
+                        title="Add emoji"
+                      >
+                        <Smile size={16} />
+                      </button>
+
+                      {showEmojiPicker && (
+                        <MetaEmojiPicker
+                          onSelectEmoji={handleSelectEmoji}
+                          onClose={() => setShowEmojiPicker(false)}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Quick Action Icons Row */}
+              <div className="meta-quick-actions-row">
+                <button type="button" className="meta-quick-icon-btn" title="Add location"><MapPin size={16} /></button>
+                <button type="button" className="meta-quick-icon-btn" title="Get messages"><MessageCircle size={16} /></button>
+                <button type="button" className="meta-quick-icon-btn" title="Call now button"><Phone size={16} /></button>
+                <button type="button" className="meta-quick-icon-btn" title="More options"><MoreHorizontal size={16} /></button>
+              </div>
+            </div>
+          )}
+
+          {/* Legacy FB Post Picker / Paste */}
+          {tabMode === 'legacy' && (
+            <div className="meta-card">
+              <div className="meta-card-header">
+                <h3 className="meta-card-title">Choose Existing Facebook Post</h3>
+                <p className="meta-card-desc">Connect an already published Facebook post to track attribution</p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+                <button
+                  type="button"
+                  onClick={() => setLegacyMode('paste')}
+                  className={`meta-chip-btn ${legacyMode === 'paste' ? 'active' : ''}`}
+                >
+                  <Link2 size={14} /> Paste Link or Post ID
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLegacyMode('pick')}
+                  className={`meta-chip-btn ${legacyMode === 'pick' ? 'active' : ''}`}
+                >
+                  <Globe size={14} /> Pick from Recent Posts
+                </button>
+              </div>
+
+              {legacyMode === 'paste' ? (
+                <div>
+                  <input
+                    type="text"
+                    className="meta-datetime-input"
+                    placeholder="e.g. https://facebook.com/posts/12345 or {pageId}_{postId}"
+                    value={postUrl}
+                    onChange={(e) => handleUrlChange(e.target.value)}
+                  />
+                  {parsedPostId && (
+                    <div style={{ fontSize: '12px', color: '#16a34a', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <CheckCircle2 size={14} /> Recognized Post ID: <code>{parsedPostId}</code>
+                    </div>
+                  )}
+                  {urlError && (
+                    <div style={{ fontSize: '12px', color: '#ef4444', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <AlertCircle size={14} /> {urlError}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  {loadingRecent ? (
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#65676b', fontSize: '13px' }}>
+                      Loading recent Facebook posts...
+                    </div>
+                  ) : (
+                    <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {recentPosts.map((p) => {
+                        const isSel = selectedRecentPostId === p.id;
+                        return (
+                          <div
+                            key={p.id}
+                            onClick={() => setSelectedRecentPostId(p.id)}
+                            style={{
+                              padding: '10px 12px',
+                              borderRadius: '6px',
+                              border: isSel ? '2px solid #1877f2' : '1px solid #e4e6eb',
+                              background: isSel ? '#e7f3ff' : '#ffffff',
+                              cursor: 'pointer',
+                              fontSize: '12px'
+                            }}
+                          >
+                            <div style={{ fontWeight: 600, color: '#050505', marginBottom: '2px' }}>
+                              {p.message ? p.message.slice(0, 60) + '...' : '(No text caption)'}
+                            </div>
+                            <div style={{ color: '#65676b', fontSize: '11px' }}>
+                              {new Date(p.created_time).toLocaleString()} · ID: {p.id}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 6. Card: Schedule */}
+          {tabMode === 'direct' && (
+            <div className="meta-card">
+              <div className="meta-schedule-row">
+                <span className="meta-schedule-label">Schedule</span>
+                <div className="meta-schedule-right">
+                  <span className="meta-schedule-subtext">Set date and time</span>
+                  <label className="meta-toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={publishMode === 'schedule'}
+                      onChange={(e) => setPublishMode(e.target.checked ? 'schedule' : 'now')}
+                    />
+                    <span className="meta-toggle-slider" />
+                  </label>
+                </div>
+              </div>
+
+              {publishMode === 'schedule' && (
+                <div className="meta-schedule-picker-box">
+                  <input
+                    type="datetime-local"
+                    className="meta-datetime-input"
+                    value={scheduledDateTime}
+                    onChange={(e) => setScheduledDateTime(e.target.value)}
+                  />
+                  <span style={{ fontSize: '11px', color: '#65676b', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Clock size={12} /> Server will publish to Facebook at this exact scheduled minute.
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 7. Card: Costs & Attribution */}
+          <div className="meta-card">
+            <div className="meta-card-header">
+              <h3 className="meta-card-title">Costs & Attribution</h3>
+              <p className="meta-card-desc">MoonPulse tracking metrics for profit and ROI</p>
+            </div>
+            <div className="meta-costs-grid">
+              <div className="meta-cost-field">
+                <label>Content Cost ($)</label>
+                <input
+                  type="number"
+                  value={contentCost}
+                  onChange={(e) => setContentCost(e.target.value)}
+                  className="meta-cost-input"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              <div className="meta-cost-field">
+                <label>Ad Spend ($)</label>
+                <input
+                  type="number"
+                  value={adSpend}
+                  onChange={(e) => setAdSpend(e.target.value)}
+                  className="meta-cost-input"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              <div className="meta-cost-field">
+                <label>Attribution (Days)</label>
+                <input
+                  type="number"
+                  value={attributionWindow}
+                  onChange={(e) => setAttributionWindow(e.target.value)}
+                  className="meta-cost-input"
+                  min="1"
+                  max="90"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Error Banner */}
+          {submitError && (
+            <div style={{ background: '#fde8e8', border: '1px solid #f8b4b4', color: '#9b1c1c', padding: '12px 16px', borderRadius: '8px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertCircle size={16} />
+              <span>{submitError}</span>
+            </div>
+          )}
+
+          {/* Sticky Action Bar */}
+          <div className="meta-sticky-bar" style={{ justifyContent: 'flex-end' }}>
+
+            <div className="meta-actions-right">
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="meta-btn-secondary"
+                disabled={submitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={submitting || !productId || selectedPageIds.length === 0}
+                className="meta-btn-primary"
+              >
+                {submitting ? (
+                  <>Processing ({selectedPageIds.length} account{selectedPageIds.length > 1 ? 's' : ''})...</>
+                ) : tabMode === 'direct' ? (
+                  publishMode === 'schedule' ? (
+                    selectedPageIds.length > 1
+                      ? `Schedule to ${selectedPageIds.length} Accounts`
+                      : 'Schedule Post'
+                  ) : (
+                    selectedPageIds.length > 1
+                      ? `Publish to ${selectedPageIds.length} Accounts Now`
+                      : 'Publish'
+                  )
+                ) : (
+                  selectedPageIds.length > 1
+                    ? `Track for ${selectedPageIds.length} Accounts`
+                    : 'Track Post'
                 )}
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        {/* ══════════════════════════════════════════════════
+            RIGHT COLUMN: Live Facebook Feed Preview Area
+            ══════════════════════════════════════════════════ */}
+        <div className="meta-preview-col">
+
+          <div className={`meta-feed-card ${previewDevice === 'desktop' ? 'desktop-view' : 'mobile-view'}`}>
+
+            {/* Post Header */}
+            <div className="meta-feed-header">
+              <div className="meta-feed-author-wrap">
+                {primaryPage?.picture_url ? (
+                  <img
+                    src={primaryPage.picture_url}
+                    alt={pageDisplayName}
+                    className="meta-feed-avatar"
+                    style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  <div className="meta-feed-avatar">
+                    {pageDisplayName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div className="meta-feed-name">{pageDisplayName}</div>
+                    {selectedPages.length > 1 && (
+                      <span className="meta-page-badge-pill" style={{ fontSize: '11px', padding: '1px 6px' }}>
+                        +{selectedPages.length - 1} other account{selectedPages.length > 2 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+                  <div className="meta-feed-time">
+                    {publishMode === 'schedule' && scheduledDateTime ? (
+                      <>{new Date(scheduledDateTime).toLocaleString()} · <Globe size={12} /></>
+                    ) : (
+                      <>Just now · <Globe size={12} /></>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="meta-feed-header-actions">
+                <MoreHorizontal size={18} />
+              </div>
+            </div>
+
+            {/* Post Caption Body */}
+            {message.trim() ? (
+              <div className="meta-feed-body">
+                {message}
+              </div>
+            ) : (
+              <div className="meta-feed-body">
+                <div className="meta-feed-skeleton-lines">
+                  <div className="meta-feed-skeleton-bar" style={{ width: '85%' }} />
+                  <div className="meta-feed-skeleton-bar" style={{ width: '60%' }} />
+                </div>
               </div>
             )}
-          </div>
-        )}
 
-        {/* Costs & Attribution (Shared) */}
-        <div className="modal-form-group" style={{ marginBottom: '32px' }}>
-          <label className="modal-label" style={{ fontWeight: 600, color: '#334155', marginBottom: '12px', display: 'block' }}>Costs & Attribution</label>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
-            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <label style={{ fontSize: '13px', color: '#475569', display: 'block', marginBottom: '8px', fontWeight: 600 }}>
-                Content Cost ($)
-              </label>
-              <input
-                type="number"
-                value={contentCost}
-                onChange={(e) => setContentCost(e.target.value)}
-                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
-                min="0"
-                step="0.01"
-              />
-            </div>
-            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <label style={{ fontSize: '13px', color: '#475569', display: 'block', marginBottom: '8px', fontWeight: 600 }}>
-                Ad Spend ($)
-              </label>
-              <input
-                type="number"
-                value={adSpend}
-                onChange={(e) => setAdSpend(e.target.value)}
-                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
-                min="0"
-                step="0.01"
-              />
-            </div>
-            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <label style={{ fontSize: '13px', color: '#475569', display: 'block', marginBottom: '8px', fontWeight: 600 }}>
-                Attribution (Days)
-              </label>
-              <input
-                type="number"
-                value={attributionWindow}
-                onChange={(e) => setAttributionWindow(e.target.value)}
-                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
-                min="1"
-                max="90"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Error Alert */}
-        {submitError && (
-          <div
-            style={{
-              padding: '16px',
-              borderRadius: '10px',
-              background: '#fef2f2',
-              border: '1px solid #fecaca',
-              color: '#b91c1c',
-              fontSize: '14px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              marginBottom: '24px',
-              fontWeight: 500
-            }}
-          >
-            <AlertCircle size={20} />
-            <span>{submitError}</span>
-          </div>
-        )}
-
-        {/* Actions */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '24px' }}>
-          <button 
-            type="button" 
-            onClick={handleCancel} 
-            disabled={submitting}
-            style={{ padding: '12px 24px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#475569', fontWeight: 600, fontSize: '15px', cursor: 'pointer', transition: 'background 0.2s' }}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={submitting || !productId || !pageId}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '12px 28px',
-              borderRadius: '10px',
-              border: 'none',
-              color: '#ffffff',
-              fontWeight: 600,
-              fontSize: '15px',
-              cursor: submitting || !productId || !pageId ? 'not-allowed' : 'pointer',
-              opacity: submitting || !productId || !pageId ? 0.7 : 1,
-              background: tabMode === 'direct' && publishMode === 'now' ? '#10b981' : '#4f46e5',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-              transition: 'background 0.2s, transform 0.1s'
-            }}
-          >
-            {submitting ? (
-              <><div className="spin-animation"><Clock size={16} /></div> Processing...</>
-            ) : tabMode === 'direct' ? (
-              publishMode === 'now' ? (
-                <>
-                  <Send size={18} /> Publish to Facebook Now
-                </>
+            {/* Post Media Preview / Empty Meta Dashed Frame */}
+            {mediaSource === 'product' && selectedProduct?.image_url ? (
+              <div className="meta-feed-media">
+                <img
+                  src={selectedProduct.image_url}
+                  alt="Post preview"
+                  className="meta-feed-image"
+                />
+              </div>
+            ) : mediaSource === 'upload' && mediaItems.length > 0 ? (
+              mediaItems.length === 1 ? (
+                <div className="meta-feed-media">
+                  <img
+                    src={mediaItems[0].previewUrl}
+                    alt="Post preview"
+                    className="meta-feed-image"
+                  />
+                </div>
+              ) : mediaItems.length === 2 ? (
+                <div className="meta-feed-multi-grid grid-2">
+                  <div className="meta-feed-grid-item">
+                    <img src={mediaItems[0].previewUrl} alt="Media 1" className="meta-feed-grid-img" />
+                  </div>
+                  <div className="meta-feed-grid-item">
+                    <img src={mediaItems[1].previewUrl} alt="Media 2" className="meta-feed-grid-img" />
+                  </div>
+                </div>
+              ) : mediaItems.length === 3 ? (
+                <div className="meta-feed-multi-grid grid-3">
+                  <div className="meta-feed-grid-item span-2-rows">
+                    <img src={mediaItems[0].previewUrl} alt="Media 1" className="meta-feed-grid-img" />
+                  </div>
+                  <div className="meta-feed-grid-item">
+                    <img src={mediaItems[1].previewUrl} alt="Media 2" className="meta-feed-grid-img" />
+                  </div>
+                  <div className="meta-feed-grid-item">
+                    <img src={mediaItems[2].previewUrl} alt="Media 3" className="meta-feed-grid-img" />
+                  </div>
+                </div>
               ) : (
-                <>
-                  <Clock size={18} /> Schedule Post
-                </>
+                <div className="meta-feed-multi-grid grid-4">
+                  <div className="meta-feed-grid-item">
+                    <img src={mediaItems[0].previewUrl} alt="Media 1" className="meta-feed-grid-img" />
+                  </div>
+                  <div className="meta-feed-grid-item">
+                    <img src={mediaItems[1].previewUrl} alt="Media 2" className="meta-feed-grid-img" />
+                  </div>
+                  <div className="meta-feed-grid-item">
+                    <img src={mediaItems[2].previewUrl} alt="Media 3" className="meta-feed-grid-img" />
+                  </div>
+                  <div className="meta-feed-grid-item">
+                    <img src={mediaItems[3].previewUrl} alt="Media 4" className="meta-feed-grid-img" />
+                    {mediaItems.length > 4 && (
+                      <div className="meta-feed-more-overlay">
+                        +{mediaItems.length - 4}
+                      </div>
+                    )}
+                  </div>
+                </div>
               )
-            ) : (
-              <>
-                <CheckCircle2 size={18} /> Track Facebook Post
-              </>
-            )}
-          </button>
+            ) : mediaSource !== 'none' ? (
+              <div className="meta-feed-empty-placeholder">
+                <svg className="meta-placeholder-svg" viewBox="0 0 100 100" fill="none" stroke="currentColor">
+                  <rect x="10" y="10" width="80" height="80" rx="8" strokeWidth="3" strokeDasharray="6 6" />
+                  <circle cx="35" cy="35" r="8" fill="currentColor" fillOpacity="0.4" stroke="none" />
+                  <path d="M20 75 L45 45 L65 65 L80 50 L85 75 Z" fill="currentColor" fillOpacity="0.4" stroke="none" />
+                </svg>
+              </div>
+            ) : null}
+
+            {/* Post Engagement Actions Footer */}
+            <div className="meta-feed-footer">
+              <div className="meta-feed-action-bar">
+                <button type="button" className="meta-feed-action-btn">
+                  <ThumbsUp size={16} /> Like
+                </button>
+                <button type="button" className="meta-feed-action-btn">
+                  <MessageSquare size={16} /> Comment
+                </button>
+                <button type="button" className="meta-feed-action-btn">
+                  <Share2 size={16} /> Share
+                </button>
+              </div>
+            </div>
+
+          </div>
+
         </div>
+
       </div>
     </div>
   );

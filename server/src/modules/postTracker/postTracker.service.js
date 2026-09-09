@@ -265,6 +265,19 @@ const editPostData = async (id, data) => {
   return updated;
 };
 
+const getPostById = async (id) => {
+  const post = await repository.getTrackedPostById(id);
+  if (!post) return null;
+
+  const products = await productsService.listProducts();
+  const prod = products.find(p => String(p.id) === String(post.product_id));
+  return {
+    ...post,
+    product_name: prod ? prod.product_name : 'Unknown Product',
+    product_image: prod ? prod.image_url : null,
+  };
+};
+
 const removePost = async (id) => {
   publishScheduler.cancelPostTimer(id);
   return await repository.deleteTrackedPost(id);
@@ -276,6 +289,7 @@ const updatePostCosts = async (id, contentCost, adSpend) => {
 
 module.exports = {
   listPosts,
+  getPostById,
   createAndSchedulePost,
   markPost,
   publishNow,

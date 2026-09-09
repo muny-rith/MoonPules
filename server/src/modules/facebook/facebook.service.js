@@ -149,7 +149,20 @@ const getPostMetrics = async (postId, pageId) => {
 };
 
 const getPages = async () => {
-  return await repository.listPages();
+  const pages = await repository.listPages();
+  for (const p of pages) {
+    if (!p.picture_url) {
+      try {
+        const creds = await getPageCredentials(p.id);
+        const picRes = await fbClient.getFbData(`/${creds.fb_page_id}/picture?redirect=false&height=100&width=100`, creds.access_token);
+        if (picRes?.data?.url) {
+          await db.query('UPDATE tb_fb_page SET picture_url = $1 WHERE id = $2', [picRes.data.url, p.id]);
+          p.picture_url = picRes.data.url;
+        }
+      } catch (_) {}
+    }
+  }
+  return pages;
 };
 
 const resolveLocalUploadPath = (mediaUrl) => {
@@ -189,35 +202,55 @@ const publishPostToPage = async (pageId, { message, mediaUrl, scheduledTime }) =
     }
   }
 
-  // Step 1: If mediaUrl is provided (Photo feed post / Create Post)
+  // Step 1: If mediaUrl is provided (Photo feed post / Create Post - supports single or multiple photos)
   if (mediaUrl) {
-    const isRemoteUrl = mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://');
-    const localPath = !isRemoteUrl ? resolveLocalUploadPath(mediaUrl) : null;
-
-    let photoId = null;
-
-    if (localPath) {
-      const formData = new FormData();
-      formData.append('source', fs.createReadStream(localPath));
-      formData.append('published', 'false');
-
-      const photoRes = await fbClient.postFbData(`/${fb_page_id}/photos`, access_token, formData, formData.getHeaders());
-      photoId = photoRes.id;
-    } else if (isRemoteUrl) {
-      const photoPayload = {
-        url: mediaUrl,
-        published: false,
-      };
-
-      const photoRes = await fbClient.postFbData(`/${fb_page_id}/photos`, access_token, photoPayload);
-      photoId = photoRes.id;
+    let mediaUrls = [];
+    if (Array.isArray(mediaUrl)) {
+      mediaUrls = mediaUrl;
+    } else if (typeof mediaUrl === 'string' && mediaUrl.trim()) {
+      try {
+        const parsed = JSON.parse(mediaUrl);
+        if (Array.isArray(parsed)) mediaUrls = parsed;
+        else mediaUrls = [mediaUrl];
+      } catch {
+        mediaUrls = [mediaUrl];
+      }
     }
 
-    if (photoId) {
+    const photoIds = [];
+
+    for (const urlItem of mediaUrls) {
+      if (!urlItem) continue;
+      const isRemoteUrl = urlItem.startsWith('http://') || urlItem.startsWith('https://');
+      const localPath = !isRemoteUrl ? resolveLocalUploadPath(urlItem) : null;
+
+      try {
+        if (localPath && fs.existsSync(localPath)) {
+          const formData = new FormData();
+          formData.append('source', fs.createReadStream(localPath));
+          formData.append('published', 'false');
+
+          const photoRes = await fbClient.postFbData(`/${fb_page_id}/photos`, access_token, formData, formData.getHeaders());
+          if (photoRes?.id) photoIds.push(photoRes.id);
+        } else if (isRemoteUrl) {
+          const photoPayload = {
+            url: urlItem,
+            published: false,
+          };
+
+          const photoRes = await fbClient.postFbData(`/${fb_page_id}/photos`, access_token, photoPayload);
+          if (photoRes?.id) photoIds.push(photoRes.id);
+        }
+      } catch (uploadErr) {
+        console.error(`Failed to upload media item ${urlItem} to Facebook:`, uploadErr);
+      }
+    }
+
+    if (photoIds.length > 0) {
       // Step 2: Publish/Schedule as a true Feed Post with attached_media
       const feedPayload = {
         message: message || '',
-        attached_media: [{ media_fbid: photoId }],
+        attached_media: photoIds.map(id => ({ media_fbid: id })),
       };
 
       if (isScheduled) {
@@ -229,7 +262,7 @@ const publishPostToPage = async (pageId, { message, mediaUrl, scheduledTime }) =
       }
 
       const feedRes = await fbClient.postFbData(`/${fb_page_id}/feed`, access_token, feedPayload);
-      return { fb_post_id: feedRes.id, photo_id: photoId, is_scheduled: isScheduled };
+      return { fb_post_id: feedRes.id, photo_ids: photoIds, is_scheduled: isScheduled };
     }
   }
 

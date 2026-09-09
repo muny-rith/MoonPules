@@ -4,6 +4,7 @@ const controller = require('./postTracker.controller');
 const upload = require('../../middleware/upload.middleware');
 
 router.get('/', controller.getPosts);
+router.get('/:id', controller.getPostById);
 router.post('/sync', controller.triggerSync); // Manual sync
 router.post('/', controller.createPost);
 router.post('/upload-image', upload.single('image'), controller.uploadImage);

@@ -10,6 +10,11 @@ export const createPost = async (data) => {
   return response.data;
 };
 
+export const fetchPostById = async (id) => {
+  const response = await apiClient.get(`/post-tracker/${id}`);
+  return response.data;
+};
+
 export const fetchPages = async () => {
   const response = await apiClient.get('/facebook/pages');
   return response.data;

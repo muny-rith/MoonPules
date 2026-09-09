@@ -10,6 +10,17 @@ const getPosts = async (req, res, next) => {
   }
 };
 
+const getPostById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const post = await service.getPostById(id);
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+    res.json(post);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const createPost = async (req, res, next) => {
   try {
     const postData = {
@@ -111,6 +122,7 @@ const triggerSync = async (req, res, next) => {
 
 module.exports = {
   getPosts,
+  getPostById,
   createPost,
   publishNow,
   uploadImage,

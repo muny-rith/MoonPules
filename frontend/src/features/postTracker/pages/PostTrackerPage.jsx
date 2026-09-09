@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { usePostTracker } from '../hooks/usePostTracker';
 import { PostStatusBadge } from '../components/PostStatusBadge';
 import { InsightPanel } from '../components/InsightPanel';
-import { EditTrackedPostModal } from '../components/EditTrackedPostModal';
+import { DeleteConfirmModal } from '../components/DeleteConfirmModal';
 import { useNavigate } from 'react-router-dom';
 import { POST_STATUS } from '../constants';
 import { Search, Filter, Calendar, ExternalLink, RefreshCw, BarChart2, DollarSign, Image as ImageIcon, Heart, MessageCircle, Share2, Edit2, Trash2, ChevronLeft, ChevronRight, Users, ChevronDown, Eye, TrendingUp, Send } from 'lucide-react';
@@ -107,7 +107,7 @@ export const PostTrackerPage = () => {
   const { posts, loading, error, updatePost, deletePost, publishNow, reload, triggerSync } = usePostTracker();
   const [publishingId, setPublishingId] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [postToEdit, setPostToEdit] = useState(null);
+  const [postToDelete, setPostToDelete] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [platformFilter, setPlatformFilter] = useState('all');
@@ -187,12 +187,10 @@ export const PostTrackerPage = () => {
   }, [posts]);
 
   const handleDeletePost = async (id) => {
-    if (window.confirm('Are you sure you want to stop tracking this post?')) {
-      try {
-        await deletePost(id);
-      } catch (err) {
-        alert(err.message || 'Failed to delete post');
-      }
+    try {
+      await deletePost(id);
+    } catch (err) {
+      throw err;
     }
   };
 
@@ -478,14 +476,14 @@ export const PostTrackerPage = () => {
                         )}
                         <button
                           title="Edit Post"
-                          onClick={() => setPostToEdit(post)}
+                          onClick={() => navigate(`/tasks/edit/${post.id}`)}
                           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', color: '#64748b', border: '1px solid #e2e8f0', backgroundColor: '#ffffff', cursor: 'pointer', transition: 'all 0.2s' }}
                         >
                           <Edit2 size={14} />
                         </button>
                         <button
                           title="Delete Post"
-                          onClick={() => handleDeletePost(post.id)}
+                          onClick={() => setPostToDelete(post)}
                           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', color: '#ef4444', backgroundColor: '#fef2f2', border: 'none', cursor: 'pointer', transition: 'all 0.2s' }}
                         >
                           <Trash2 size={14} />
@@ -575,10 +573,10 @@ export const PostTrackerPage = () => {
                       <ExternalLink size={14} />
                     </a>
                   )}
-                  <button onClick={() => setPostToEdit(post)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '6px', color: '#64748b', border: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                  <button onClick={() => navigate(`/tasks/edit/${post.id}`)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '6px', color: '#64748b', border: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
                     <Edit2 size={14} />
                   </button>
-                  <button onClick={() => handleDeletePost(post.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '6px', color: '#ef4444', backgroundColor: '#fef2f2', border: 'none' }}>
+                  <button onClick={() => setPostToDelete(post)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '6px', color: '#ef4444', backgroundColor: '#fef2f2', border: 'none' }}>
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -636,11 +634,11 @@ export const PostTrackerPage = () => {
         )}
       </div>
 
-      <EditTrackedPostModal
-        isOpen={!!postToEdit}
-        onClose={() => setPostToEdit(null)}
-        post={postToEdit}
-        onSave={updatePost}
+      <DeleteConfirmModal
+        isOpen={!!postToDelete}
+        onClose={() => setPostToDelete(null)}
+        post={postToDelete}
+        onConfirm={handleDeletePost}
       />
     </div>
   );

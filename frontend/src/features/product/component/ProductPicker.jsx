@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, ChevronDown, Check, X, Tag, Package, AlertCircle } from 'lucide-react';
+import { Search, ChevronDown, Check, X, Tag, AlertCircle } from 'lucide-react';
 import * as productService from '../services/productService';
 
-export const ProductPicker = ({ value, onChange, placeholder = 'Select a product...' }) => {
+export const ProductPicker = ({ value, onChange, placeholder = 'Search product from catalog...' }) => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
   const dropdownRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -34,7 +35,7 @@ export const ProductPicker = ({ value, onChange, placeholder = 'Select a product
 
   useEffect(() => {
     if (value && products.length > 0) {
-      const match = products.find(p => String(p.product_id) === String(value));
+      const match = products.find((p) => String(p.product_id) === String(value));
       setSelectedProduct(match || null);
     } else if (!value) {
       setSelectedProduct(null);
@@ -52,7 +53,7 @@ export const ProductPicker = ({ value, onChange, placeholder = 'Select a product
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const filteredProducts = products.filter(p => {
+  const filteredProducts = products.filter((p) => {
     const q = search.toLowerCase().trim();
     if (!q) return true;
     return (
@@ -73,12 +74,21 @@ export const ProductPicker = ({ value, onChange, placeholder = 'Select a product
     e.stopPropagation();
     setSelectedProduct(null);
     onChange('');
+    setSearch('');
+    setIsOpen(true);
+    setTimeout(() => inputRef.current?.focus(), 50);
   };
 
   return (
     <div className="product-picker-container" ref={dropdownRef}>
       {selectedProduct && !isOpen ? (
-        <div className="product-picker-selected" onClick={() => setIsOpen(true)}>
+        <div
+          className="product-picker-selected"
+          onClick={() => {
+            setIsOpen(true);
+            setTimeout(() => inputRef.current?.focus(), 50);
+          }}
+        >
           <img
             src={selectedProduct.image_url}
             alt={selectedProduct.product_name}
@@ -94,49 +104,58 @@ export const ProductPicker = ({ value, onChange, placeholder = 'Select a product
               <span className="product-picker-price">${Number(selectedProduct.unit_price).toFixed(2)}</span>
             </div>
           </div>
-          <button type="button" className="product-picker-clear-btn" onClick={handleClear} title="Clear product selection">
+          <button
+            type="button"
+            className="product-picker-clear-btn"
+            onClick={handleClear}
+            title="Clear selection and search again"
+          >
             <X size={14} />
           </button>
         </div>
       ) : (
-        <div
-          className={`product-picker-input-trigger ${isOpen ? 'active' : ''}`}
-          onClick={() => setIsOpen(true)}
-        >
-          <Package size={16} className="text-muted" />
-          <span className="product-picker-placeholder-text">
-            {selectedProduct ? selectedProduct.product_name : placeholder}
-          </span>
-          <ChevronDown size={16} className={`picker-arrow ${isOpen ? 'open' : ''}`} />
+        <div className={`product-picker-direct-input-wrap ${isOpen ? 'active' : ''}`}>
+          <Search size={16} className="picker-direct-search-icon" />
+          <input
+            ref={inputRef}
+            type="text"
+            className="product-picker-direct-input"
+            placeholder={selectedProduct ? `Selected: ${selectedProduct.product_name} (type to change...)` : placeholder}
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              if (!isOpen) setIsOpen(true);
+            }}
+            onFocus={() => setIsOpen(true)}
+          />
+          {search && (
+            <button
+              type="button"
+              className="picker-direct-clear-btn"
+              onClick={() => setSearch('')}
+              title="Clear search"
+            >
+              <X size={14} />
+            </button>
+          )}
+          <button
+            type="button"
+            className="picker-direct-toggle-btn"
+            onClick={() => {
+              setIsOpen(!isOpen);
+              if (!isOpen) inputRef.current?.focus();
+            }}
+          >
+            <ChevronDown size={16} className={`picker-arrow ${isOpen ? 'open' : ''}`} />
+          </button>
         </div>
       )}
 
       {isOpen && (
         <div className="product-picker-dropdown">
-          <div className="product-picker-search-box">
-            <Search size={14} className="picker-search-icon" />
-            <input
-              type="text"
-              className="product-picker-search-input"
-              placeholder="Search by name, SKU or category..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              autoFocus
-            />
-            {search && (
-              <button
-                type="button"
-                className="picker-search-clear"
-                onClick={() => setSearch('')}
-              >
-                <X size={12} />
-              </button>
-            )}
-          </div>
-
           <div className="product-picker-list">
             {loading ? (
-              <div className="product-picker-empty">Loading Moon IMS products...</div>
+              <div className="product-picker-empty">Loading products...</div>
             ) : filteredProducts.length === 0 ? (
               <div className="product-picker-empty">
                 <AlertCircle size={16} />
