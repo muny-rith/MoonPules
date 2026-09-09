@@ -28,6 +28,11 @@
   padding: 0;
 }
 
+::selection {
+  background-color: #1877f2;
+  color: #ffffff;
+}
+
 body {
   font-family: var(--font-family);
   background-color: var(--bg-body);
