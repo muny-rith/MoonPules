@@ -33,6 +33,7 @@ import {
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 import { MetaEmojiPicker } from '../components/MetaEmojiPicker';
 import { MetaSchedulePicker } from '../components/MetaSchedulePicker';
+import { useWheelIsolation } from '../hooks/useWheelIsolation';
 import '../postTracker.css';
 
 export const EditPostPage = () => {
@@ -42,6 +43,7 @@ export const EditPostPage = () => {
 
   // Layout states
   const [previewDevice, setPreviewDevice] = useState('desktop'); // 'desktop' | 'mobile'
+  const textCardRef = useWheelIsolation();
 
   // Loading state
   const [loadingPost, setLoadingPost] = useState(true);
@@ -477,7 +479,7 @@ export const EditPostPage = () => {
           </div>
 
           {/* 4. Card: Post details (Textarea + Action Toolbar) */}
-          <div className="meta-card">
+          <div className="meta-card" ref={textCardRef}>
             <div style={{ marginBottom: '8px', fontSize: '13px', fontWeight: 600, color: '#050505' }}>
               Text {isPublished && <span style={{ fontWeight: 400, color: '#65676b' }}>(Locked for published post)</span>}
             </div>

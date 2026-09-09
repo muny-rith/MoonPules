@@ -29,8 +29,9 @@ export const MetaSchedulePicker = ({
   disabled = false,
 }) => {
   // Parse date and time from YYYY-MM-DDTHH:mm
+  const todayStr = formatDateIso(new Date());
   const [datePart, timePart] = (value || '').split('T');
-  const dateVal = datePart || formatDateIso(new Date());
+  const dateVal = datePart || todayStr;
   const initialTime = (timePart || '09:00').slice(0, 5);
 
   const [hourVal, minuteVal] = initialTime.split(':');
@@ -46,13 +47,17 @@ export const MetaSchedulePicker = ({
   // Local active state for instant, 60fps free-wheeling scroll response
   const [activeHour, setActiveHour] = useState(currentHour);
   const [activeMinute, setActiveMinute] = useState(currentMinute);
+  const activeHourRef = useRef(currentHour);
+  const activeMinuteRef = useRef(currentMinute);
 
   useEffect(() => {
     setActiveHour(currentHour);
+    activeHourRef.current = currentHour;
   }, [currentHour]);
 
   useEffect(() => {
     setActiveMinute(currentMinute);
+    activeMinuteRef.current = currentMinute;
   }, [currentMinute]);
 
   // Calendar browsing month and year
@@ -69,8 +74,6 @@ export const MetaSchedulePicker = ({
   const timeCardRef = useRef(null);
   const hourWheelRef = useRef(null);
   const minuteWheelRef = useRef(null);
-  const hourScrollTimer = useRef(null);
-  const minuteScrollTimer = useRef(null);
 
   // Close popovers on click outside
   useEffect(() => {
@@ -86,41 +89,131 @@ export const MetaSchedulePicker = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Prevent outer main container scroll when scrolling up at 00 or down at 23/59
+  const dateValRef = useRef(dateVal);
+  dateValRef.current = dateVal;
+  const todayStrRef = useRef(todayStr);
+  todayStrRef.current = todayStr;
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  // Silky smooth, discrete-step roller that always lands dead-center on numbers
   useEffect(() => {
     if (!showTimePicker) return;
 
-    const preventBoundaryOverscroll = (e) => {
-      const el = e.currentTarget;
-      const isUp = e.deltaY < 0;
-      const isDown = e.deltaY > 0;
+    const createRoller = (wheelEl, maxIdx, getActiveVal, onCommit) => {
+      if (!wheelEl) return () => {};
 
-      // When reaching top (00) and user continues scrolling up -> lock outer page scroll
-      if (isUp && el.scrollTop <= 0) {
+      let targetIdx = Math.max(0, Math.min(maxIdx, Math.round(wheelEl.scrollTop / 40)));
+      let rafId = null;
+      let settleTimer = null;
+      let accumulatedDelta = 0;
+      let deltaResetTimer = null;
+      let lastStepTime = 0;
+
+      const animateToTarget = () => {
+        const targetScroll = targetIdx * 40;
+        const currentScroll = wheelEl.scrollTop;
+        const diff = targetScroll - currentScroll;
+
+        if (Math.abs(diff) < 0.8) {
+          wheelEl.scrollTop = targetScroll;
+          rafId = null;
+
+          clearTimeout(settleTimer);
+          settleTimer = setTimeout(() => {
+            onCommit(targetIdx);
+          }, 80);
+          return;
+        }
+
+        // Fluid ease-out curve (silky smooth, responsive, never jerky)
+        wheelEl.scrollTop = currentScroll + diff * 0.28;
+        rafId = requestAnimationFrame(animateToTarget);
+      };
+
+      const handleWheel = (e) => {
         e.preventDefault();
-        return;
+        e.stopPropagation();
+
+        let rawDelta = e.deltaY;
+        if (e.deltaMode === 1) rawDelta *= 40;
+        else if (e.deltaMode === 2) rawDelta *= 120;
+
+        accumulatedDelta += rawDelta;
+
+        clearTimeout(deltaResetTimer);
+        deltaResetTimer = setTimeout(() => {
+          accumulatedDelta = 0;
+        }, 100);
+
+        const now = performance.now();
+        const threshold = 60;
+
+        // Require at least 75ms cooldown between steps to prevent a single mouse notch's multi-tick burst from jumping 1->4
+        if (Math.abs(accumulatedDelta) >= threshold && now - lastStepTime >= 75) {
+          const dir = Math.sign(accumulatedDelta);
+          accumulatedDelta = 0; // Discard burst leftovers immediately
+          lastStepTime = now;
+
+          const baseIdx = rafId ? targetIdx : Math.round(wheelEl.scrollTop / 40);
+          targetIdx = Math.max(0, Math.min(maxIdx, baseIdx + dir));
+
+          clearTimeout(settleTimer);
+          if (!rafId) {
+            rafId = requestAnimationFrame(animateToTarget);
+          }
+        }
+      };
+
+      wheelEl.addEventListener('wheel', handleWheel, { passive: false });
+
+      return () => {
+        wheelEl.removeEventListener('wheel', handleWheel);
+        if (rafId) cancelAnimationFrame(rafId);
+        clearTimeout(settleTimer);
+        clearTimeout(deltaResetTimer);
+      };
+    };
+
+    const cleanupHour = createRoller(
+      hourWheelRef.current,
+      23,
+      () => activeHourRef.current,
+      (finalIdx) => {
+        const newH = pad(finalIdx);
+        setActiveHour(newH);
+        activeHourRef.current = newH;
+        onChangeRef.current(`${dateValRef.current || todayStrRef.current}T${newH}:${activeMinuteRef.current}`);
       }
+    );
 
-      // When reaching bottom (23 / 59) and user continues scrolling down -> lock outer page scroll
-      if (isDown && el.scrollTop + el.clientHeight >= el.scrollHeight - 1) {
+    const cleanupMinute = createRoller(
+      minuteWheelRef.current,
+      59,
+      () => activeMinuteRef.current,
+      (finalIdx) => {
+        const newM = pad(finalIdx);
+        setActiveMinute(newM);
+        activeMinuteRef.current = newM;
+        onChangeRef.current(`${dateValRef.current || todayStrRef.current}T${activeHourRef.current}:${newM}`);
+      }
+    );
+
+    const timeCard = timeCardRef.current;
+    const handleCardWheel = (e) => {
+      if (!hourWheelRef.current?.contains(e.target) && !minuteWheelRef.current?.contains(e.target)) {
         e.preventDefault();
-        return;
       }
     };
 
-    const hWheel = hourWheelRef.current;
-    const mWheel = minuteWheelRef.current;
-
-    if (hWheel) {
-      hWheel.addEventListener('wheel', preventBoundaryOverscroll, { passive: false });
-    }
-    if (mWheel) {
-      mWheel.addEventListener('wheel', preventBoundaryOverscroll, { passive: false });
+    if (timeCard) {
+      timeCard.addEventListener('wheel', handleCardWheel, { passive: false });
     }
 
     return () => {
-      if (hWheel) hWheel.removeEventListener('wheel', preventBoundaryOverscroll);
-      if (mWheel) mWheel.removeEventListener('wheel', preventBoundaryOverscroll);
+      cleanupHour();
+      cleanupMinute();
+      if (timeCard) timeCard.removeEventListener('wheel', handleCardWheel);
     };
   }, [showTimePicker]);
 
@@ -244,42 +337,30 @@ export const MetaSchedulePicker = ({
     return days;
   }, [viewYear, viewMonth]);
 
-  const todayStr = formatDateIso(new Date());
-
   const handleSelectDay = (dayStr) => {
     onChange(`${dayStr}T${currentHour}:${currentMinute}`);
     setShowCalendar(false);
   };
 
-  // Wheel Scroll Listeners (40px item height) - Free gliding with settle-on-stop
+  // Real-time lens highlight tracking during smooth scroll
   const handleHourWheelScroll = (e) => {
     const scrollTop = e.target.scrollTop;
     const idx = Math.max(0, Math.min(23, Math.round(scrollTop / 40)));
     const newH = pad(idx);
-    setActiveHour(newH);
-
-    // Only settle after the user stops rolling the wheel for 120ms
-    clearTimeout(hourScrollTimer.current);
-    hourScrollTimer.current = setTimeout(() => {
-      const finalIdx = Math.max(0, Math.min(23, Math.round(e.target.scrollTop / 40)));
-      e.target.scrollTo({ top: finalIdx * 40, behavior: 'smooth' });
-      onChange(`${dateVal || todayStr}T${pad(finalIdx)}:${activeMinute}`);
-    }, 120);
+    if (activeHourRef.current !== newH) {
+      setActiveHour(newH);
+      activeHourRef.current = newH;
+    }
   };
 
   const handleMinuteWheelScroll = (e) => {
     const scrollTop = e.target.scrollTop;
     const idx = Math.max(0, Math.min(59, Math.round(scrollTop / 40)));
     const newM = pad(idx);
-    setActiveMinute(newM);
-
-    // Only settle after the user stops rolling the wheel for 120ms
-    clearTimeout(minuteScrollTimer.current);
-    minuteScrollTimer.current = setTimeout(() => {
-      const finalIdx = Math.max(0, Math.min(59, Math.round(e.target.scrollTop / 40)));
-      e.target.scrollTo({ top: finalIdx * 40, behavior: 'smooth' });
-      onChange(`${dateVal || todayStr}T${activeHour}:${pad(finalIdx)}`);
-    }, 120);
+    if (activeMinuteRef.current !== newM) {
+      setActiveMinute(newM);
+      activeMinuteRef.current = newM;
+    }
   };
 
   const handleSelectHourItem = (hStr) => {

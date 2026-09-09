@@ -1041,8 +1041,9 @@
   border: 1px solid #ced0d4;
   border-radius: 8px;
   background: #ffffff;
-  transition: border-color 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
   position: relative;
+  overscroll-behavior: contain;
 }
 
 .meta-textarea-box:focus-within {
@@ -1054,15 +1055,18 @@
   width: 100%;
   border: none;
   outline: none;
-  padding: 12px 14px;
+  padding: 14px 16px;
   font-size: 14px;
+  line-height: 1.6;
   color: #050505;
   resize: vertical;
-  min-height: 110px;
+  min-height: 180px;
+  height: 180px;
   font-family: inherit;
   box-sizing: border-box;
   border-top-left-radius: 8px;
   border-top-right-radius: 8px;
+  overscroll-behavior: contain;
 }
 
 .meta-textarea::placeholder {
@@ -1078,6 +1082,7 @@
   border-top: 1px solid #f0f2f5;
   border-bottom-left-radius: 8px;
   border-bottom-right-radius: 8px;
+  overscroll-behavior: contain;
 }
 
 .meta-toolbar-left {
@@ -1234,6 +1239,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  overscroll-behavior: contain;
 }
 
 .meta-emoji-scroll-content::-webkit-scrollbar {
@@ -1697,19 +1703,20 @@
   background: #f0f2f5;
   border: 1px solid #ced0d4;
   border-radius: 12px;
-  height: 120px;
+  height: 122px;
   overflow: hidden;
   box-sizing: border-box;
   overscroll-behavior: contain;
 }
 
-/* Active Row Center Lens - Exact 40px middle alignment */
+/* Active Row Center Lens - Exact middle alignment */
 .meta-wheel-lens {
   position: absolute;
-  top: 40px;
+  top: 50%;
   left: 6px;
   right: 6px;
   height: 40px;
+  transform: translateY(-50%);
   background: #ffffff;
   border: 1.5px solid #1877f2;
   border-radius: 9px;
@@ -1775,8 +1782,10 @@
   cursor: pointer;
   border: none;
   background: none;
-  transition: color 0.1s ease, transform 0.1s ease;
+  line-height: 1;
   user-select: none;
+  transition: color 0.1s ease;
+  transform: translateY(-1.5px);
 }
 
 .meta-wheel-item:hover:not(.active) {
@@ -1788,7 +1797,7 @@
   color: #1877f2;
   font-size: 22px;
   font-weight: 800;
-  transform: scale(1.06);
+  transform: translateY(-1.5px);
 }
 
 .meta-wheel-colon {
@@ -1803,6 +1812,7 @@
   color: #1877f2;
   user-select: none;
   z-index: 2;
+  transform: translateY(-1.5px);
 }
 
 /* Quick Minute Chips */

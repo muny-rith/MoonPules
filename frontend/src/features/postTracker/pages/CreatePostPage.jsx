@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { MetaEmojiPicker } from '../components/MetaEmojiPicker';
 import { MetaSchedulePicker } from '../components/MetaSchedulePicker';
+import { useWheelIsolation } from '../hooks/useWheelIsolation';
 import '../postTracker.css';
 
 export const CreatePostPage = () => {
@@ -49,6 +50,7 @@ export const CreatePostPage = () => {
   // Layout states
   const [previewDevice, setPreviewDevice] = useState('desktop'); // 'desktop' | 'mobile'
   const [tabMode, setTabMode] = useState('direct'); // 'direct' | 'legacy'
+  const textCardRef = useWheelIsolation();
 
   // Data states
   const [pages, setPages] = useState([]);
@@ -758,7 +760,7 @@ export const CreatePostPage = () => {
 
           {/* 4. Card: Post details (Textarea + Action Toolbar) */}
           {tabMode === 'direct' && (
-            <div className="meta-card">
+            <div className="meta-card" ref={textCardRef}>
               <div style={{ marginBottom: '8px', fontSize: '13px', fontWeight: 600, color: '#050505' }}>
                 Text
               </div>
