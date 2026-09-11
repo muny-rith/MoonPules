@@ -14,3 +14,8 @@ export const fetchProductCategories = async () => {
   const response = await apiClient.get('/products/categories');
   return response.data;
 };
+
+export const fetchBrands = async () => {
+  const response = await apiClient.get('/products/brands');
+  return response.data;
+};

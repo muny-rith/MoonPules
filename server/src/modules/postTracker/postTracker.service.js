@@ -6,13 +6,35 @@ const publishScheduler = require('./publishScheduler.service');
 const listPosts = async () => {
   const posts = await repository.getAllTrackedPosts();
   const products = await productsService.listProducts();
+  const brands = await productsService.listBrands();
   
   return posts.map(post => {
-    const prod = products.find(p => String(p.id) === String(post.product_id));
+    const prod = post.product_id ? products.find(p => String(p.id) === String(post.product_id)) : null;
+    const brand = post.brand_id ? brands.find(b => String(b.brand_id) === String(post.brand_id) || String(b.id) === String(post.brand_id)) : (prod?.brand_id ? brands.find(b => String(b.brand_id) === String(prod.brand_id) || String(b.id) === String(prod.brand_id)) : null);
+    
+    const isBrandTracking = post.tracking_type === 'brand' || (!post.product_id && post.brand_id);
+    const brandName = brand ? (brand.brand_name || brand.name) : (prod?.brand_name || null);
+    const brandImage = brand ? (brand.image_url || null) : null;
+
+    let productName = 'Unknown Target';
+    let productImage = null;
+
+    if (isBrandTracking) {
+      productName = brandName ? `Brand: ${brandName} (All Products)` : 'Entire Brand Catalog';
+      productImage = brandImage;
+    } else if (prod) {
+      productName = prod.product_name;
+      productImage = prod.image_url;
+    }
+
     return {
       ...post,
-      product_name: prod ? prod.product_name : 'Unknown Product',
-      product_image: prod ? prod.image_url : null
+      product_name: productName,
+      product_image: productImage,
+      brand_id: post.brand_id || prod?.brand_id || null,
+      brand_name: brandName,
+      brand_image: brandImage,
+      tracking_type: isBrandTracking ? 'brand' : 'product',
     };
   });
 };
@@ -23,6 +45,8 @@ const listPosts = async () => {
 const createAndSchedulePost = async (postData) => {
   const {
     product_id,
+    brand_id,
+    tracking_type,
     page_id,
     message,
     media_url,
@@ -34,8 +58,11 @@ const createAndSchedulePost = async (postData) => {
     marked_by,
   } = postData;
 
-  if (!Number.isInteger(Number(product_id))) {
-    const err = new Error('product_id must be an integer');
+  const hasProduct = product_id !== undefined && product_id !== null && product_id !== '' && !isNaN(Number(product_id));
+  const hasBrand = brand_id !== undefined && brand_id !== null && brand_id !== '' && !isNaN(Number(brand_id));
+
+  if (!hasProduct && !hasBrand) {
+    const err = new Error('Either product_id or brand_id must be provided');
     err.status = 400;
     throw err;
   }
@@ -49,7 +76,9 @@ const createAndSchedulePost = async (postData) => {
 
   // Create scheduled record in database
   const created = await repository.createTrackedPost({
-    product_id,
+    product_id: hasProduct ? parseInt(product_id, 10) : null,
+    brand_id: hasBrand ? parseInt(brand_id, 10) : null,
+    tracking_type: tracking_type || (hasBrand && !hasProduct ? 'brand' : 'product'),
     page_id,
     fb_post_id: null,
     status: 'scheduled',
@@ -102,10 +131,13 @@ const createAndSchedulePost = async (postData) => {
  * Legacy: Track an existing Facebook post by pasting URL/ID
  */
 const markPost = async (postData) => {
-  const { product_id, page_id, fb_post_id } = postData;
+  const { product_id, brand_id, tracking_type, page_id, fb_post_id } = postData;
 
-  if (!Number.isInteger(Number(product_id))) {
-    const err = new Error('product_id must be an integer');
+  const hasProduct = product_id !== undefined && product_id !== null && product_id !== '' && !isNaN(Number(product_id));
+  const hasBrand = brand_id !== undefined && brand_id !== null && brand_id !== '' && !isNaN(Number(brand_id));
+
+  if (!hasProduct && !hasBrand) {
+    const err = new Error('Either product_id or brand_id must be provided');
     err.status = 400;
     throw err;
   }
@@ -136,6 +168,9 @@ const markPost = async (postData) => {
 
   const trackedPost = await repository.createTrackedPost({
     ...postData,
+    product_id: hasProduct ? parseInt(product_id, 10) : null,
+    brand_id: hasBrand ? parseInt(brand_id, 10) : null,
+    tracking_type: tracking_type || (hasBrand && !hasProduct ? 'brand' : 'product'),
     status: isPublished ? 'published' : 'scheduled',
     scheduled_time: now,
     published_time: isPublished ? (createdTime || now) : null,
@@ -270,11 +305,34 @@ const getPostById = async (id) => {
   if (!post) return null;
 
   const products = await productsService.listProducts();
-  const prod = products.find(p => String(p.id) === String(post.product_id));
+  const brands = await productsService.listBrands();
+
+  const prod = post.product_id ? products.find(p => String(p.id) === String(post.product_id)) : null;
+  const brand = post.brand_id ? brands.find(b => String(b.brand_id) === String(post.brand_id) || String(b.id) === String(post.brand_id)) : (prod?.brand_id ? brands.find(b => String(b.brand_id) === String(prod.brand_id) || String(b.id) === String(prod.brand_id)) : null);
+
+  const isBrandTracking = post.tracking_type === 'brand' || (!post.product_id && post.brand_id);
+  const brandName = brand ? (brand.brand_name || brand.name) : (prod?.brand_name || null);
+  const brandImage = brand ? (brand.image_url || null) : null;
+
+  let productName = 'Unknown Target';
+  let productImage = null;
+
+  if (isBrandTracking) {
+    productName = brandName ? `Brand: ${brandName} (All Products)` : 'Entire Brand Catalog';
+    productImage = brandImage;
+  } else if (prod) {
+    productName = prod.product_name;
+    productImage = prod.image_url;
+  }
+
   return {
     ...post,
-    product_name: prod ? prod.product_name : 'Unknown Product',
-    product_image: prod ? prod.image_url : null,
+    product_name: productName,
+    product_image: productImage,
+    brand_id: post.brand_id || prod?.brand_id || null,
+    brand_name: brandName,
+    brand_image: brandImage,
+    tracking_type: isBrandTracking ? 'brand' : 'product',
   };
 };
 

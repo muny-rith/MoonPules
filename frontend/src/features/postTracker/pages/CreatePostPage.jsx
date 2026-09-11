@@ -3,6 +3,7 @@ import * as api from '../api/postTrackerApi';
 import * as productService from '../../product/services/productService';
 import { parseFbPostUrl } from '../utils/parseFbPostUrl';
 import { ProductPicker } from '../../product/component/ProductPicker';
+import { BrandPicker } from '../../product/component/BrandPicker';
 import { usePostTracker } from '../hooks/usePostTracker';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -36,7 +37,10 @@ import {
   X,
   Images,
   Trash2,
-  Edit2
+  Edit2,
+  Package,
+  Award,
+  Radio
 } from 'lucide-react';
 import { MetaEmojiPicker } from '../components/MetaEmojiPicker';
 import { MetaSchedulePicker } from '../components/MetaSchedulePicker';
@@ -62,6 +66,11 @@ export const CreatePostPage = () => {
   const [productId, setProductId] = useState('');
   const [productsList, setProductsList] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
+
+  // Attribution Target: 'product' | 'brand'
+  const [trackingTarget, setTrackingTarget] = useState('product');
+  const [brandId, setBrandId] = useState('');
+  const [selectedBrand, setSelectedBrand] = useState(null);
 
   // Costs
   const [contentCost, setContentCost] = useState(0);
@@ -165,8 +174,30 @@ export const CreatePostPage = () => {
     }
   };
 
+  const handleTabChange = (mode) => {
+    setTabMode(mode);
+    if (mode === 'legacy') {
+      // In track existing post mode, post can only belong to exactly 1 Facebook page
+      if (selectedPageIds.length > 1) {
+        setSelectedPageIds([selectedPageIds[0]]);
+      } else if (selectedPageIds.length === 0 && pages.length > 0) {
+        setSelectedPageIds([String(pages[0].id)]);
+      }
+    } else if (mode === 'direct') {
+      // In publish / schedule mode, default to selecting all connected accounts
+      if (pages.length > 0) {
+        setSelectedPageIds(pages.map((p) => String(p.id)));
+      }
+    }
+  };
+
   const handleTogglePage = (pId) => {
     const strId = String(pId);
+    if (tabMode === 'legacy') {
+      setSelectedPageIds([strId]);
+      setIsPageDropdownOpen(false);
+      return;
+    }
     setSelectedPageIds((prev) => {
       if (prev.includes(strId)) {
         if (prev.length === 1) return prev; // keep at least 1 account selected
@@ -319,17 +350,27 @@ export const CreatePostPage = () => {
   };
 
   const handleSubmit = async () => {
-    if (!productId || selectedPageIds.length === 0) {
-      setSubmitError('Please select both a Product and at least one Facebook Page.');
+    const isTargetValid = trackingTarget === 'brand' ? Boolean(brandId) : Boolean(productId);
+    if (!isTargetValid || selectedPageIds.length === 0) {
+      setSubmitError(`Please select ${trackingTarget === 'brand' ? 'a Brand' : 'a Product'} and at least one Facebook Page.`);
       return;
     }
     setSubmitting(true);
     setSubmitError('');
     try {
+      const targetBrandId = trackingTarget === 'brand' && brandId
+        ? parseInt(brandId, 10)
+        : (selectedProduct?.brand_id ? parseInt(selectedProduct.brand_id, 10) : null);
+      const targetProductId = trackingTarget === 'product' && productId
+        ? parseInt(productId, 10)
+        : null;
+
       if (tabMode === 'direct') {
         let finalMediaUrl = null;
         if (mediaSource === 'product') {
-          finalMediaUrl = selectedProduct?.image_url || null;
+          finalMediaUrl = trackingTarget === 'brand'
+            ? (selectedBrand?.image_url || null)
+            : (selectedProduct?.image_url || null);
         } else if (mediaSource === 'upload') {
           if (mediaItems.some((m) => m.uploading)) {
             setSubmitError('Please wait for all media to finish uploading.');
@@ -348,7 +389,9 @@ export const CreatePostPage = () => {
           selectedPageIds.map((pId) =>
             api.createPost({
               mode: 'schedule',
-              product_id: parseInt(productId, 10),
+              tracking_type: trackingTarget,
+              product_id: targetProductId,
+              brand_id: targetBrandId,
               page_id: parseInt(pId, 10),
               message: message.trim(),
               media_url: finalMediaUrl,
@@ -367,24 +410,29 @@ export const CreatePostPage = () => {
           setSubmitting(false);
           return;
         }
-        await Promise.all(
-          selectedPageIds.map((pId) =>
-            api.createPost({
-              mode: 'legacy',
-              product_id: parseInt(productId, 10),
-              page_id: parseInt(pId, 10),
-              fb_post_id: fbPostId,
-              content_cost: parseFloat(contentCost) || 0,
-              ad_spend: parseFloat(adSpend) || 0,
-              attribution_window_days: parseInt(attributionWindow, 10) || 7,
-            })
-          )
-        );
+        const targetPageId = selectedPageIds[0];
+        if (!targetPageId) {
+          setSubmitError('Please select a Facebook Page.');
+          setSubmitting(false);
+          return;
+        }
+        await api.createPost({
+          mode: 'legacy',
+          tracking_type: trackingTarget,
+          product_id: targetProductId,
+          brand_id: targetBrandId,
+          page_id: parseInt(targetPageId, 10),
+          fb_post_id: fbPostId,
+          content_cost: parseFloat(contentCost) || 0,
+          ad_spend: parseFloat(adSpend) || 0,
+          attribution_window_days: parseInt(attributionWindow, 10) || 7,
+        });
       }
+
       navigate('/tasks');
     } catch (err) {
-      console.error('Submission error:', err);
-      setSubmitError(err?.response?.data?.error || err.message || 'Failed to create post');
+      console.error('Failed to create/schedule post:', err);
+      setSubmitError(err.response?.data?.error || err.message || 'Failed to submit post');
     } finally {
       setSubmitting(false);
     }
@@ -447,27 +495,33 @@ export const CreatePostPage = () => {
             <button
               type="button"
               className={`meta-tab-btn ${tabMode === 'direct' ? 'active' : ''}`}
-              onClick={() => setTabMode('direct')}
+              onClick={() => handleTabChange('direct')}
             >
               <Sparkles size={15} /> Publish / Schedule Direct
             </button>
             <button
               type="button"
               className={`meta-tab-btn ${tabMode === 'legacy' ? 'active' : ''}`}
-              onClick={() => setTabMode('legacy')}
+              onClick={() => handleTabChange('legacy')}
             >
               <Link2 size={15} /> Track Existing FB Post
             </button>
           </div>
 
-          {/* 2. Card: Post to */}
+          {/* 2. Card: Post to (Direct) / Facebook Account (Track Existing) */}
           <div className="meta-card">
             <div className="meta-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <h3 className="meta-card-title">Post to</h3>
-                <p className="meta-card-desc">Select Facebook accounts to publish or schedule</p>
+                <h3 className="meta-card-title">
+                  {tabMode === 'legacy' ? 'Facebook Account / Page' : 'Post to'}
+                </h3>
+                <p className="meta-card-desc">
+                  {tabMode === 'legacy'
+                    ? 'Select the Facebook page where this post is published'
+                    : 'Select Facebook accounts to publish or schedule'}
+                </p>
               </div>
-              {pages.length > 1 && (
+              {tabMode === 'direct' && pages.length > 1 && (
                 <button
                   type="button"
                   className="meta-select-all-btn"
@@ -485,7 +539,25 @@ export const CreatePostPage = () => {
               >
                 <div className="meta-selected-pages-display">
                   {selectedPages.length === 0 ? (
-                    <span style={{ color: '#8a8d91', fontSize: '14px' }}>Select Facebook page(s)...</span>
+                    <span style={{ color: '#8a8d91', fontSize: '14px' }}>Select Facebook page...</span>
+                  ) : tabMode === 'legacy' ? (
+                    <div className="meta-page-tag" style={{ cursor: 'pointer' }}>
+                      {primaryPage?.picture_url ? (
+                        <img
+                          src={primaryPage.picture_url}
+                          alt={primaryPage.page_name}
+                          className="meta-page-avatar-img"
+                          style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <div className="meta-page-avatar" style={{ width: '20px', height: '20px', fontSize: '11px' }}>
+                          {primaryPage?.page_name?.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <span style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {primaryPage?.page_name}
+                      </span>
+                    </div>
                   ) : (
                     <>
                       {selectedPages.slice(0, 2).map((page) => (
@@ -540,18 +612,20 @@ export const CreatePostPage = () => {
                 <div className="meta-multi-select-menu">
                   <div className="meta-multi-select-header">
                     <span className="meta-multi-select-title">
-                      Connected Accounts ({selectedPageIds.length}/{pages.length})
+                      {tabMode === 'legacy' ? 'Select Facebook Page' : `Connected Accounts (${selectedPageIds.length}/${pages.length})`}
                     </span>
-                    <button
-                      type="button"
-                      className="meta-select-all-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleSelectAllPages();
-                      }}
-                    >
-                      {selectedPageIds.length === pages.length ? 'Clear' : 'Select all'}
-                    </button>
+                    {tabMode === 'direct' && (
+                      <button
+                        type="button"
+                        className="meta-select-all-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleSelectAllPages();
+                        }}
+                      >
+                        {selectedPageIds.length === pages.length ? 'Clear' : 'Select all'}
+                      </button>
+                    )}
                   </div>
 
                   {pages.length > 3 && (
@@ -580,9 +654,24 @@ export const CreatePostPage = () => {
                           }}
                         >
                           <div className="meta-option-left">
-                            <div className={`meta-checkbox ${isChecked ? 'checked' : ''}`}>
-                              {isChecked && <Check size={12} strokeWidth={3} />}
-                            </div>
+                            {tabMode === 'legacy' ? (
+                              <div
+                                className={`meta-radio ${isChecked ? 'checked' : ''}`}
+                                style={{
+                                  width: '16px',
+                                  height: '16px',
+                                  borderRadius: '50%',
+                                  border: isChecked ? '5px solid #1877f2' : '2px solid #ced0d4',
+                                  background: '#ffffff',
+                                  flexShrink: 0,
+                                  transition: 'all 0.15s ease'
+                                }}
+                              />
+                            ) : (
+                              <div className={`meta-checkbox ${isChecked ? 'checked' : ''}`}>
+                                {isChecked && <Check size={12} strokeWidth={3} />}
+                              </div>
+                            )}
                             {p.picture_url ? (
                               <img
                                 src={p.picture_url}
@@ -613,17 +702,50 @@ export const CreatePostPage = () => {
             </div>
           </div>
 
-          {/* 3. Card: Linked Product (Moon IMS) */}
+
+          {/* 3. Card: Attribution Target (Moon IMS) */}
           <div className="meta-card">
             <div className="meta-card-header">
-              <h3 className="meta-card-title">Linked Product (Moon IMS)</h3>
-              <p className="meta-card-desc">Connect inventory for sales and ROI attribution</p>
+              <h3 className="meta-card-title">Attribution Target (Moon IMS)</h3>
+              <p className="meta-card-desc">Choose whether this post promotes a single product or an entire brand live session</p>
             </div>
-            <ProductPicker
-              value={productId}
-              onChange={(val) => setProductId(val)}
-              placeholder="Search product from catalog..."
-            />
+
+            {/* Target Selector */}
+            <div className="meta-target-switcher">
+              <button
+                type="button"
+                className={`meta-target-btn ${trackingTarget === 'product' ? 'active' : ''}`}
+                onClick={() => setTrackingTarget('product')}
+              >
+                <Package size={15} /> Single Product
+              </button>
+              <button
+                type="button"
+                className={`meta-target-btn ${trackingTarget === 'brand' ? 'active' : ''}`}
+                onClick={() => setTrackingTarget('brand')}
+              >
+                <Award size={15} /> Entire Brand / Live Stream
+              </button>
+            </div>
+
+            {trackingTarget === 'product' ? (
+              <ProductPicker
+                value={productId}
+                onChange={(val) => setProductId(val)}
+                placeholder="Search product from catalog..."
+              />
+            ) : (
+              <div>
+                <BrandPicker
+                  value={brandId}
+                  onChange={(val, brandObj) => {
+                    setBrandId(val);
+                    setSelectedBrand(brandObj);
+                  }}
+                  placeholder="Search brand from catalog..."
+                />
+              </div>
+            )}
           </div>
 
           {/* 4. Card: Media */}
@@ -648,7 +770,7 @@ export const CreatePostPage = () => {
                   onClick={() => setMediaSource('product')}
                   className={`meta-chip-btn ${mediaSource === 'product' ? 'active' : ''}`}
                 >
-                  <Layers size={14} /> Product Image
+                  <Layers size={14} /> {trackingTarget === 'brand' ? 'Brand Logo' : 'Product Image'}
                 </button>
                 <button
                   type="button"
@@ -671,21 +793,40 @@ export const CreatePostPage = () => {
               {/* Active Media Preview Box */}
               {mediaSource === 'product' && (
                 <div className="meta-media-preview-box">
-                  {selectedProduct?.image_url ? (
-                    <>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <img src={selectedProduct.image_url} alt="Product preview" className="meta-media-thumb" />
-                        <div>
-                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#050505' }}>{selectedProduct.product_name}</div>
-                          <div style={{ fontSize: '11px', color: '#65676b' }}>From Moon IMS Catalog</div>
+                  {trackingTarget === 'brand' ? (
+                    selectedBrand?.image_url ? (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <img src={selectedBrand.image_url} alt="Brand preview" className="meta-media-thumb" />
+                          <div>
+                            <div style={{ fontSize: '13px', fontWeight: 600, color: '#050505' }}>{selectedBrand.brand_name || selectedBrand.name}</div>
+                            <div style={{ fontSize: '11px', color: '#65676b' }}>Brand #{selectedBrand.brand_id || selectedBrand.id} · Live Session Logo</div>
+                          </div>
                         </div>
+                        <span style={{ fontSize: '12px', color: '#7c3aed', fontWeight: 600 }}>Brand Linked</span>
+                      </>
+                    ) : (
+                      <div style={{ fontSize: '12px', color: '#65676b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <AlertCircle size={14} /> Select a brand above to attach its image.
                       </div>
-                      <span style={{ fontSize: '12px', color: '#1877f2', fontWeight: 600 }}>Linked</span>
-                    </>
+                    )
                   ) : (
-                    <div style={{ fontSize: '12px', color: '#65676b', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <AlertCircle size={14} /> Select a product above to attach its image.
-                    </div>
+                    selectedProduct?.image_url ? (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <img src={selectedProduct.image_url} alt="Product preview" className="meta-media-thumb" />
+                          <div>
+                            <div style={{ fontSize: '13px', fontWeight: 600, color: '#050505' }}>{selectedProduct.product_name}</div>
+                            <div style={{ fontSize: '11px', color: '#65676b' }}>From Moon IMS Catalog</div>
+                          </div>
+                        </div>
+                        <span style={{ fontSize: '12px', color: '#1877f2', fontWeight: 600 }}>Linked</span>
+                      </>
+                    ) : (
+                      <div style={{ fontSize: '12px', color: '#65676b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <AlertCircle size={14} /> Select a product above to attach its image.
+                      </div>
+                    )
                   )}
                 </div>
               )}
@@ -1117,10 +1258,10 @@ export const CreatePostPage = () => {
             )}
 
             {/* Post Media Preview / Empty Meta Dashed Frame */}
-            {mediaSource === 'product' && selectedProduct?.image_url ? (
+            {mediaSource === 'product' && (trackingTarget === 'brand' ? selectedBrand?.image_url : selectedProduct?.image_url) ? (
               <div className="meta-feed-media">
                 <img
-                  src={selectedProduct.image_url}
+                  src={trackingTarget === 'brand' ? selectedBrand.image_url : selectedProduct.image_url}
                   alt="Post preview"
                   className="meta-feed-image"
                 />

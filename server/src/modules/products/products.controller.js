@@ -28,8 +28,18 @@ const getCategories = async (req, res, next) => {
   }
 };
 
+const getBrands = async (req, res, next) => {
+  try {
+    const brands = await productsService.listBrands();
+    res.json(brands);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getProducts,
   getProductById,
   getCategories,
+  getBrands,
 };

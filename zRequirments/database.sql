@@ -27,7 +27,10 @@ CREATE TABLE IF NOT EXISTS tb_fb_page (
 -- 3. Post Tracker (Core Tracking & In-App Scheduling Engine)
 CREATE TABLE IF NOT EXISTS tb_post_tracker (
     id SERIAL PRIMARY KEY,
-    product_id INT NOT NULL,
+    product_id INT NULL,
+    brand_id INT NULL,
+    tracking_type VARCHAR(20) DEFAULT 'product'
+        CHECK (tracking_type IN ('product', 'brand')),
     page_id INT NOT NULL REFERENCES tb_fb_page(id) ON DELETE CASCADE,
     fb_post_id VARCHAR(255),
     status VARCHAR(20) NOT NULL DEFAULT 'scheduled'
@@ -56,7 +59,10 @@ CREATE TABLE IF NOT EXISTS tb_post_tracker (
 
     -- Timestamps
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    -- Constraint: Must target either a product or a brand
+    CONSTRAINT chk_post_tracker_target CHECK (product_id IS NOT NULL OR brand_id IS NOT NULL)
 );
 
 -- Indexes for Query Performance & Data Integrity
@@ -72,6 +78,9 @@ CREATE INDEX IF NOT EXISTS idx_post_tracker_page
 
 CREATE INDEX IF NOT EXISTS idx_post_tracker_product 
     ON tb_post_tracker(product_id);
+
+CREATE INDEX IF NOT EXISTS idx_post_tracker_brand 
+    ON tb_post_tracker(brand_id);
 
 CREATE INDEX IF NOT EXISTS idx_post_tracker_scheduled_time 
     ON tb_post_tracker(scheduled_time);

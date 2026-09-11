@@ -97,6 +97,48 @@ const getProductRevenue = (sales, productId, products, afterDate, beforeDate) =>
 };
 
 /**
+ * Calculate revenue for an entire brand (all products in this brand) within a time window
+ */
+const getBrandRevenue = (sales, brandId, products, afterDate, beforeDate) => {
+  const brandProducts = products.filter(p => String(p.brand_id) === String(brandId));
+  if (brandProducts.length === 0) return { revenue: 0, units_sold: 0 };
+
+  const brandProductNames = brandProducts.map(p => (p.product_name || '').toLowerCase().substring(0, 20)).filter(Boolean);
+
+  let totalRevenue = 0;
+  let unitsSold = 0;
+
+  for (const sale of sales) {
+    if (sale.sale_status !== 'COMPLETED') continue;
+
+    const saleDate = new Date(sale.sale_date || sale.created_at);
+    if (afterDate && saleDate < afterDate) continue;
+    if (beforeDate && saleDate > beforeDate) continue;
+
+    if (sale.items && Array.isArray(sale.items)) {
+      for (const item of sale.items) {
+        const itemProductName = (item.product_name || '').toLowerCase();
+        const matchesBrand = brandProductNames.some(pName => pName && itemProductName.includes(pName));
+        if (matchesBrand) {
+          totalRevenue += (parseFloat(item.unit_price) || 0) * (parseInt(item.qty) || 0);
+          unitsSold += parseInt(item.qty) || 0;
+        }
+      }
+    }
+  }
+
+  return { revenue: totalRevenue, units_sold: unitsSold };
+};
+
+const calculatePostRevenue = (sales, post, products, afterDate, beforeDate) => {
+  const isBrandTracking = post.tracking_type === 'brand' || (!post.product_id && post.brand_id);
+  if (isBrandTracking && post.brand_id) {
+    return getBrandRevenue(sales, post.brand_id, products, afterDate, beforeDate);
+  }
+  return getProductRevenue(sales, post.product_id, products, afterDate, beforeDate);
+};
+
+/**
  * Get profit data for a single post
  */
 const getPostProfit = async (postId) => {
@@ -111,7 +153,7 @@ const getPostProfit = async (postId) => {
   const windowDays = post.attribution_window_days || 7;
   const windowEnd = new Date(publishedDate.getTime() + windowDays * 24 * 60 * 60 * 1000);
 
-  const { revenue, units_sold } = getProductRevenue(sales, post.product_id, products, publishedDate, windowEnd);
+  const { revenue, units_sold } = calculatePostRevenue(sales, post, products, publishedDate, windowEnd);
   const contentCost = parseFloat(post.content_cost) || 0;
   const adSpend = parseFloat(post.ad_spend) || 0;
   const totalCost = contentCost + adSpend;
@@ -168,7 +210,7 @@ const getDashboardProfit = async (filters = {}) => {
     const windowDays = post.attribution_window_days || 7;
     const windowEnd = new Date(publishedDate.getTime() + windowDays * 24 * 60 * 60 * 1000);
 
-    const { revenue, units_sold } = getProductRevenue(sales, post.product_id, products, publishedDate, windowEnd);
+    const { revenue, units_sold } = calculatePostRevenue(sales, post, products, publishedDate, windowEnd);
     const contentCost = parseFloat(post.content_cost) || 0;
     const adSpend = parseFloat(post.ad_spend) || 0;
     const totalCost = contentCost + adSpend;
@@ -209,7 +251,7 @@ const getDashboardProfit = async (filters = {}) => {
     const windowDays = post.attribution_window_days || 7;
     const windowEnd = new Date(publishedDate.getTime() + windowDays * 24 * 60 * 60 * 1000);
 
-    const { revenue, units_sold } = getProductRevenue(sales, post.product_id, products, publishedDate, windowEnd);
+    const { revenue, units_sold } = calculatePostRevenue(sales, post, products, publishedDate, windowEnd);
     const contentCost = parseFloat(post.content_cost) || 0;
     const adSpend = parseFloat(post.ad_spend) || 0;
     prevRevenue += revenue;
@@ -293,15 +335,17 @@ const getBrandProfitability = async () => {
   });
 
   for (const post of posts) {
-    const product = products.find(p => String(p.id) === String(post.product_id));
-    if (!product) continue;
+    const product = post.product_id ? products.find(p => String(p.id) === String(post.product_id)) : null;
+    const brandId = post.brand_id || product?.brand_id || 'unbranded';
+    if (!product && !post.brand_id) continue;
 
-    const brandId = product.brand_id || 'unbranded';
+    const brand = brands.find(b => String(b.brand_id) === String(brandId) || String(b.id) === String(brandId));
+
     if (!brandMap[brandId]) {
       brandMap[brandId] = {
         brand_id: brandId,
-        brand_name: product.brand_name || 'Unbranded',
-        image_url: product.brand_image || '',
+        brand_name: brand ? (brand.brand_name || brand.name) : (product?.brand_name || 'Unbranded'),
+        image_url: brand?.image_url || product?.brand_image || '',
         total_posts: 0, total_views: 0, total_revenue: 0,
         total_content_cost: 0, total_ad_spend: 0, total_spend: 0,
         net_profit: 0, roi: 0,
@@ -312,7 +356,7 @@ const getBrandProfitability = async () => {
     const windowDays = post.attribution_window_days || 7;
     const windowEnd = new Date(publishedDate.getTime() + windowDays * 24 * 60 * 60 * 1000);
 
-    const { revenue } = getProductRevenue(sales, post.product_id, products, publishedDate, windowEnd);
+    const { revenue } = calculatePostRevenue(sales, post, products, publishedDate, windowEnd);
     const contentCost = parseFloat(post.content_cost) || 0;
     const adSpend = parseFloat(post.ad_spend) || 0;
 

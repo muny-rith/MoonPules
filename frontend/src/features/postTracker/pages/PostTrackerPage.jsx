@@ -5,7 +5,7 @@ import { InsightPanel } from '../components/InsightPanel';
 import { DeleteConfirmModal } from '../components/DeleteConfirmModal';
 import { useNavigate } from 'react-router-dom';
 import { POST_STATUS } from '../constants';
-import { Search, Filter, Calendar, ExternalLink, RefreshCw, BarChart2, DollarSign, Image as ImageIcon, Heart, MessageCircle, Share2, Edit2, Trash2, ChevronLeft, ChevronRight, Users, ChevronDown, Eye, TrendingUp, Send } from 'lucide-react';
+import { Search, Filter, Calendar, ExternalLink, RefreshCw, BarChart2, DollarSign, Image as ImageIcon, Heart, MessageCircle, Share2, Edit2, Trash2, ChevronLeft, ChevronRight, Users, ChevronDown, Eye, TrendingUp, Send, Award } from 'lucide-react';
 
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 import axios from 'axios';
@@ -364,7 +364,14 @@ export const PostTrackerPage = () => {
                           />
                         </div>
                         <div>
-                          <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '14px', marginBottom: '2px' }}>{post.product_name || `Product ID: ${post.product_id}`}</div>
+                          <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '14px', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {post.tracking_type === 'brand' && (
+                              <span className="brand-live-table-pill">
+                                <Award size={12} /> Brand Live
+                              </span>
+                            )}
+                            <span>{post.product_name || `Target #${post.product_id || post.brand_id}`}</span>
+                          </div>
                           <div style={{ fontSize: '12px', color: '#64748b' }}>{post.page_name || post.page_id}</div>
                         </div>
                       </div>

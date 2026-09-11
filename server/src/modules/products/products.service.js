@@ -228,6 +228,24 @@ const listBrands = async () => {
   } catch (err) {
     console.warn(`[ProductsService] Moon IMS API unavailable for brands (${err.message}).`);
   }
+
+  if (brands.length === 0) {
+    // Derive unique brands from FALLBACK_PRODUCTS
+    const map = {};
+    FALLBACK_PRODUCTS.forEach(p => {
+      if (p.brand_id && !map[p.brand_id]) {
+        map[p.brand_id] = {
+          brand_id: p.brand_id,
+          id: p.brand_id,
+          brand_name: p.brand_name,
+          name: p.brand_name,
+          image_url: p.image_url || null,
+        };
+      }
+    });
+    brands = Object.values(map);
+  }
+
   return brands;
 };
 

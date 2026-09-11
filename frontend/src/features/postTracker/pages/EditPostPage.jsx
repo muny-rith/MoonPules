@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import * as api from '../api/postTrackerApi';
 import * as productService from '../../product/services/productService';
 import { ProductPicker } from '../../product/component/ProductPicker';
+import { BrandPicker } from '../../product/component/BrandPicker';
 import { usePostTracker } from '../hooks/usePostTracker';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -29,7 +30,10 @@ import {
   MessageSquare,
   Share2,
   Image as ImageIcon,
-  X
+  X,
+  Package,
+  Award,
+  Radio
 } from 'lucide-react';
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 import { MetaEmojiPicker } from '../components/MetaEmojiPicker';
@@ -57,6 +61,11 @@ export const EditPostPage = () => {
   const [productId, setProductId] = useState('');
   const [productsList, setProductsList] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
+
+  // Attribution Target: 'product' | 'brand'
+  const [trackingTarget, setTrackingTarget] = useState('product');
+  const [brandId, setBrandId] = useState('');
+  const [selectedBrand, setSelectedBrand] = useState(null);
 
   // Costs
   const [contentCost, setContentCost] = useState(0);
@@ -107,7 +116,11 @@ export const EditPostPage = () => {
       setOriginalPost(post);
 
       setPageId(String(post.page_id));
-      setProductId(String(post.product_id));
+      const isBrandPost = post.tracking_type === 'brand' || (!post.product_id && post.brand_id);
+      setTrackingTarget(isBrandPost ? 'brand' : 'product');
+      if (post.brand_id) setBrandId(String(post.brand_id));
+      if (post.product_id) setProductId(String(post.product_id));
+
       setMessage(post.message || '');
       setContentCost(post.content_cost || 0);
       setAdSpend(post.ad_spend || 0);
@@ -183,8 +196,9 @@ export const EditPostPage = () => {
   };
 
   const handleSubmit = async () => {
-    if (!productId || !pageId) {
-      setSubmitError('Please select both a Product and a Facebook Page.');
+    const isTargetValid = trackingTarget === 'brand' ? Boolean(brandId) : Boolean(productId);
+    if (!isTargetValid || !pageId) {
+      setSubmitError(`Please select ${trackingTarget === 'brand' ? 'a Brand' : 'a Product'} and a Facebook Page.`);
       return;
     }
     setSubmitting(true);
@@ -192,7 +206,9 @@ export const EditPostPage = () => {
     try {
       let finalMediaUrl = null;
       if (mediaSource === 'product') {
-        finalMediaUrl = selectedProduct?.image_url || originalPost?.media_url || null;
+        finalMediaUrl = trackingTarget === 'brand'
+          ? (selectedBrand?.image_url || originalPost?.media_url || null)
+          : (selectedProduct?.image_url || originalPost?.media_url || null);
       } else if (mediaSource === 'upload') {
         finalMediaUrl = uploadedMediaUrl || null;
         if (!finalMediaUrl && customFile) {
@@ -202,8 +218,17 @@ export const EditPostPage = () => {
         }
       }
 
+      const targetBrandId = trackingTarget === 'brand' && brandId
+        ? parseInt(brandId, 10)
+        : (selectedProduct?.brand_id ? parseInt(selectedProduct.brand_id, 10) : null);
+      const targetProductId = trackingTarget === 'product' && productId
+        ? parseInt(productId, 10)
+        : null;
+
       const updateData = {
-        product_id: parseInt(productId, 10),
+        tracking_type: trackingTarget,
+        product_id: targetProductId,
+        brand_id: targetBrandId,
         message: message.trim(),
         media_url: finalMediaUrl,
         content_cost: parseFloat(contentCost) || 0,
@@ -377,16 +402,48 @@ export const EditPostPage = () => {
           </div>
 
           {/* 2. Card: Linked Product (Moon IMS) */}
+          {/* 2. Card: Attribution Target (Moon IMS) */}
           <div className="meta-card">
             <div className="meta-card-header">
-              <h3 className="meta-card-title">Linked Product (Moon IMS)</h3>
-              <p className="meta-card-desc">Connect inventory for sales and ROI attribution</p>
+              <h3 className="meta-card-title">Attribution Target (Moon IMS)</h3>
+              <p className="meta-card-desc">Choose whether this post promotes a single product or an entire brand live session</p>
             </div>
-            <ProductPicker
-              value={productId}
-              onChange={(val) => setProductId(val)}
-              placeholder="Search product..."
-            />
+
+            <div className="meta-target-switcher">
+              <button
+                type="button"
+                className={`meta-target-btn ${trackingTarget === 'product' ? 'active' : ''}`}
+                onClick={() => setTrackingTarget('product')}
+              >
+                <Package size={15} /> Single Product
+              </button>
+              <button
+                type="button"
+                className={`meta-target-btn ${trackingTarget === 'brand' ? 'active' : ''}`}
+                onClick={() => setTrackingTarget('brand')}
+              >
+                <Award size={15} /> Entire Brand / Live Stream
+              </button>
+            </div>
+
+            {trackingTarget === 'product' ? (
+              <ProductPicker
+                value={productId}
+                onChange={(val) => setProductId(val)}
+                placeholder="Search product..."
+              />
+            ) : (
+              <div>
+                <BrandPicker
+                  value={brandId}
+                  onChange={(val, brandObj) => {
+                    setBrandId(val);
+                    setSelectedBrand(brandObj);
+                  }}
+                  placeholder="Search brand..."
+                />
+              </div>
+            )}
           </div>
 
           {/* 3. Card: Media */}

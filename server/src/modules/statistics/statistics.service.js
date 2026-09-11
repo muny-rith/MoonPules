@@ -36,12 +36,13 @@ const getBrandStats = async () => {
   });
 
   posts.forEach(post => {
-    const product = products.find(p => String(p.id) === String(post.product_id));
-    if (product) {
-      const bId = product.brand_id || 'unbranded';
-      if (brandMap[bId]) {
-        brandMap[bId].total_posts += 1;
-      }
+    let bId = post.brand_id ? String(post.brand_id) : null;
+    if (!bId && post.product_id) {
+      const product = products.find(p => String(p.id) === String(post.product_id));
+      bId = product ? (product.brand_id || 'unbranded') : null;
+    }
+    if (bId && brandMap[bId]) {
+      brandMap[bId].total_posts += 1;
     }
   });
 
@@ -66,16 +67,20 @@ const getBrandDetail = async (brandId) => {
     brandName = brandProducts[0].brand_name;
   }
   const productIds = new Set(brandProducts.map(p => String(p.id)));
-  const brandPosts = posts.filter(post => productIds.has(String(post.product_id)) && post.status === 'published');
+  const brandPosts = posts.filter(post => 
+    (String(post.brand_id) === String(brandId) || productIds.has(String(post.product_id))) && 
+    post.status === 'published'
+  );
 
   const enrichedPosts = brandPosts.map(post => {
-     const prod = brandProducts.find(p => String(p.id) === String(post.product_id));
+     const prod = post.product_id ? brandProducts.find(p => String(p.id) === String(post.product_id)) : null;
+     const isBrandPost = post.tracking_type === 'brand' || (!post.product_id && post.brand_id);
      return {
        ...post,
        platform: post.platform || 'facebook',
        media_type: post.media_type || 'photo',
-       product_name: prod ? prod.product_name : 'Unknown Product',
-       product_image: prod ? prod.image_url : null
+       product_name: isBrandPost ? `Brand: ${brandName} (All Products)` : (prod ? prod.product_name : 'Unknown Product'),
+       product_image: isBrandPost ? brandImage : (prod ? prod.image_url : null)
      };
   });
 

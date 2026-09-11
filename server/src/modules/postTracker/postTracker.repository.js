@@ -23,6 +23,8 @@ const getTrackedPostsByStatus = async (status) => {
 const createTrackedPost = async (postData) => {
   const {
     product_id,
+    brand_id,
+    tracking_type,
     page_id,
     fb_post_id,
     status,
@@ -40,14 +42,16 @@ const createTrackedPost = async (postData) => {
   try {
     const result = await db.query(`
       INSERT INTO tb_post_tracker (
-        product_id, page_id, fb_post_id, status, scheduled_time, published_time, 
+        product_id, brand_id, tracking_type, page_id, fb_post_id, status, scheduled_time, published_time, 
         marked_by, content_cost, ad_spend, attribution_window_days, media_type,
         message, media_url
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *
     `, [
-      product_id,
+      product_id ? parseInt(product_id, 10) : null,
+      brand_id ? parseInt(brand_id, 10) : null,
+      tracking_type || (brand_id && !product_id ? 'brand' : 'product'),
       page_id,
       fb_post_id || null,
       status || 'scheduled',
@@ -171,20 +175,24 @@ const updateTrackedPostMetrics = async (id, likes, comments, shares, views, reac
 const updateTrackedPostData = async (id, data) => {
   const result = await db.query(`
     UPDATE tb_post_tracker
-    SET product_id = COALESCE($1, product_id),
-        status = COALESCE($2, status),
-        content_cost = COALESCE($3, content_cost),
-        ad_spend = COALESCE($4, ad_spend),
-        attribution_window_days = COALESCE($5, attribution_window_days),
-        fb_post_id = COALESCE($6, fb_post_id),
-        message = COALESCE($7, message),
-        media_url = COALESCE($8, media_url),
-        scheduled_time = COALESCE($9, scheduled_time),
+    SET product_id = CASE WHEN $1::text IS NOT NULL THEN $1::int ELSE product_id END,
+        brand_id = CASE WHEN $2::text IS NOT NULL THEN $2::int ELSE brand_id END,
+        tracking_type = COALESCE($3, tracking_type),
+        status = COALESCE($4, status),
+        content_cost = COALESCE($5, content_cost),
+        ad_spend = COALESCE($6, ad_spend),
+        attribution_window_days = COALESCE($7, attribution_window_days),
+        fb_post_id = COALESCE($8, fb_post_id),
+        message = COALESCE($9, message),
+        media_url = COALESCE($10, media_url),
+        scheduled_time = COALESCE($11, scheduled_time),
         updated_at = CURRENT_TIMESTAMP
-    WHERE id = $10
+    WHERE id = $12
     RETURNING *
   `, [
-    data.product_id,
+    data.product_id !== undefined ? (data.product_id ? String(data.product_id) : null) : null,
+    data.brand_id !== undefined ? (data.brand_id ? String(data.brand_id) : null) : null,
+    data.tracking_type,
     data.status,
     data.content_cost,
     data.ad_spend,
