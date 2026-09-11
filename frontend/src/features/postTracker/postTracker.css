@@ -2064,6 +2064,166 @@
   border-color: #1877f2;
 }
 
+/* Meta Text & URL Inputs */
+.meta-text-input,
+.meta-datetime-input {
+  width: 100%;
+  height: 42px;
+  padding: 10px 14px;
+  background-color: #ffffff;
+  border: 1px solid #ced0d4;
+  border-radius: 8px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #050505;
+  box-sizing: border-box;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.meta-text-input:hover,
+.meta-datetime-input:hover {
+  border-color: #8a8d91;
+}
+
+.meta-text-input:focus,
+.meta-datetime-input:focus {
+  border-color: #1877f2;
+  box-shadow: 0 0 0 2px rgba(24, 119, 242, 0.2);
+  background-color: #ffffff;
+}
+
+.meta-text-input::placeholder,
+.meta-datetime-input::placeholder {
+  color: #8a8d91;
+  font-weight: 400;
+  font-size: 13.5px;
+}
+
+/* Input Group with Left Icon & Clear Action */
+.meta-input-group {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.meta-input-with-icon .meta-text-input,
+.meta-input-with-icon .meta-datetime-input {
+  padding-left: 38px;
+  padding-right: 36px;
+}
+
+.meta-input-lead-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #65676b;
+  pointer-events: none;
+  transition: color 0.15s ease;
+}
+
+.meta-input-group:focus-within .meta-input-lead-icon {
+  color: #1877f2;
+}
+
+.meta-input-clear-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #e4e6eb;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #65676b;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s ease;
+}
+
+.meta-input-clear-btn:hover {
+  background: #ced0d4;
+  color: #050505;
+}
+
+/* Feedback banners for Post ID recognition */
+.meta-input-feedback-success {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  margin-top: 8px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #15803d;
+  animation: metaFadeIn 0.2s ease-out;
+}
+
+.meta-input-feedback-success code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  background: #dcfce7;
+  color: #166534;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  border: 1px solid #bbf7d0;
+}
+
+.meta-input-feedback-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  margin-top: 8px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #b91c1c;
+  animation: metaFadeIn 0.2s ease-out;
+}
+
+.meta-input-hint {
+  font-size: 12px;
+  color: #65676b;
+  margin: 8px 0 0 2px;
+  line-height: 1.4;
+}
+
+.meta-input-hint code {
+  background: #f0f2f5;
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: #050505;
+  font-family: inherit;
+}
+
+@keyframes metaFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Sticky Action Bar */
 .meta-sticky-bar {
   background: #ffffff;

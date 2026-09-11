@@ -28,7 +28,8 @@ import {
   ThumbsUp,
   MessageSquare,
   Share2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  X
 } from 'lucide-react';
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 import { MetaEmojiPicker } from '../components/MetaEmojiPicker';
@@ -568,13 +569,28 @@ export const EditPostPage = () => {
                 <h3 className="meta-card-title">Facebook Post ID</h3>
                 <p className="meta-card-desc">Linked Facebook Post ID for analytics and metrics</p>
               </div>
-              <input
-                type="text"
-                className="meta-datetime-input"
-                value={fbPostId}
-                onChange={(e) => setFbPostId(e.target.value)}
-                placeholder="{pageId}_{postId}"
-              />
+              <div className="meta-input-group meta-input-with-icon">
+                <span className="meta-input-lead-icon">
+                  <Link2 size={16} />
+                </span>
+                <input
+                  type="text"
+                  className="meta-text-input"
+                  value={fbPostId}
+                  onChange={(e) => setFbPostId(e.target.value)}
+                  placeholder="{pageId}_{postId}"
+                />
+                {fbPostId && (
+                  <button
+                    type="button"
+                    className="meta-input-clear-btn"
+                    onClick={() => setFbPostId('')}
+                    title="Clear input"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+              </div>
             </div>
           )}
 

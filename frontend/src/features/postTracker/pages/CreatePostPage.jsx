@@ -860,21 +860,38 @@ export const CreatePostPage = () => {
 
               {legacyMode === 'paste' ? (
                 <div>
-                  <input
-                    type="text"
-                    className="meta-datetime-input"
-                    placeholder="e.g. https://facebook.com/posts/12345 or {pageId}_{postId}"
-                    value={postUrl}
-                    onChange={(e) => handleUrlChange(e.target.value)}
-                  />
+                  <div className="meta-input-group meta-input-with-icon">
+                    <span className="meta-input-lead-icon">
+                      <Link2 size={16} />
+                    </span>
+                    <input
+                      type="text"
+                      className="meta-text-input"
+                      placeholder="e.g. https://facebook.com/posts/12345 or {pageId}_{postId}"
+                      value={postUrl}
+                      onChange={(e) => handleUrlChange(e.target.value)}
+                    />
+                    {postUrl && (
+                      <button
+                        type="button"
+                        className="meta-input-clear-btn"
+                        onClick={() => handleUrlChange('')}
+                        title="Clear input"
+                      >
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
                   {parsedPostId && (
-                    <div style={{ fontSize: '12px', color: '#16a34a', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <CheckCircle2 size={14} /> Recognized Post ID: <code>{parsedPostId}</code>
+                    <div className="meta-input-feedback-success">
+                      <CheckCircle2 size={15} />
+                      <span>Recognized Post ID: <code>{parsedPostId}</code></span>
                     </div>
                   )}
                   {urlError && (
-                    <div style={{ fontSize: '12px', color: '#ef4444', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <AlertCircle size={14} /> {urlError}
+                    <div className="meta-input-feedback-error">
+                      <AlertCircle size={15} />
+                      <span>{urlError}</span>
                     </div>
                   )}
                 </div>
@@ -883,6 +900,10 @@ export const CreatePostPage = () => {
                   {loadingRecent ? (
                     <div style={{ padding: '20px', textAlign: 'center', color: '#65676b', fontSize: '13px' }}>
                       Loading recent Facebook posts...
+                    </div>
+                  ) : recentPosts.length === 0 ? (
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#65676b', fontSize: '13px' }}>
+                      No recent Facebook posts found for the selected page.
                     </div>
                   ) : (
                     <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
