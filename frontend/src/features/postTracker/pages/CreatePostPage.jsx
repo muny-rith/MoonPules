@@ -73,8 +73,8 @@ export const CreatePostPage = () => {
   const [selectedBrand, setSelectedBrand] = useState(null);
 
   // Costs
-  const [contentCost, setContentCost] = useState(0);
-  const [adSpend, setAdSpend] = useState(0);
+  const [contentCost, setContentCost] = useState('');
+  const [adSpend, setAdSpend] = useState('');
   const [attributionWindow, setAttributionWindow] = useState(7);
 
   // Content
@@ -1119,6 +1119,7 @@ export const CreatePostPage = () => {
                   type="number"
                   value={contentCost}
                   onChange={(e) => setContentCost(e.target.value)}
+                  placeholder="0"
                   className="meta-cost-input"
                   min="0"
                   step="0.01"
@@ -1130,6 +1131,7 @@ export const CreatePostPage = () => {
                   type="number"
                   value={adSpend}
                   onChange={(e) => setAdSpend(e.target.value)}
+                  placeholder="0"
                   className="meta-cost-input"
                   min="0"
                   step="0.01"
@@ -1160,7 +1162,17 @@ export const CreatePostPage = () => {
           {/* Sticky Action Bar */}
           <div className="meta-sticky-bar" style={{ justifyContent: 'flex-end' }}>
 
-            <div className="meta-actions-right">
+            <div className="meta-actions-right" style={{ display: 'flex', alignItems: 'center' }}>
+              {tabMode === 'legacy' && legacyMode === 'pick' && !selectedRecentPostId && (
+                <span style={{ fontSize: '12px', color: '#8a8d91', marginRight: '8px' }}>
+                  Select a post from the list above to track
+                </span>
+              )}
+              {tabMode === 'legacy' && legacyMode === 'paste' && !parsedPostId && (
+                <span style={{ fontSize: '12px', color: '#8a8d91', marginRight: '8px' }}>
+                  Paste a valid Facebook link or ID
+                </span>
+              )}
               <button
                 type="button"
                 onClick={handleCancel}
@@ -1172,7 +1184,12 @@ export const CreatePostPage = () => {
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={submitting || !productId || selectedPageIds.length === 0}
+                disabled={
+                  submitting ||
+                  !(trackingTarget === 'brand' ? Boolean(brandId) : Boolean(productId)) ||
+                  selectedPageIds.length === 0 ||
+                  (tabMode === 'legacy' && (legacyMode === 'pick' ? !selectedRecentPostId : !parsedPostId))
+                }
                 className="meta-btn-primary"
               >
                 {submitting ? (
@@ -1188,9 +1205,7 @@ export const CreatePostPage = () => {
                       : 'Publish'
                   )
                 ) : (
-                  selectedPageIds.length > 1
-                    ? `Track for ${selectedPageIds.length} Accounts`
-                    : 'Track Post'
+                  'Track Post'
                 )}
               </button>
             </div>

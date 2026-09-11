@@ -720,7 +720,7 @@ export const EditPostPage = () => {
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={submitting || !productId || !pageId}
+                disabled={submitting || !(trackingTarget === 'brand' ? Boolean(brandId) : Boolean(productId)) || !pageId}
                 className="meta-btn-primary"
               >
                 {submitting ? 'Saving...' : 'Save Changes'}
@@ -729,10 +729,6 @@ export const EditPostPage = () => {
           </div>
 
         </div>
-
-        {/* ══════════════════════════════════════════════════
-            RIGHT COLUMN: Live Facebook Feed Preview Area
-            ══════════════════════════════════════════════════ */}
         <div className="meta-preview-col">
 
           <div className={`meta-feed-card ${previewDevice === 'desktop' ? 'desktop-view' : 'mobile-view'}`}>
