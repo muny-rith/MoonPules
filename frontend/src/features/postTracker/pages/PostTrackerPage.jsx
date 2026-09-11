@@ -365,11 +365,6 @@ export const PostTrackerPage = () => {
                         </div>
                         <div>
                           <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '14px', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            {post.tracking_type === 'brand' && (
-                              <span className="brand-live-table-pill">
-                                <Award size={12} /> Brand Live
-                              </span>
-                            )}
                             <span>{post.product_name || `Target #${post.product_id || post.brand_id}`}</span>
                           </div>
                           <div style={{ fontSize: '12px', color: '#64748b' }}>{post.page_name || post.page_id}</div>
@@ -388,17 +383,17 @@ export const PostTrackerPage = () => {
                           {post.published_time
                             ? new Date(post.published_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                             : post.scheduled_time
-                            ? new Date(post.scheduled_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                            : '-'}
+                              ? new Date(post.scheduled_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                              : '-'}
                         </div>
                         <div style={{ fontSize: '12px', color: post.status === 'failed' ? '#dc2626' : post.status === 'scheduled' ? '#d97706' : '#94a3b8' }}>
                           {post.status === 'failed'
                             ? <span title={post.publish_error || 'Publishing failed'} style={{ cursor: 'help' }}>⚠️ {post.publish_error ? (post.publish_error.length > 35 ? post.publish_error.slice(0, 35) + '…' : post.publish_error) : 'Failed'}</span>
                             : post.published_time
-                            ? new Date(post.published_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-                            : post.scheduled_time
-                            ? `⏰ ${new Date(post.scheduled_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
-                            : 'Pending'}
+                              ? new Date(post.published_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+                              : post.scheduled_time
+                                ? `⏰ ${new Date(post.scheduled_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+                                : 'Pending'}
                         </div>
                       </div>
                     </td>
