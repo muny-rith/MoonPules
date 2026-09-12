@@ -131,7 +131,7 @@ export const PostTrackerPage = () => {
   useEffect(() => {
     const fetchProfit = async () => {
       try {
-        const res = await api.get('/profit/dashboard');
+        const res = await api.get('/profit/dashboard?range=all');
         if (res.data && res.data.data && res.data.data.all_posts_profit) {
           const profitMap = {};
           res.data.data.all_posts_profit.forEach(p => {
@@ -426,20 +426,39 @@ export const PostTrackerPage = () => {
                     </td>
                     <td style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9', textAlign: 'right' }}>
                       <div style={{ fontSize: '14px', fontWeight: 600, color: '#10b981' }}>
-                        ${postsProfit[post.id]?.revenue?.toFixed(2) || '0.00'}
+                        ${(postsProfit[post.id]?.revenue !== undefined ? postsProfit[post.id].revenue : 0).toFixed(2)}
                       </div>
                     </td>
                     <td style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
-                        <div style={{ fontSize: '14px', fontWeight: 600, color: postsProfit[post.id]?.net_profit >= 0 ? '#10b981' : '#ef4444' }}>
-                          ${postsProfit[post.id]?.net_profit?.toFixed(2) || '0.00'}
-                        </div>
-                        {postsProfit[post.id] && (
-                          <div style={{ fontSize: '11px', color: postsProfit[post.id]?.roi >= 0 ? '#10b981' : '#ef4444', fontWeight: 600, backgroundColor: postsProfit[post.id]?.roi >= 0 ? '#d1fae5' : '#fee2e2', padding: '2px 6px', borderRadius: '4px' }}>
-                            {postsProfit[post.id]?.roi >= 0 ? '+' : ''}{postsProfit[post.id]?.roi}% ROI
+                      {(() => {
+                        const profitData = postsProfit[post.id];
+                        const totalCost = (parseFloat(post.content_cost) || 0) + (parseFloat(post.ad_spend) || 0);
+                        const revenue = profitData?.revenue !== undefined ? profitData.revenue : 0;
+                        const netProfit = profitData?.net_profit !== undefined ? profitData.net_profit : (revenue - totalCost);
+                        const roi = profitData?.roi !== undefined
+                          ? profitData.roi
+                          : (totalCost > 0 ? ((revenue - totalCost) / totalCost * 100) : 0);
+
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
+                            <div style={{ fontSize: '14px', fontWeight: 600, color: netProfit >= 0 ? '#10b981' : '#ef4444' }}>
+                              {netProfit < 0 ? `-$${Math.abs(netProfit).toFixed(2)}` : `$${netProfit.toFixed(2)}`}
+                            </div>
+                            {totalCost > 0 && (
+                              <div style={{
+                                fontSize: '11px',
+                                color: roi >= 0 ? '#10b981' : '#ef4444',
+                                fontWeight: 600,
+                                backgroundColor: roi >= 0 ? '#d1fae5' : '#fee2e2',
+                                padding: '2px 6px',
+                                borderRadius: '4px'
+                              }}>
+                                {roi >= 0 ? '+' : ''}{Math.round(roi)}% ROI
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
+                        );
+                      })()}
                     </td>
                     <td style={{ textAlign: 'center', padding: '16px 24px', borderBottom: '1px solid #f1f5f9' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>

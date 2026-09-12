@@ -122,8 +122,8 @@ export const EditPostPage = () => {
       if (post.product_id) setProductId(String(post.product_id));
 
       setMessage(post.message || '');
-      setContentCost(post.content_cost || 0);
-      setAdSpend(post.ad_spend || 0);
+      setContentCost(post.content_cost !== undefined && post.content_cost !== null ? parseFloat(post.content_cost) : '');
+      setAdSpend(post.ad_spend !== undefined && post.ad_spend !== null ? parseFloat(post.ad_spend) : '');
       setAttributionWindow(post.attribution_window_days || 7);
       setFbPostId(post.fb_post_id || '');
 
@@ -664,6 +664,7 @@ export const EditPostPage = () => {
                   type="number"
                   value={contentCost}
                   onChange={(e) => setContentCost(e.target.value)}
+                  placeholder="0"
                   className="meta-cost-input"
                   min="0"
                   step="0.01"
@@ -675,6 +676,7 @@ export const EditPostPage = () => {
                   type="number"
                   value={adSpend}
                   onChange={(e) => setAdSpend(e.target.value)}
+                  placeholder="0"
                   className="meta-cost-input"
                   min="0"
                   step="0.01"

@@ -7,11 +7,11 @@ const listPosts = async () => {
   const posts = await repository.getAllTrackedPosts();
   const products = await productsService.listProducts();
   const brands = await productsService.listBrands();
-  
+
   return posts.map(post => {
     const prod = post.product_id ? products.find(p => String(p.id) === String(post.product_id)) : null;
     const brand = post.brand_id ? brands.find(b => String(b.brand_id) === String(post.brand_id) || String(b.id) === String(post.brand_id)) : (prod?.brand_id ? brands.find(b => String(b.brand_id) === String(prod.brand_id) || String(b.id) === String(prod.brand_id)) : null);
-    
+
     const isBrandTracking = post.tracking_type === 'brand' || (!post.product_id && post.brand_id);
     const brandName = brand ? (brand.brand_name || brand.name) : (prod?.brand_name || null);
     const brandImage = brand ? (brand.image_url || null) : null;
@@ -181,22 +181,24 @@ const markPost = async (postData) => {
   if (isPublished) {
     try {
       const metrics = await facebookService.getPostMetrics(fb_post_id, page_id);
-      let views = 0;
-      let reach = 0;
+      let views = null;
+      let reach = null;
       try {
         const insights = await facebookService.getInsights(fb_post_id, page_id);
         const viewsData = insights.data?.find(m => m.name === 'post_media_view');
         const reachData = insights.data?.find(m => m.name === 'post_total_media_view_unique');
-        views = viewsData?.values?.[0]?.value || 0;
-        reach = reachData?.values?.[0]?.value || 0;
-      } catch (e) {}
+        views = viewsData?.values?.[0]?.value ?? null;
+        reach = reachData?.values?.[0]?.value ?? null;
+      } catch (e) {
+        if (!e.isTokenExpired) console.warn(`Insights fetch failed while marking post:`, e.message);
+      }
 
       await repository.updateTrackedPostMetrics(trackedPost.id, metrics.likes, metrics.comments, metrics.shares, views, reach);
       trackedPost.likes_count = metrics.likes;
       trackedPost.comments_count = metrics.comments;
       trackedPost.shares_count = metrics.shares;
-      trackedPost.views_count = views;
-      trackedPost.reach_count = reach;
+      trackedPost.views_count = views ?? 0;
+      trackedPost.reach_count = reach ?? 0;
     } catch (err) {
       console.warn('Initial metrics sync for marked post failed:', err.message);
     }
@@ -260,35 +262,35 @@ const editPostData = async (id, data) => {
         data.status = 'published';
         data.published_time = fbStatus.created_time || new Date();
       }
-    } catch (_) {}
+    } catch (_) { }
   }
 
   const updated = await repository.updateTrackedPostData(id, data);
 
-  // If fb_post_id is present and published, fetch fresh metrics
+  // Fetch fresh metrics asynchronously in background without delaying user edit response
   if (updated.fb_post_id && updated.status === 'published') {
-    try {
-      const metrics = await facebookService.getPostMetrics(updated.fb_post_id, updated.page_id);
-      let views = 0;
-      let reach = 0;
+    (async () => {
       try {
-        const insights = await facebookService.getInsights(updated.fb_post_id, updated.page_id);
-        const viewsData = insights.data?.find(m => m.name === 'post_media_view');
-        const reachData = insights.data?.find(m => m.name === 'post_total_media_view_unique');
-        views = viewsData?.values?.[0]?.value || 0;
-        reach = reachData?.values?.[0]?.value || 0;
-      } catch (_) {}
+        const metrics = await facebookService.getPostMetrics(updated.fb_post_id, updated.page_id);
+        let views = null;
+        let reach = null;
+        try {
+          const insights = await facebookService.getInsights(updated.fb_post_id, updated.page_id);
+          const viewsData = insights.data?.find(m => m.name === 'post_media_view');
+          const reachData = insights.data?.find(m => m.name === 'post_total_media_view_unique');
+          views = viewsData?.values?.[0]?.value ?? null;
+          reach = reachData?.values?.[0]?.value ?? null;
+        } catch (e) {
+          if (!e.isTokenExpired) console.warn(`Insights fetch failed while editing post ${id}:`, e.message);
+        }
 
-      await repository.updateTrackedPostMetrics(id, metrics.likes, metrics.comments, metrics.shares, views, reach);
-      updated.likes_count = metrics.likes;
-      updated.comments_count = metrics.comments;
-      updated.shares_count = metrics.shares;
-      updated.views_count = views;
-      updated.reach_count = reach;
-    } catch (err) {
-      console.warn(`Metrics update after editing post ${id} skipped:`, err.message);
-    }
+        await repository.updateTrackedPostMetrics(id, metrics.likes, metrics.comments, metrics.shares, views, reach);
+      } catch (err) {
+        console.warn(`Background metrics update after editing post ${id} skipped:`, err.message);
+      }
+    })();
   }
+
 
   // If scheduled_time changed for a scheduled post, re-arm the timer
   if (updated.status === 'scheduled') {

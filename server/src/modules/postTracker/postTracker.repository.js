@@ -156,12 +156,18 @@ const updateTrackedPostStatus = async (id, status, published_time) => {
 const updateTrackedPostMetrics = async (id, likes, comments, shares, views, reach, mediaType) => {
   const query = mediaType ? `
     UPDATE tb_post_tracker
-    SET likes_count = $1, comments_count = $2, shares_count = $3, views_count = $4, reach_count = $5, media_type = $6, updated_at = CURRENT_TIMESTAMP
+    SET likes_count = $1, comments_count = $2, shares_count = $3,
+        views_count = COALESCE($4, views_count),
+        reach_count = COALESCE($5, reach_count),
+        media_type = $6, updated_at = CURRENT_TIMESTAMP
     WHERE id = $7
     RETURNING *
   ` : `
     UPDATE tb_post_tracker
-    SET likes_count = $1, comments_count = $2, shares_count = $3, views_count = $4, reach_count = $5, updated_at = CURRENT_TIMESTAMP
+    SET likes_count = $1, comments_count = $2, shares_count = $3,
+        views_count = COALESCE($4, views_count),
+        reach_count = COALESCE($5, reach_count),
+        updated_at = CURRENT_TIMESTAMP
     WHERE id = $6
     RETURNING *
   `;
@@ -173,38 +179,72 @@ const updateTrackedPostMetrics = async (id, likes, comments, shares, views, reac
 };
 
 const updateTrackedPostData = async (id, data) => {
-  const result = await db.query(`
+  const fields = [];
+  const values = [];
+  let idx = 1;
+
+  if (data.product_id !== undefined) {
+    fields.push(`product_id = $${idx++}`);
+    values.push(data.product_id ? parseInt(data.product_id, 10) : null);
+  }
+  if (data.brand_id !== undefined) {
+    fields.push(`brand_id = $${idx++}`);
+    values.push(data.brand_id ? parseInt(data.brand_id, 10) : null);
+  }
+  if (data.tracking_type !== undefined) {
+    fields.push(`tracking_type = $${idx++}`);
+    values.push(data.tracking_type);
+  }
+  if (data.status !== undefined) {
+    fields.push(`status = $${idx++}`);
+    values.push(data.status);
+  }
+  if (data.content_cost !== undefined) {
+    fields.push(`content_cost = $${idx++}`);
+    values.push(data.content_cost !== null && data.content_cost !== '' ? parseFloat(data.content_cost) : 0);
+  }
+  if (data.ad_spend !== undefined) {
+    fields.push(`ad_spend = $${idx++}`);
+    values.push(data.ad_spend !== null && data.ad_spend !== '' ? parseFloat(data.ad_spend) : 0);
+  }
+  if (data.attribution_window_days !== undefined) {
+    fields.push(`attribution_window_days = $${idx++}`);
+    values.push(parseInt(data.attribution_window_days, 10) || 7);
+  }
+  if (data.fb_post_id !== undefined) {
+    fields.push(`fb_post_id = $${idx++}`);
+    values.push(data.fb_post_id || null);
+  }
+  if (data.message !== undefined) {
+    fields.push(`message = $${idx++}`);
+    values.push(data.message || '');
+  }
+  if (data.media_url !== undefined) {
+    fields.push(`media_url = $${idx++}`);
+    values.push(data.media_url || null);
+  }
+  if (data.scheduled_time !== undefined) {
+    fields.push(`scheduled_time = $${idx++}`);
+    values.push(data.scheduled_time || null);
+  }
+
+  if (fields.length === 0) {
+    return await getTrackedPostById(id);
+  }
+
+  fields.push(`updated_at = CURRENT_TIMESTAMP`);
+  values.push(id);
+
+  const query = `
     UPDATE tb_post_tracker
-    SET product_id = CASE WHEN $1::text IS NOT NULL THEN $1::int ELSE product_id END,
-        brand_id = CASE WHEN $2::text IS NOT NULL THEN $2::int ELSE brand_id END,
-        tracking_type = COALESCE($3, tracking_type),
-        status = COALESCE($4, status),
-        content_cost = COALESCE($5, content_cost),
-        ad_spend = COALESCE($6, ad_spend),
-        attribution_window_days = COALESCE($7, attribution_window_days),
-        fb_post_id = COALESCE($8, fb_post_id),
-        message = COALESCE($9, message),
-        media_url = COALESCE($10, media_url),
-        scheduled_time = COALESCE($11, scheduled_time),
-        updated_at = CURRENT_TIMESTAMP
-    WHERE id = $12
+    SET ${fields.join(', ')}
+    WHERE id = $${idx}
     RETURNING *
-  `, [
-    data.product_id !== undefined ? (data.product_id ? String(data.product_id) : null) : null,
-    data.brand_id !== undefined ? (data.brand_id ? String(data.brand_id) : null) : null,
-    data.tracking_type,
-    data.status,
-    data.content_cost,
-    data.ad_spend,
-    data.attribution_window_days,
-    data.fb_post_id,
-    data.message,
-    data.media_url,
-    data.scheduled_time,
-    id,
-  ]);
+  `;
+  const result = await db.query(query, values);
   return result.rows[0];
 };
+
 
 const updateTrackedPostCosts = async (id, contentCost, adSpend) => {
   const result = await db.query(`

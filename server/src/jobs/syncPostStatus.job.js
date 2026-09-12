@@ -13,7 +13,7 @@ const syncPostStatus = async () => {
       try {
         if (!row.fb_post_id) {
           // Post is scheduled via MoonPulse precision scheduler, has no FB ID yet.
-          continue; 
+          continue;
         }
         const fbStatus = await facebookService.checkPublished(row.fb_post_id, row.page_id);
         if (fbStatus.is_published) {
@@ -37,14 +37,14 @@ const syncPostStatus = async () => {
         const metrics = await facebookService.getPostMetrics(row.fb_post_id, row.page_id);
         const mediaType = await facebookService.getPostMediaType(row.fb_post_id, row.page_id);
 
-        let views = 0;
-        let reach = 0;
+        let views = null;
+        let reach = null;
         try {
           const insights = await facebookService.getInsights(row.fb_post_id, row.page_id);
           const viewsData = insights.data?.find(m => m.name === 'post_media_view');
           const reachData = insights.data?.find(m => m.name === 'post_total_media_view_unique');
-          views = viewsData?.values?.[0]?.value || 0;
-          reach = reachData?.values?.[0]?.value || 0;
+          views = viewsData?.values?.[0]?.value ?? null;
+          reach = reachData?.values?.[0]?.value ?? null;
         } catch (e) {
           if (e.isTokenExpired) {
             console.error(`[Cron] TOKEN EXPIRED fetching insights for post ${row.id} (page_id ${row.page_id}) — needs manual reconnect.`);
@@ -54,7 +54,7 @@ const syncPostStatus = async () => {
         }
 
         await postTrackerService.updateMetrics(row.id, metrics.likes, metrics.comments, metrics.shares, views, reach, mediaType);
-        console.log(`[Cron] Metrics updated for post ${row.id}: L=${metrics.likes} C=${metrics.comments} S=${metrics.shares} V=${views} R=${reach} Format=${mediaType}`);
+        console.log(`[Cron] Metrics updated for post ${row.id}: L=${metrics.likes} C=${metrics.comments} S=${metrics.shares} V=${views ?? 'unchanged'} R=${reach ?? 'unchanged'} Format=${mediaType}`);
       } catch (err) {
         if (err.isTokenExpired) {
           console.error(`[Cron] TOKEN EXPIRED syncing metrics for post ${row.id} (page_id ${row.page_id}) — needs manual reconnect.`);
