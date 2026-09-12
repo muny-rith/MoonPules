@@ -33,7 +33,9 @@ import {
   X,
   Package,
   Award,
-  Radio
+  Radio,
+  Copy,
+  Check
 } from 'lucide-react';
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 import { MetaEmojiPicker } from '../components/MetaEmojiPicker';
@@ -99,6 +101,23 @@ export const EditPostPage = () => {
   const [contactFooter, setContactFooter] = useState('');
   const [showFooterModal, setShowFooterModal] = useState(false);
   const [showHashtagModal, setShowHashtagModal] = useState(false);
+  const [copiedText, setCopiedText] = useState(false);
+
+  const handleCopyText = async () => {
+    if (!message) return;
+    try {
+      await navigator.clipboard.writeText(message);
+      setCopiedText(true);
+      setTimeout(() => setCopiedText(false), 2000);
+    } catch (err) {
+      if (textareaRef.current) {
+        textareaRef.current.select();
+        document.execCommand('copy');
+        setCopiedText(true);
+        setTimeout(() => setCopiedText(false), 2000);
+      }
+    }
+  };
 
   useEffect(() => {
     loadPages();
@@ -622,8 +641,37 @@ export const EditPostPage = () => {
 
           {/* 4. Card: Post details (Textarea + Action Toolbar) */}
           <div className="meta-card" ref={textCardRef}>
-            <div style={{ marginBottom: '8px', fontSize: '13px', fontWeight: 600, color: '#050505' }}>
-              Text {isPublished && <span style={{ fontWeight: 400, color: '#65676b' }}>(Locked for published post)</span>}
+            <div style={{ marginBottom: '8px', fontSize: '13px', fontWeight: 600, color: '#050505', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>Text</span>
+                {isPublished && (
+                  <span style={{ fontWeight: 400, color: '#65676b', fontSize: '12px' }}>
+                    (Read-only for published post)
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleCopyText}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '3px 9px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  borderRadius: '6px',
+                  border: '1px solid #ced0d4',
+                  background: copiedText ? '#ecfdf5' : '#f0f2f5',
+                  color: copiedText ? '#059669' : '#050505',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Copy post text to clipboard"
+              >
+                {copiedText ? <Check size={13} /> : <Copy size={13} />}
+                <span>{copiedText ? 'Copied!' : 'Copy Text'}</span>
+              </button>
             </div>
 
             <div className="meta-textarea-box">
@@ -631,10 +679,10 @@ export const EditPostPage = () => {
                 ref={textareaRef}
                 className="meta-textarea"
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
+                onChange={isPublished ? undefined : (e) => setMessage(e.target.value)}
                 placeholder="Write something..."
-                disabled={isPublished}
-                style={isPublished ? { opacity: 0.7, cursor: 'not-allowed' } : undefined}
+                readOnly={isPublished}
+                style={isPublished ? { cursor: 'text', backgroundColor: '#fafbfc' } : undefined}
               />
               {!isPublished && (
                 <div className="meta-textarea-toolbar">

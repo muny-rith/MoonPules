@@ -1077,8 +1077,8 @@
 
 .meta-textarea::selection,
 .meta-textarea-box ::selection {
-  /* background-color: #519cff; */
-  color: #ff0000;
+  background-color: #1877f2;
+  color: #ffffff;
 }
 
 .meta-textarea::placeholder {
