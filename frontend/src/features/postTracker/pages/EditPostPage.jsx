@@ -332,7 +332,17 @@ export const EditPostPage = () => {
     const tagStr = tags.join(' ');
     setMessage((prev) => {
       const trimmed = (prev || '').trim();
-      return trimmed ? `${trimmed} ${tagStr}` : tagStr;
+      if (!trimmed) return tagStr;
+
+      const lines = trimmed.split('\n');
+      const lastLine = lines[lines.length - 1].trim();
+      const isLastLineHashtags = lastLine.startsWith('#');
+
+      if (isLastLineHashtags) {
+        return `${trimmed} ${tagStr}`;
+      } else {
+        return `${trimmed}\n${tagStr}`;
+      }
     });
 
     setTimeout(() => {

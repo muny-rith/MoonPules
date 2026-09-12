@@ -121,10 +121,10 @@ export const AddHashtagsModal = ({
     }
   };
 
-  // Combine DB hashtags with contextual product & brand tags
+  // Combine DB hashtags with contextual product & brand tags (Brand & Product placed at the VERY TOP)
   const allSuggestedTags = useMemo(() => {
-    const list = [...dbHashtags];
-    const seen = new Set(dbHashtags.map((h) => h.tag.toLowerCase()));
+    const topContextTags = [];
+    const seen = new Set();
 
     const addContextTag = (name, source) => {
       if (!name || typeof name !== 'string') return;
@@ -132,26 +132,32 @@ export const AddHashtagsModal = ({
       const lower = clean.toLowerCase();
       if (!seen.has(lower)) {
         seen.add(lower);
-        list.push({
-          id: `ctx-${lower}`,
-          tag: clean,
-          is_saved: false,
-          note: null,
-          usage_count: 0,
-          last_used_at: null,
+        const existingInDb = dbHashtags.find((h) => h.tag.toLowerCase() === lower);
+        topContextTags.push({
+          ...(existingInDb || {
+            id: `ctx-${lower}`,
+            tag: clean,
+            is_saved: false,
+            note: null,
+            usage_count: 0,
+            last_used_at: null,
+          }),
           source, // 'brand' | 'product'
         });
       }
     };
 
-    // Selected brand tag
+    // 1. Selected brand tag (TOP priority)
     const brandLabel = selectedBrand?.brand_name || selectedBrand?.name;
     if (brandLabel) addContextTag(brandLabel, 'brand');
 
-    // Selected product tag
+    // 2. Selected product tag (TOP priority)
     if (selectedProduct?.product_name) addContextTag(selectedProduct.product_name, 'product');
 
-    return list;
+    // 3. All remaining database hashtags
+    const remainingDbTags = dbHashtags.filter((h) => !seen.has(h.tag.toLowerCase()));
+
+    return [...topContextTags, ...remainingDbTags];
   }, [dbHashtags, selectedProduct, selectedBrand]);
 
   // Filter tags based on Active Tab and Search Query
@@ -511,21 +517,21 @@ export const AddHashtagsModal = ({
                           {item.tag}
                         </span>
 
-                        {item.is_saved && (
+                        {item.source === 'brand' && (
                           <span
                             style={{
                               fontSize: '11px',
-                              color: '#0369a1',
-                              background: '#e0f2fe',
+                              color: '#7e22ce',
+                              background: '#f3e8ff',
                               padding: '1px 6px',
                               borderRadius: '4px',
                               fontWeight: 500,
                             }}
                           >
-                            Saved
+                            Brand
                           </span>
                         )}
-                        {item.source === 'product' && !item.is_saved && (
+                        {item.source === 'product' && (
                           <span
                             style={{
                               fontSize: '11px',
@@ -539,18 +545,18 @@ export const AddHashtagsModal = ({
                             Product
                           </span>
                         )}
-                        {item.source === 'brand' && !item.is_saved && (
+                        {item.is_saved && (
                           <span
                             style={{
                               fontSize: '11px',
-                              color: '#7e22ce',
-                              background: '#f3e8ff',
+                              color: '#0369a1',
+                              background: '#e0f2fe',
                               padding: '1px 6px',
                               borderRadius: '4px',
                               fontWeight: 500,
                             }}
                           >
-                            Brand
+                            Saved
                           </span>
                         )}
                       </div>

@@ -40,7 +40,8 @@ import {
   Edit2,
   Package,
   Award,
-  Radio
+  Radio,
+  GripVertical
 } from 'lucide-react';
 import { MetaEmojiPicker } from '../components/MetaEmojiPicker';
 import { MetaSchedulePicker } from '../components/MetaSchedulePicker';
@@ -86,6 +87,10 @@ export const CreatePostPage = () => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [mediaSource, setMediaSource] = useState('upload'); // 'upload' | 'product' | 'none'
   const [mediaItems, setMediaItems] = useState([]); // [{ id, file, previewUrl, serverUrl, dimensions, uploading }]
+  const [draggedMediaIndex, setDraggedMediaIndex] = useState(null);
+  const [dragOverMediaIndex, setDragOverMediaIndex] = useState(null);
+  const dragItemIndexRef = useRef(null);
+  const dragOverItemIndexRef = useRef(null);
   const editItemIndexRef = useRef(null);
   const [publishMode, setPublishMode] = useState('now'); // 'now' | 'schedule'
   const [scheduledDateTime, setScheduledDateTime] = useState('');
@@ -326,6 +331,82 @@ export const CreatePostPage = () => {
     setMediaItems((prev) => prev.filter((it) => it.id !== itemId));
   };
 
+  // Global safety listener to ensure drag state is never stuck if browser aborts drag
+  useEffect(() => {
+    const handleGlobalDragReset = () => {
+      if (dragItemIndexRef.current !== null || dragOverItemIndexRef.current !== null) {
+        dragItemIndexRef.current = null;
+        dragOverItemIndexRef.current = null;
+        setDraggedMediaIndex(null);
+        setDragOverMediaIndex(null);
+      }
+    };
+
+    window.addEventListener('dragend', handleGlobalDragReset);
+    window.addEventListener('drop', handleGlobalDragReset);
+    window.addEventListener('mouseup', handleGlobalDragReset);
+    return () => {
+      window.removeEventListener('dragend', handleGlobalDragReset);
+      window.removeEventListener('drop', handleGlobalDragReset);
+      window.removeEventListener('mouseup', handleGlobalDragReset);
+    };
+  }, []);
+
+  const handleMediaDragStart = (e, index) => {
+    dragItemIndexRef.current = index;
+    e.dataTransfer.effectAllowed = 'move';
+    try {
+      e.dataTransfer.setData('text/plain', String(index));
+    } catch {}
+    setTimeout(() => {
+      setDraggedMediaIndex(index);
+    }, 0);
+  };
+
+  const handleMediaDragEnter = (e, index) => {
+    e.preventDefault();
+    if (dragOverItemIndexRef.current !== index) {
+      dragOverItemIndexRef.current = index;
+      setDragOverMediaIndex(index);
+    }
+  };
+
+  const handleMediaDragOver = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverItemIndexRef.current !== index) {
+      dragOverItemIndexRef.current = index;
+      setDragOverMediaIndex(index);
+    }
+  };
+
+  const handleMediaDrop = (e, targetIndex) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const sourceIndex = dragItemIndexRef.current !== null ? dragItemIndexRef.current : draggedMediaIndex;
+
+    if (sourceIndex !== null && sourceIndex !== targetIndex && sourceIndex >= 0 && targetIndex >= 0) {
+      setMediaItems((prev) => {
+        const items = [...prev];
+        const [movedItem] = items.splice(sourceIndex, 1);
+        items.splice(targetIndex, 0, movedItem);
+        return items;
+      });
+    }
+
+    dragItemIndexRef.current = null;
+    dragOverItemIndexRef.current = null;
+    setDraggedMediaIndex(null);
+    setDragOverMediaIndex(null);
+  };
+
+  const handleMediaDragEnd = () => {
+    dragItemIndexRef.current = null;
+    dragOverItemIndexRef.current = null;
+    setDraggedMediaIndex(null);
+    setDragOverMediaIndex(null);
+  };
+
   const handleInsertProductName = () => {
     if (!selectedProduct) return;
     setMessage((prev) => (prev ? `${prev} ${selectedProduct.product_name}` : selectedProduct.product_name));
@@ -387,7 +468,17 @@ export const CreatePostPage = () => {
     const tagStr = tags.join(' ');
     setMessage((prev) => {
       const trimmed = (prev || '').trim();
-      return trimmed ? `${trimmed} ${tagStr}` : tagStr;
+      if (!trimmed) return tagStr;
+
+      const lines = trimmed.split('\n');
+      const lastLine = lines[lines.length - 1].trim();
+      const isLastLineHashtags = lastLine.startsWith('#');
+
+      if (isLastLineHashtags) {
+        return `${trimmed} ${tagStr}`;
+      } else {
+        return `${trimmed}\n${tagStr}`;
+      }
     });
 
     setTimeout(() => {
@@ -917,48 +1008,111 @@ export const CreatePostPage = () => {
               {mediaSource === 'upload' && (
                 <div>
                   {mediaItems.length > 0 && (
-                    <div className="meta-media-items-list">
-                      {mediaItems.map((item, idx) => (
-                        <div key={item.id} className="meta-media-row-item">
-                          <div className="meta-media-row-left">
-                            <img
-                              src={item.previewUrl}
-                              alt="Media item"
-                              className="meta-media-square-thumb"
-                            />
-                            <div>
-                              <div className="meta-media-dim-label">
-                                {item.dimensions || 'Image'}
+                    <div
+                      className={`meta-media-items-list ${draggedMediaIndex !== null ? 'is-reordering' : ''}`}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                      }}
+                      onDragLeave={(e) => {
+                        if (!e.currentTarget.contains(e.relatedTarget)) {
+                          dragOverItemIndexRef.current = null;
+                          setDragOverMediaIndex(null);
+                        }
+                      }}
+                    >
+                      {mediaItems.map((item, idx) => {
+                        const isDragging = draggedMediaIndex === idx;
+                        const isOver = dragOverMediaIndex === idx;
+
+                        return (
+                          <div
+                            key={item.id}
+                            className={`meta-media-row-item ${isDragging ? 'is-dragging' : ''} ${isOver ? 'is-drag-over' : ''}`}
+                            draggable={true}
+                            onDragStart={(e) => handleMediaDragStart(e, idx)}
+                            onDragEnter={(e) => handleMediaDragEnter(e, idx)}
+                            onDragOver={(e) => handleMediaDragOver(e, idx)}
+                            onDrop={(e) => handleMediaDrop(e, idx)}
+                            onDragEnd={handleMediaDragEnd}
+                          >
+                            <div className="meta-media-row-left">
+                              {/* Drag Handle */}
+                              <div
+                                className="meta-media-drag-handle"
+                                title="Drag to reorder"
+                              >
+                                <GripVertical size={18} style={{ pointerEvents: 'none' }} />
                               </div>
-                              <div style={{ fontSize: '11px', color: item.uploading ? '#1877f2' : '#16a34a' }}>
-                                {item.uploading ? 'Uploading...' : '✓ Ready'}
+
+                              {/* Order Badge */}
+                              <div
+                                style={{
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  color: '#475569',
+                                  background: '#f1f5f9',
+                                  border: '1px solid #e2e8f0',
+                                  width: '22px',
+                                  height: '22px',
+                                  borderRadius: '50%',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0,
+                                }}
+                                title={`Photo position #${idx + 1}`}
+                              >
+                                {idx + 1}
+                              </div>
+
+                              <img
+                                src={item.previewUrl}
+                                alt="Media item"
+                                className="meta-media-square-thumb"
+                                draggable={false}
+                                style={{ pointerEvents: 'none', userSelect: 'none' }}
+                              />
+                              <div>
+                                <div className="meta-media-dim-label">
+                                  {item.dimensions || 'Image'}
+                                </div>
+                                <div style={{ fontSize: '11px', color: item.uploading ? '#1877f2' : '#16a34a' }}>
+                                  {item.uploading ? 'Uploading...' : '✓ Ready'}
+                                </div>
                               </div>
                             </div>
-                          </div>
 
-                          <div className="meta-media-row-actions">
-                            <button
-                              type="button"
-                              className="meta-media-icon-btn"
-                              title="Edit / Change photo"
-                              onClick={() => {
-                                editItemIndexRef.current = idx;
-                                fileInputRef.current?.click();
-                              }}
-                            >
-                              <Edit2 size={16} />
-                            </button>
-                            <button
-                              type="button"
-                              className="meta-media-icon-btn delete"
-                              title="Delete photo"
-                              onClick={() => handleRemoveMediaItem(item.id)}
-                            >
-                              <Trash2 size={16} />
-                            </button>
+                            <div className="meta-media-row-actions" onMouseDown={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                className="meta-media-icon-btn"
+                                title="Edit / Change photo"
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  editItemIndexRef.current = idx;
+                                  fileInputRef.current?.click();
+                                }}
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                              <button
+                                type="button"
+                                className="meta-media-icon-btn delete"
+                                title="Delete photo"
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRemoveMediaItem(item.id);
+                                }}
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 
