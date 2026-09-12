@@ -16,7 +16,7 @@ import {
   Layers,
   Tag,
   ArrowLeft,
-  Edit3,
+  Edit2,
   Monitor,
   Smartphone,
   ChevronDown,

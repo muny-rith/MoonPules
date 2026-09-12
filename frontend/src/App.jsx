@@ -10,11 +10,13 @@ import { BrandStatsPage } from './features/statistics/pages/BrandStatsPage';
 import { BrandDetailPage } from './features/statistics/pages/BrandDetailPage';
 import { CreatePostPage } from './features/postTracker/pages/CreatePostPage';
 import { EditPostPage } from './features/postTracker/pages/EditPostPage';
+import { ErrorBoundary } from './shared/components/ErrorBoundary';
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route
           path="/*"
@@ -35,8 +37,9 @@ function App() {
             </ProtectedRoute>
           }
         />
-      </Routes>
-    </BrowserRouter>
+        </Routes>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 
