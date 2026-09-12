@@ -34,7 +34,7 @@ const getRecentPosts = async (pageId) => {
 
 const checkPublished = async (postId, pageId) => {
   const { access_token } = await getPageCredentials(pageId);
-  const data = await fbClient.getFbData(`/${postId}?fields=is_published,created_time,status_type,attachments{media_type,type,target{id}}`, access_token);
+  const data = await fbClient.getFbData(`/${postId}?fields=is_published,created_time,status_type,full_picture,attachments{media_type,type,media,subattachments,target{id}}`, access_token);
   const createdDate = data.created_time ? new Date(data.created_time) : null;
   // Facebook may omit is_published on standard published feed posts. If created_time exists and is in the past, it's published.
   const isPublished = data.is_published === true || (data.is_published !== false && createdDate !== null && createdDate <= new Date());
@@ -58,11 +58,37 @@ const checkPublished = async (postId, pageId) => {
     }
   }
 
+  const pictureUrl = data.full_picture || data.attachments?.data?.[0]?.media?.image?.src || null;
+
   return {
     is_published: isPublished,
     created_time: createdDate,
-    media_type: mediaType
+    media_type: mediaType,
+    picture_url: pictureUrl,
   };
+};
+
+const getPostMedia = async (postId, pageId) => {
+  try {
+    const { access_token } = await getPageCredentials(pageId);
+    const data = await fbClient.getFbData(
+      `/${postId}?fields=full_picture,attachments{media_type,type,media,subattachments}`,
+      access_token
+    );
+    const primaryUrl = data.full_picture || data.attachments?.data?.[0]?.media?.image?.src || null;
+    const subList = data.attachments?.data?.[0]?.subattachments?.data || [];
+    const allUrls = subList.map((item) => item.media?.image?.src).filter(Boolean);
+    if (primaryUrl && !allUrls.includes(primaryUrl)) {
+      allUrls.unshift(primaryUrl);
+    }
+    return {
+      primaryUrl,
+      allUrls: allUrls.length > 0 ? allUrls : (primaryUrl ? [primaryUrl] : []),
+    };
+  } catch (err) {
+    console.warn(`[getPostMedia] Failed for ${postId}:`, err.message);
+    return { primaryUrl: null, allUrls: [] };
+  }
 };
 
 const getPostMediaType = async (postId, pageId) => {
@@ -289,6 +315,7 @@ module.exports = {
   getRecentPosts,
   checkPublished,
   getPostMediaType,
+  getPostMedia,
   getInsights,
   getPostMetrics,
   getPages,

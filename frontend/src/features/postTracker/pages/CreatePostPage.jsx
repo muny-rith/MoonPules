@@ -48,6 +48,7 @@ import { ContactFooterModal } from '../components/ContactFooterModal';
 import { AddHashtagsModal } from '../components/AddHashtagsModal';
 import { useWheelIsolation } from '../hooks/useWheelIsolation';
 import '../postTracker.css';
+import { compressImageFile } from '../../../shared/utils/mediaUrl';
 
 export const CreatePostPage = () => {
   const navigate = useNavigate();
@@ -305,8 +306,8 @@ export const CreatePostPage = () => {
     setMediaItems((prev) => [...prev, ...newItems]);
 
     for (const item of newItems) {
-      api
-        .uploadPostImage(item.file)
+      compressImageFile(item.file, 1200, 0.85)
+        .then((compressed) => api.uploadPostImage(compressed))
         .then((res) => {
           setMediaItems((prev) =>
             prev.map((it) => (it.id === item.id ? { ...it, serverUrl: res.url, uploading: false } : it))

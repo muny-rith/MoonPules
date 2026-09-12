@@ -2,6 +2,7 @@ const repository = require('./postTracker.repository');
 const facebookService = require('../facebook/facebook.service');
 const productsService = require('../products/products.service');
 const publishScheduler = require('./publishScheduler.service');
+const storageService = require('../storage/supabaseStorage.service');
 
 const listPosts = async () => {
   const posts = await repository.getAllTrackedPosts();
@@ -155,13 +156,24 @@ const markPost = async (postData) => {
   let isPublished = false;
   let createdTime = null;
   let mediaType = 'photo';
+  let pictureUrl = null;
   try {
     const fbStatus = await facebookService.checkPublished(fb_post_id, page_id);
     isPublished = fbStatus.is_published;
     createdTime = fbStatus.created_time;
     mediaType = fbStatus.media_type || 'photo';
+    pictureUrl = fbStatus.picture_url || null;
   } catch (err) {
     isPublished = false;
+  }
+
+  let permanentMediaUrl = postData.media_url || null;
+  if (!permanentMediaUrl && pictureUrl) {
+    try {
+      permanentMediaUrl = await storageService.syncImageFromUrl(pictureUrl, `fb_${fb_post_id}_cover.jpg`);
+    } catch (e) {
+      permanentMediaUrl = pictureUrl;
+    }
   }
 
   const now = new Date();
@@ -175,6 +187,7 @@ const markPost = async (postData) => {
     scheduled_time: now,
     published_time: isPublished ? (createdTime || now) : null,
     media_type: mediaType,
+    media_url: permanentMediaUrl,
   });
 
   // If already published on Facebook, immediately fetch initial metrics

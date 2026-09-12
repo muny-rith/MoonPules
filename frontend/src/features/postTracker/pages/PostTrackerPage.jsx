@@ -8,6 +8,7 @@ import { POST_STATUS } from '../constants';
 import { Search, Filter, Calendar, ExternalLink, RefreshCw, BarChart2, DollarSign, Image as ImageIcon, Heart, MessageCircle, Share2, Edit2, Trash2, ChevronLeft, ChevronRight, Users, ChevronDown, Eye, TrendingUp, Send, Award } from 'lucide-react';
 
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
+import { SafeImage } from '../../../shared/components/ui/SafeImage';
 import axios from 'axios';
 import api from '../../../shared/utils/apiClient';
 
@@ -358,11 +359,12 @@ export const PostTrackerPage = () => {
                   <tr style={{ backgroundColor: index % 2 === 0 ? '#ffffff' : '#fafafa' }}>
                     <td style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ width: '32px', height: '32px', borderRadius: '6px', backgroundColor: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
-                          <img
-                            src={post.product_image || `https://ui-avatars.com/api/?name=${post.product_name || 'PR'}&background=c7d2fe&color=3730a3&rounded=false`}
-                            alt="product"
+                        <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+                          <SafeImage
+                            src={post.media_url || post.product_image || `https://ui-avatars.com/api/?name=${post.product_name || 'PR'}&background=c7d2fe&color=3730a3&rounded=false`}
+                            alt={post.product_name || 'product'}
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            fallbackText=""
                           />
                         </div>
                         <div>

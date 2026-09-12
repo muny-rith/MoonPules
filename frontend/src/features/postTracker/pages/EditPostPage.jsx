@@ -42,6 +42,8 @@ import { ContactFooterModal } from '../components/ContactFooterModal';
 import { AddHashtagsModal } from '../components/AddHashtagsModal';
 import { useWheelIsolation } from '../hooks/useWheelIsolation';
 import '../postTracker.css';
+import { SafeImage } from '../../../shared/components/ui/SafeImage';
+import { resolveMediaUrl, compressImageFile } from '../../../shared/utils/mediaUrl';
 
 export const EditPostPage = () => {
   const navigate = useNavigate();
@@ -137,10 +139,11 @@ export const EditPostPage = () => {
       setFbPostId(post.fb_post_id || '');
 
       if (post.media_url) {
-        if (post.media_url.includes('/uploads/')) {
+        const resolved = resolveMediaUrl(post.media_url);
+        if (post.media_url.includes('/uploads/') || post.media_url.includes('http') || post.media_url.startsWith('[')) {
           setMediaSource('upload');
           setUploadedMediaUrl(post.media_url);
-          setCustomPreview(post.media_url);
+          setCustomPreview(resolved);
         } else {
           setMediaSource('product');
         }
@@ -189,7 +192,8 @@ export const EditPostPage = () => {
     setMediaSource('upload');
     try {
       setUploadingImage(true);
-      const res = await api.uploadPostImage(file);
+      const compressedFile = await compressImageFile(file, 1200, 0.85);
+      const res = await api.uploadPostImage(compressedFile);
       setUploadedMediaUrl(res.url);
     } catch (err) {
       console.error('Failed to upload image:', err);
@@ -373,11 +377,11 @@ export const EditPostPage = () => {
   // Preview Media URL
   let previewMediaUrl = null;
   if (mediaSource === 'product' && selectedProduct?.image_url) {
-    previewMediaUrl = selectedProduct.image_url;
+    previewMediaUrl = resolveMediaUrl(selectedProduct.image_url);
   } else if (mediaSource === 'upload' && (customPreview || uploadedMediaUrl)) {
-    previewMediaUrl = customPreview || uploadedMediaUrl;
+    previewMediaUrl = resolveMediaUrl(customPreview || uploadedMediaUrl);
   } else if (originalPost?.media_url) {
-    previewMediaUrl = originalPost.media_url;
+    previewMediaUrl = resolveMediaUrl(originalPost.media_url);
   }
 
   return (
@@ -599,7 +603,13 @@ export const EditPostPage = () => {
               originalPost?.media_url && (
                 <div className="meta-media-preview-box">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <img src={originalPost.media_url} alt="Current media" className="meta-media-thumb" />
+                    <SafeImage
+                      src={originalPost.media_url}
+                      alt="Published media"
+                      fallbackText="Attached media"
+                      className="meta-media-thumb"
+                      style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '6px' }}
+                    />
                     <div>
                       <div style={{ fontSize: '13px', fontWeight: 600, color: '#050505' }}>Published Media</div>
                       <div style={{ fontSize: '11px', color: '#65676b' }}>Cannot be modified after publish</div>
@@ -876,10 +886,12 @@ export const EditPostPage = () => {
             {/* Post Media Preview / Empty Meta Dashed Frame */}
             {previewMediaUrl ? (
               <div className="meta-feed-media">
-                <img
+                <SafeImage
                   src={previewMediaUrl}
                   alt="Post preview"
                   className="meta-feed-image"
+                  fallbackText="Attached media preview"
+                  style={{ width: '100%', maxHeight: '460px', objectFit: 'cover' }}
                 />
               </div>
             ) : (

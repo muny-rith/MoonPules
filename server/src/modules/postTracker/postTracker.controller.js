@@ -1,4 +1,5 @@
 const service = require('./postTracker.service');
+const storageService = require('../storage/supabaseStorage.service');
 const { syncPostStatus } = require('../../jobs/syncPostStatus.job');
 
 const getPosts = async (req, res, next) => {
@@ -57,10 +58,14 @@ const uploadImage = async (req, res, next) => {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
-    const relativePath = `/uploads/posts/${req.file.filename}`;
+    const publicUrl = await storageService.uploadBuffer(
+      req.file.buffer,
+      req.file.originalname,
+      req.file.mimetype
+    );
     res.json({
-      url: relativePath,
-      filename: req.file.filename,
+      url: publicUrl,
+      filename: req.file.originalname,
     });
   } catch (error) {
     next(error);

@@ -462,20 +462,17 @@ export const MetaSchedulePicker = ({
     setShowTimePicker(false);
   };
 
-  const applyTimeSuggestion = (timeInput) => {
+  const applyTimeSuggestion = (targetHour) => {
     const now = new Date();
-    const [hStr, mStr] = String(timeInput).split(':');
-    const targetHour = parseInt(hStr, 10) || 0;
-    const targetMinute = mStr !== undefined ? (parseInt(mStr, 10) || 0) : 0;
     const hPad = pad(targetHour);
-    const mPad = pad(targetMinute);
+    const mPad = '00';
 
     let targetDateStr = dateVal || todayStr;
 
     // If currently selected date is today or past, and target time has already passed today:
     if (targetDateStr <= todayStr) {
       const targetToday = new Date();
-      targetToday.setHours(targetHour, targetMinute, 0, 0);
+      targetToday.setHours(targetHour, 0, 0, 0);
 
       if (targetToday.getTime() <= now.getTime()) {
         const tomorrow = new Date();
@@ -783,20 +780,18 @@ export const MetaSchedulePicker = ({
           <span className="meta-schedule-presets-label">
             <Sparkles size={12} /> Suggestions:
           </span>
-          {['6:00', '11:00', '15:00', '17:00', '19:00'].map((timeLabel) => {
-            const [hStr, mStr] = timeLabel.split(':');
-            const hPad = pad(parseInt(hStr, 10) || 0);
-            const mPad = pad(parseInt(mStr, 10) || 0);
-            const isMatch = currentHour === hPad && currentMinute === mPad;
+          {['6:00', '11:00', '15:00', '17:00', '19:00'].map((h) => {
+            const hPad = pad(h);
+            const isMatch = currentHour === hPad && currentMinute === '00';
             return (
               <button
-                key={timeLabel}
+                key={h}
                 type="button"
                 className={`meta-schedule-preset-pill ${isMatch ? 'active' : ''}`}
-                onClick={() => applyTimeSuggestion(timeLabel)}
-                title={`Set time to ${hPad}:${mPad}`}
+                onClick={() => applyTimeSuggestion(h)}
+                title={`Set time to ${hPad}:00`}
               >
-                {timeLabel}
+                {h}
               </button>
             );
           })}
