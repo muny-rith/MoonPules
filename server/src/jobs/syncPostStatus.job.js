@@ -1,8 +1,6 @@
 const cron = require('node-cron');
 const postTrackerService = require('../modules/postTracker/postTracker.service');
-const postTrackerRepository = require('../modules/postTracker/postTracker.repository');
 const facebookService = require('../modules/facebook/facebook.service');
-const storageService = require('../modules/storage/supabaseStorage.service');
 
 const syncPostStatus = async () => {
   console.log(`[Cron] Starting syncPostStatus & Insights job at ${new Date().toISOString()}`);
@@ -59,23 +57,6 @@ const syncPostStatus = async () => {
 
         await postTrackerService.updateMetrics(row.id, metrics.likes, metrics.comments, metrics.shares, views, reach, mediaType);
         console.log(`[Cron] Metrics updated for post ${row.id}: L=${metrics.likes} C=${metrics.comments} S=${metrics.shares} V=${views ?? 'unchanged'} R=${reach ?? 'unchanged'} Format=${mediaType}`);
-
-        // Auto-heal missing or legacy local media_urls using Facebook Graph API & Supabase Storage
-        const needsMediaSync = !row.media_url || row.media_url.startsWith('/uploads/') || row.media_url.startsWith('["');
-        if (needsMediaSync && row.fb_post_id) {
-          try {
-            const fbMedia = await facebookService.getPostMedia(row.fb_post_id, row.page_id);
-            if (fbMedia?.primaryUrl) {
-              const permanentUrl = await storageService.syncImageFromUrl(fbMedia.primaryUrl, `fb_${row.fb_post_id}_cover.jpg`);
-              if (permanentUrl) {
-                await postTrackerRepository.updateTrackedPostData(row.id, { media_url: permanentUrl });
-                console.log(`[Cron] ✅ Post ${row.id} media_url successfully healed to: ${permanentUrl}`);
-              }
-            }
-          } catch (mErr) {
-            console.warn(`[Cron] Media auto-heal skipped for post ${row.id}:`, mErr.message);
-          }
-        }
       } catch (err) {
         if (err.isTokenExpired) {
           console.error(`[Cron] TOKEN EXPIRED syncing metrics for post ${row.id} (page_id ${row.page_id}) — needs manual reconnect.`);

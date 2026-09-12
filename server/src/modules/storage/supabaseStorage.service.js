@@ -121,8 +121,67 @@ const syncImageFromUrl = async (remoteUrl, destinationFilename) => {
   }
 };
 
+/**
+ * Deletes a file from Supabase Storage (or local fallback disk)
+ * given its URL. Supports single URL or stringified JSON array.
+ */
+const deleteFileFromStorage = async (mediaUrl) => {
+  if (!mediaUrl) return false;
+
+  let urls = [];
+  if (typeof mediaUrl === 'string' && mediaUrl.trim().startsWith('[')) {
+    try {
+      const parsed = JSON.parse(mediaUrl);
+      if (Array.isArray(parsed)) urls = parsed;
+      else urls = [mediaUrl];
+    } catch {
+      urls = [mediaUrl];
+    }
+  } else {
+    urls = [mediaUrl];
+  }
+
+  for (const urlItem of urls) {
+    if (!urlItem || typeof urlItem !== 'string') continue;
+
+    // 1. Supabase Storage deletion
+    if (supabase && urlItem.includes(BUCKET_NAME)) {
+      try {
+        const parts = urlItem.split(`${BUCKET_NAME}/`);
+        if (parts.length > 1) {
+          const rawPath = parts[1].split('?')[0]; // strip query params
+          const filePath = decodeURIComponent(rawPath);
+          console.log(`[SupabaseStorage] 🗑️ Removing old file: ${filePath}`);
+          const { error } = await supabase.storage.from(BUCKET_NAME).remove([filePath]);
+          if (error) {
+            console.warn(`[SupabaseStorage] Delete error for ${filePath}:`, error.message);
+          } else {
+            console.log(`[SupabaseStorage] ✅ Successfully removed old file: ${filePath}`);
+          }
+        }
+      } catch (err) {
+        console.warn(`[SupabaseStorage] Exception deleting ${urlItem}:`, err.message);
+      }
+    }
+
+    // 2. Local fallback disk deletion
+    if (urlItem.startsWith('/uploads/posts/')) {
+      try {
+        const localPath = path.join(__dirname, '../../../', urlItem.startsWith('/') ? urlItem.slice(1) : urlItem);
+        if (fs.existsSync(localPath)) {
+          fs.unlinkSync(localPath);
+          console.log(`[LocalStorage] 🗑️ Deleted old local file: ${localPath}`);
+        }
+      } catch (_) {}
+    }
+  }
+
+  return true;
+};
+
 module.exports = {
   uploadBuffer,
   syncImageFromUrl,
+  deleteFileFromStorage,
   ensureBucketExists,
 };

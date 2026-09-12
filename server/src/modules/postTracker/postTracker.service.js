@@ -167,14 +167,7 @@ const markPost = async (postData) => {
     isPublished = false;
   }
 
-  let permanentMediaUrl = postData.media_url || null;
-  if (!permanentMediaUrl && pictureUrl) {
-    try {
-      permanentMediaUrl = await storageService.syncImageFromUrl(pictureUrl, `fb_${fb_post_id}_cover.jpg`);
-    } catch (e) {
-      permanentMediaUrl = pictureUrl;
-    }
-  }
+  const permanentMediaUrl = postData.media_url || pictureUrl || null;
 
   const now = new Date();
 
@@ -278,6 +271,13 @@ const editPostData = async (id, data) => {
     } catch (_) { }
   }
 
+  // If media_url is being replaced with a new image, delete the old image from Supabase Storage
+  if (data.media_url !== undefined && data.media_url !== existing.media_url && existing.media_url) {
+    storageService.deleteFileFromStorage(existing.media_url).catch((e) => {
+      console.warn(`[EditPost] Error cleaning up old media:`, e.message);
+    });
+  }
+
   const updated = await repository.updateTrackedPostData(id, data);
 
   // Fetch fresh metrics asynchronously in background without delaying user edit response
@@ -353,6 +353,14 @@ const getPostById = async (id) => {
 
 const removePost = async (id) => {
   publishScheduler.cancelPostTimer(id);
+  try {
+    const post = await repository.getTrackedPostById(id);
+    if (post?.media_url) {
+      storageService.deleteFileFromStorage(post.media_url).catch((e) => {
+        console.warn(`[DeletePost] Error removing media for post ${id}:`, e.message);
+      });
+    }
+  } catch (_) {}
   return await repository.deleteTrackedPost(id);
 };
 
