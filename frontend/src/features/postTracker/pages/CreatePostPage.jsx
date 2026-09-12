@@ -44,6 +44,8 @@ import {
 } from 'lucide-react';
 import { MetaEmojiPicker } from '../components/MetaEmojiPicker';
 import { MetaSchedulePicker } from '../components/MetaSchedulePicker';
+import { ContactFooterModal } from '../components/ContactFooterModal';
+import { AddHashtagsModal } from '../components/AddHashtagsModal';
 import { useWheelIsolation } from '../hooks/useWheelIsolation';
 import '../postTracker.css';
 
@@ -79,6 +81,7 @@ export const CreatePostPage = () => {
 
   // Content
   const [message, setMessage] = useState('');
+  const textareaRef = useRef(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [mediaSource, setMediaSource] = useState('upload'); // 'upload' | 'product' | 'none'
   const [mediaItems, setMediaItems] = useState([]); // [{ id, file, previewUrl, serverUrl, dimensions, uploading }]
@@ -95,6 +98,11 @@ export const CreatePostPage = () => {
   const [recentPosts, setRecentPosts] = useState([]);
   const [loadingRecent, setLoadingRecent] = useState(false);
   const [selectedRecentPostId, setSelectedRecentPostId] = useState('');
+
+  // Store Contact Footer
+  const [contactFooter, setContactFooter] = useState('');
+  const [showFooterModal, setShowFooterModal] = useState(false);
+  const [showHashtagModal, setShowHashtagModal] = useState(false);
 
   // Submission
   const [submitting, setSubmitting] = useState(false);
@@ -114,6 +122,7 @@ export const CreatePostPage = () => {
   useEffect(() => {
     loadPages();
     loadProducts();
+    loadContactFooter();
     const nextHour = new Date(Date.now() + 60 * 60 * 1000);
     const localIso = new Date(nextHour.getTime() - nextHour.getTimezoneOffset() * 60000)
       .toISOString()
@@ -319,10 +328,75 @@ export const CreatePostPage = () => {
   const handleInsertProductName = () => {
     if (!selectedProduct) return;
     setMessage((prev) => (prev ? `${prev} ${selectedProduct.product_name}` : selectedProduct.product_name));
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus({ preventScroll: true });
+        const len = textareaRef.current.value.length;
+        textareaRef.current.setSelectionRange(len, len);
+      }
+    }, 20);
+  };
+
+  const loadContactFooter = async () => {
+    try {
+      const res = await api.fetchContactFooter();
+      if (res?.value) {
+        setContactFooter(res.value);
+      }
+    } catch (err) {
+      console.error('Failed to load contact footer:', err);
+    }
+  };
+
+  const handleInsertContactFooter = (customText) => {
+    const textToInsert = typeof customText === 'string' ? customText : contactFooter;
+    if (!textToInsert) return;
+    setMessage((prev) => {
+      const trimmed = (prev || '').trim();
+      if (trimmed.includes('070 65 49 59') || trimmed.includes('Cholykkmart')) {
+        return trimmed;
+      }
+      return trimmed ? `${trimmed}\n\n${textToInsert}` : textToInsert;
+    });
+
+    // Auto-focus textarea and scroll smoothly to the newly inserted footer
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus({ preventScroll: true });
+        const len = textareaRef.current.value.length;
+        textareaRef.current.setSelectionRange(len, len);
+        textareaRef.current.scrollTop = textareaRef.current.scrollHeight;
+      }
+    }, 20);
+  };
+
+  const handleSaveContactFooter = async (newText) => {
+    const res = await api.updateContactFooter(newText);
+    if (res?.value) {
+      setContactFooter(res.value);
+    }
   };
 
   const handleAddHashtag = () => {
-    setMessage((prev) => (prev ? `${prev} #deal` : '#deal'));
+    setShowHashtagModal(true);
+  };
+
+  const handleAddHashtagsFromModal = (tags) => {
+    if (!tags || tags.length === 0) return;
+    const tagStr = tags.join(' ');
+    setMessage((prev) => {
+      const trimmed = (prev || '').trim();
+      return trimmed ? `${trimmed} ${tagStr}` : tagStr;
+    });
+
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus({ preventScroll: true });
+        const len = textareaRef.current.value.length;
+        textareaRef.current.setSelectionRange(len, len);
+        textareaRef.current.scrollTop = textareaRef.current.scrollHeight;
+      }
+    }, 20);
   };
 
   const handleAddEmoji = () => {
@@ -331,6 +405,13 @@ export const CreatePostPage = () => {
 
   const handleSelectEmoji = (emoji) => {
     setMessage((prev) => (prev ? `${prev} ${emoji}` : emoji));
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus({ preventScroll: true });
+        const len = textareaRef.current.value.length;
+        textareaRef.current.setSelectionRange(len, len);
+      }
+    }, 20);
   };
 
   const handleUrlChange = (value) => {
@@ -908,6 +989,7 @@ export const CreatePostPage = () => {
 
               <div className="meta-textarea-box">
                 <textarea
+                  ref={textareaRef}
                   className="meta-textarea"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
@@ -933,6 +1015,24 @@ export const CreatePostPage = () => {
                         <Tag size={11} /> + Insert Product
                       </button>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => handleInsertContactFooter()}
+                      className="meta-tag-insert-btn"
+                      style={{ background: '#f0fdf4', color: '#15803d', borderColor: '#bbf7d0' }}
+                      title="Insert Chhorlyka Mart contact & branch footer"
+                    >
+                      <Phone size={11} /> + Contact Footer
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowFooterModal(true)}
+                      className="meta-toolbar-btn"
+                      style={{ padding: '3px 6px', height: '26px' }}
+                      title="View & Edit store contact footer"
+                    >
+                      <Edit2 size={12} />
+                    </button>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <button
@@ -1362,6 +1462,26 @@ export const CreatePostPage = () => {
         </div>
 
       </div>
+
+      {/* Store Contact & Branch Footer Modal */}
+      <ContactFooterModal
+        isOpen={showFooterModal}
+        onClose={() => setShowFooterModal(false)}
+        footerText={contactFooter}
+        onSave={handleSaveContactFooter}
+        onInsert={(txt) => handleInsertContactFooter(txt)}
+      />
+
+      {/* Add Hashtags Modal */}
+      {showHashtagModal && (
+        <AddHashtagsModal
+          isOpen={showHashtagModal}
+          onClose={() => setShowHashtagModal(false)}
+          onAddHashtags={handleAddHashtagsFromModal}
+          selectedProduct={selectedProduct}
+          selectedBrand={selectedBrand}
+        />
+      )}
     </div>
   );
 };

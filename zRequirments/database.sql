@@ -88,3 +88,27 @@ CREATE INDEX IF NOT EXISTS idx_post_tracker_scheduled_time
 
 CREATE INDEX IF NOT EXISTS idx_post_tracker_published_time 
     ON tb_post_tracker(published_time);
+
+-- 4. Global Settings Table (Store Profile, Footers & System Config)
+CREATE TABLE IF NOT EXISTS tb_setting (
+    key VARCHAR(100) PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 5. Hashtags Repository (All, Recent, & Saved with Note Column)
+CREATE TABLE IF NOT EXISTS tb_hashtag (
+    id SERIAL PRIMARY KEY,
+    tag VARCHAR(100) NOT NULL UNIQUE,
+    is_saved BOOLEAN DEFAULT FALSE,
+    note TEXT NULL,
+    usage_count INT DEFAULT 0,
+    last_used_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_hashtag_tag ON tb_hashtag(tag);
+CREATE INDEX IF NOT EXISTS idx_hashtag_is_saved ON tb_hashtag(is_saved);
+CREATE INDEX IF NOT EXISTS idx_hashtag_last_used ON tb_hashtag(last_used_at DESC NULLS LAST);
+

@@ -38,6 +38,8 @@ import {
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 import { MetaEmojiPicker } from '../components/MetaEmojiPicker';
 import { MetaSchedulePicker } from '../components/MetaSchedulePicker';
+import { ContactFooterModal } from '../components/ContactFooterModal';
+import { AddHashtagsModal } from '../components/AddHashtagsModal';
 import { useWheelIsolation } from '../hooks/useWheelIsolation';
 import '../postTracker.css';
 
@@ -82,6 +84,7 @@ export const EditPostPage = () => {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [scheduledDateTime, setScheduledDateTime] = useState('');
   const fileInputRef = useRef(null);
+  const textareaRef = useRef(null);
 
   // FB Post ID
   const [fbPostId, setFbPostId] = useState('');
@@ -90,9 +93,15 @@ export const EditPostPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
+  // Store Contact Footer
+  const [contactFooter, setContactFooter] = useState('');
+  const [showFooterModal, setShowFooterModal] = useState(false);
+  const [showHashtagModal, setShowHashtagModal] = useState(false);
+
   useEffect(() => {
     loadPages();
     loadProducts();
+    loadContactFooter();
   }, []);
 
   useEffect(() => {
@@ -193,6 +202,13 @@ export const EditPostPage = () => {
   const handleInsertProductName = () => {
     if (!selectedProduct) return;
     setMessage((prev) => (prev ? `${prev} ${selectedProduct.product_name}` : selectedProduct.product_name));
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus({ preventScroll: true });
+        const len = textareaRef.current.value.length;
+        textareaRef.current.setSelectionRange(len, len);
+      }
+    }, 20);
   };
 
   const handleSubmit = async () => {
@@ -246,6 +262,64 @@ export const EditPostPage = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const loadContactFooter = async () => {
+    try {
+      const res = await api.fetchContactFooter();
+      if (res?.value) {
+        setContactFooter(res.value);
+      }
+    } catch (err) {
+      console.error('Failed to load contact footer:', err);
+    }
+  };
+
+  const handleInsertContactFooter = (customText) => {
+    const textToInsert = typeof customText === 'string' ? customText : contactFooter;
+    if (!textToInsert) return;
+    setMessage((prev) => {
+      const trimmed = (prev || '').trim();
+      if (trimmed.includes('070 65 49 59') || trimmed.includes('Cholykkmart')) {
+        return trimmed;
+      }
+      return trimmed ? `${trimmed}\n\n${textToInsert}` : textToInsert;
+    });
+
+    // Auto-focus textarea and scroll smoothly to the newly inserted footer
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus({ preventScroll: true });
+        const len = textareaRef.current.value.length;
+        textareaRef.current.setSelectionRange(len, len);
+        textareaRef.current.scrollTop = textareaRef.current.scrollHeight;
+      }
+    }, 20);
+  };
+
+  const handleSaveContactFooter = async (newText) => {
+    const res = await api.updateContactFooter(newText);
+    if (res?.value) {
+      setContactFooter(res.value);
+    }
+  };
+
+  const handleAddHashtagsFromModal = (tags) => {
+    if (!tags || tags.length === 0) return;
+    const tagStr = tags.join(' ');
+    setMessage((prev) => {
+      const trimmed = (prev || '').trim();
+      return trimmed ? `${trimmed} ${tagStr}` : tagStr;
+    });
+
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus({ preventScroll: true });
+        const len = textareaRef.current.value.length;
+        textareaRef.current.setSelectionRange(len, len);
+        textareaRef.current.scrollTop = textareaRef.current.scrollHeight;
+      }
+    }, 20);
   };
 
   const handleCancel = () => navigate('/tasks');
@@ -544,6 +618,7 @@ export const EditPostPage = () => {
 
             <div className="meta-textarea-box">
               <textarea
+                ref={textareaRef}
                 className="meta-textarea"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
@@ -564,13 +639,31 @@ export const EditPostPage = () => {
                         <Tag size={11} /> + Insert Product
                       </button>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => handleInsertContactFooter()}
+                      className="meta-tag-insert-btn"
+                      style={{ background: '#f0fdf4', color: '#15803d', borderColor: '#bbf7d0' }}
+                      title="Insert Chhorlyka Mart contact & branch footer"
+                    >
+                      <Phone size={11} /> + Contact Footer
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowFooterModal(true)}
+                      className="meta-toolbar-btn"
+                      style={{ padding: '3px 6px', height: '26px' }}
+                      title="View & Edit store contact footer"
+                    >
+                      <Edit2 size={12} />
+                    </button>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <button
                       type="button"
-                      onClick={() => setMessage((p) => p + ' #deal')}
+                      onClick={() => setShowHashtagModal(true)}
                       className="meta-toolbar-btn"
-                      title="Add hashtag"
+                      title="Add hashtags"
                     >
                       <Hash size={16} />
                     </button>
@@ -819,6 +912,26 @@ export const EditPostPage = () => {
         </div>
 
       </div>
+
+      {/* Store Contact & Branch Footer Modal */}
+      <ContactFooterModal
+        isOpen={showFooterModal}
+        onClose={() => setShowFooterModal(false)}
+        footerText={contactFooter}
+        onSave={handleSaveContactFooter}
+        onInsert={(txt) => handleInsertContactFooter(txt)}
+      />
+
+      {/* Add Hashtags Modal */}
+      {showHashtagModal && (
+        <AddHashtagsModal
+          isOpen={showHashtagModal}
+          onClose={() => setShowHashtagModal(false)}
+          onAddHashtags={handleAddHashtagsFromModal}
+          selectedProduct={selectedProduct}
+          selectedBrand={selectedBrand}
+        />
+      )}
     </div>
   );
 };

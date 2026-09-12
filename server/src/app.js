@@ -10,6 +10,8 @@ const facebookRoutes = require('./modules/facebook/facebook.routes');
 const productsRoutes = require('./modules/products/products.routes');
 const statisticsRoutes = require('./modules/statistics/statistics.routes');
 const profitRoutes = require('./modules/profit/profit.routes');
+const settingsRoutes = require('./modules/settings/settings.routes');
+const hashtagsRoutes = require('./modules/hashtags/hashtags.routes');
 
 const path = require('path');
 
@@ -41,6 +43,8 @@ app.use('/api/facebook', facebookRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/statistics', statisticsRoutes);
 app.use('/api/profit', profitRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/hashtags', hashtagsRoutes);
 
 // Error Handling
 app.use(errorHandler);

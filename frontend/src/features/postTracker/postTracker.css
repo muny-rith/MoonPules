@@ -1966,6 +1966,18 @@
   color: #1877f2;
 }
 
+.meta-schedule-preset-pill.active {
+  background: #1877f2;
+  border-color: #1877f2;
+  color: #ffffff;
+}
+
+.meta-schedule-preset-pill.active:hover {
+  background: #166fe5;
+  border-color: #166fe5;
+  color: #ffffff;
+}
+
 /* Live Confirmation Banner */
 .meta-schedule-summary-card {
   display: flex;

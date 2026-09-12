@@ -462,22 +462,31 @@ export const MetaSchedulePicker = ({
     setShowTimePicker(false);
   };
 
-  const applyPreset = (presetType) => {
-    const d = new Date();
+  const applyTimeSuggestion = (timeInput) => {
+    const now = new Date();
+    const [hStr, mStr] = String(timeInput).split(':');
+    const targetHour = parseInt(hStr, 10) || 0;
+    const targetMinute = mStr !== undefined ? (parseInt(mStr, 10) || 0) : 0;
+    const hPad = pad(targetHour);
+    const mPad = pad(targetMinute);
 
-    if (presetType === '1h') {
-      d.setHours(d.getHours() + 1);
-    } else if (presetType === '3h') {
-      d.setHours(d.getHours() + 3);
-    } else if (presetType === 'tomorrow_morning') {
-      d.setDate(d.getDate() + 1);
-      d.setHours(9, 0, 0, 0);
-    } else if (presetType === 'tomorrow_evening') {
-      d.setDate(d.getDate() + 1);
-      d.setHours(19, 0, 0, 0);
+    let targetDateStr = dateVal || todayStr;
+
+    // If currently selected date is today or past, and target time has already passed today:
+    if (targetDateStr <= todayStr) {
+      const targetToday = new Date();
+      targetToday.setHours(targetHour, targetMinute, 0, 0);
+
+      if (targetToday.getTime() <= now.getTime()) {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        targetDateStr = formatDateIso(tomorrow);
+      } else {
+        targetDateStr = todayStr;
+      }
     }
 
-    const iso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const iso = `${targetDateStr}T${hPad}:${mPad}`;
     onChange(iso);
     setShowCalendar(false);
     setShowTimePicker(false);
@@ -768,40 +777,29 @@ export const MetaSchedulePicker = ({
         </div>
       </div>
 
-      {/* ── Quick Suggestions / Presets (24h) ── */}
+      {/* ── Quick Suggestions (6, 11, 15, 17, 19 - minute 00) ── */}
       {!disabled && (
         <div className="meta-schedule-presets-row">
           <span className="meta-schedule-presets-label">
             <Sparkles size={12} /> Suggestions:
           </span>
-          <button
-            type="button"
-            className="meta-schedule-preset-pill"
-            onClick={() => applyPreset('1h')}
-          >
-            +1 hour
-          </button>
-          <button
-            type="button"
-            className="meta-schedule-preset-pill"
-            onClick={() => applyPreset('3h')}
-          >
-            +3 hours
-          </button>
-          <button
-            type="button"
-            className="meta-schedule-preset-pill"
-            onClick={() => applyPreset('tomorrow_morning')}
-          >
-            Tomorrow 09:00
-          </button>
-          <button
-            type="button"
-            className="meta-schedule-preset-pill"
-            onClick={() => applyPreset('tomorrow_evening')}
-          >
-            Tomorrow 19:00
-          </button>
+          {['6:00', '11:00', '15:00', '17:00', '19:00'].map((timeLabel) => {
+            const [hStr, mStr] = timeLabel.split(':');
+            const hPad = pad(parseInt(hStr, 10) || 0);
+            const mPad = pad(parseInt(mStr, 10) || 0);
+            const isMatch = currentHour === hPad && currentMinute === mPad;
+            return (
+              <button
+                key={timeLabel}
+                type="button"
+                className={`meta-schedule-preset-pill ${isMatch ? 'active' : ''}`}
+                onClick={() => applyTimeSuggestion(timeLabel)}
+                title={`Set time to ${hPad}:${mPad}`}
+              >
+                {timeLabel}
+              </button>
+            );
+          })}
         </div>
       )}
 
