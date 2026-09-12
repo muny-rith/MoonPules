@@ -75,7 +75,7 @@ CREATE TABLE tb_post_tracker (
     page_id INT NOT NULL REFERENCES tb_fb_page(id),
     fb_post_id VARCHAR(255) NOT NULL UNIQUE,
     status VARCHAR(20) NOT NULL DEFAULT 'scheduled'
-        CHECK (status IN ('scheduled', 'published')),
+        CONSTRAINT tb_post_tracker_status_check CHECK (status IN ('scheduled', 'published', 'failed', 'archived')),
     scheduled_time TIMESTAMP,
     published_time TIMESTAMP,
     marked_by INT REFERENCES tb_user(id),
@@ -90,7 +90,7 @@ CREATE INDEX idx_post_tracker_page ON tb_post_tracker(page_id);
 **Design notes:**
 - One row per post — a product can post to multiple pages via multiple rows.
 - `fb_post_id` UNIQUE prevents double-marking the same post.
-- `status` CHECK constraint enforces only two valid states.
+- `status` CHECK constraint enforces valid states ('scheduled', 'published', 'failed', 'archived').
 - Insights are **not stored** — fetched on demand, no historical insight table by design.
 - Since only the backend ever touches Postgres, access control lives in **application code** (Express middleware/service layer) — no RLS needed, because there is no direct client-to-DB path at all.
 

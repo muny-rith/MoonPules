@@ -234,7 +234,7 @@ const setPostPublished = async (id, publishedTime) => {
 };
 
 const updatePost = async (id, { status, published_time }) => {
-  if (!['scheduled', 'published', 'failed'].includes(status)) {
+  if (!['scheduled', 'published', 'failed', 'archived'].includes(status)) {
     const err = new Error('Invalid status value');
     err.status = 400;
     throw err;

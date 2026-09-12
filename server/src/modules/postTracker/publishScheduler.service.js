@@ -42,15 +42,17 @@ const executePublish = async (postId) => {
     // Fetch initial metrics
     try {
       const metrics = await facebookService.getPostMetrics(permanentFbPostId, post.page_id);
-      let views = 0;
-      let reach = 0;
+      let views = null;
+      let reach = null;
       try {
         const insights = await facebookService.getInsights(permanentFbPostId, post.page_id);
         const viewsData = insights.data?.find((m) => m.name === 'post_media_view');
         const reachData = insights.data?.find((m) => m.name === 'post_total_media_view_unique');
-        views = viewsData?.values?.[0]?.value || 0;
-        reach = reachData?.values?.[0]?.value || 0;
-      } catch (_) {}
+        views = viewsData?.values?.[0]?.value ?? null;
+        reach = reachData?.values?.[0]?.value ?? null;
+      } catch (e) {
+        if (!e.isTokenExpired) console.warn(`[Scheduler] Insights fetch skipped for post ${postId}:`, e.message);
+      }
 
       await repository.updateTrackedPostMetrics(
         post.id,

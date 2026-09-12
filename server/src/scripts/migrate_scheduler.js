@@ -50,9 +50,9 @@ async function migrate() {
     await client.query(`
       ALTER TABLE tb_post_tracker
       ADD CONSTRAINT tb_post_tracker_status_check
-      CHECK (status IN ('scheduled', 'published', 'failed'));
+      CHECK (status IN ('scheduled', 'published', 'failed', 'archived'));
     `);
-    console.log('✓ Updated status check constraint to allow (scheduled, published, failed)');
+    console.log('✓ Updated status check constraint to allow (scheduled, published, failed, archived)');
 
     await client.query('COMMIT');
     console.log('Migration completed successfully!');

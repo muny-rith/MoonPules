@@ -12,7 +12,6 @@ const syncPostStatus = async () => {
     for (const row of scheduledRows) {
       try {
         if (!row.fb_post_id) {
-          // Post is scheduled via MoonPulse precision scheduler, has no FB ID yet.
           continue;
         }
         const fbStatus = await facebookService.checkPublished(row.fb_post_id, row.page_id);
@@ -23,6 +22,9 @@ const syncPostStatus = async () => {
       } catch (err) {
         if (err.isTokenExpired) {
           console.error(`[Cron] TOKEN EXPIRED for post ${row.id} (page_id ${row.page_id}) — needs manual reconnect.`);
+        } else if (err.isPostDeleted) {
+          console.warn(`[Cron] Post ${row.id} no longer exists on Facebook — marking as archived, stopping retries.`);
+          await postTrackerService.updatePost(row.id, { status: 'archived' });
         } else {
           console.error(`[Cron] Error checking post ${row.id}:`, err.message);
         }
@@ -58,6 +60,9 @@ const syncPostStatus = async () => {
       } catch (err) {
         if (err.isTokenExpired) {
           console.error(`[Cron] TOKEN EXPIRED syncing metrics for post ${row.id} (page_id ${row.page_id}) — needs manual reconnect.`);
+        } else if (err.isPostDeleted) {
+          console.warn(`[Cron] Post ${row.id} no longer exists on Facebook — marking as archived, stopping retries.`);
+          await postTrackerService.updatePost(row.id, { status: 'archived' });
         } else {
           console.error(`[Cron] Error syncing metrics for post ${row.id}:`, err.message);
         }

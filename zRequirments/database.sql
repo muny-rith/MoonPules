@@ -34,7 +34,8 @@ CREATE TABLE IF NOT EXISTS tb_post_tracker (
     page_id INT NOT NULL REFERENCES tb_fb_page(id) ON DELETE CASCADE,
     fb_post_id VARCHAR(255),
     status VARCHAR(20) NOT NULL DEFAULT 'scheduled'
-        CHECK (status IN ('scheduled', 'published', 'failed')),
+        CONSTRAINT tb_post_tracker_status_check
+        CHECK (status IN ('scheduled', 'published', 'failed', 'archived')),
     scheduled_time TIMESTAMP,
     published_time TIMESTAMP,
     marked_by INT REFERENCES tb_user(id) ON DELETE SET NULL,

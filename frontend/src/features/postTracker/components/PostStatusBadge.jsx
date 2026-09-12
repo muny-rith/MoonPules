@@ -8,9 +8,12 @@ export const PostStatusBadge = ({ status }) => {
   if (status === 'published' || status === POST_STATUS.PUBLISHED) {
     bg = '#dcfce7';
     color = '#166534';
-  } else if (status === 'failed') {
+  } else if (status === 'failed' || status === POST_STATUS.FAILED) {
     bg = '#fee2e2';
     color = '#991b1b';
+  } else if (status === 'archived' || status === POST_STATUS.ARCHIVED) {
+    bg = '#f1f5f9';
+    color = '#475569';
   }
 
   const label = POST_STATUS_LABELS[status] || (status ? status.toUpperCase() : 'UNKNOWN');

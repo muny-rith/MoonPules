@@ -297,7 +297,9 @@ export const PostTrackerPage = () => {
               options={[
                 { value: 'all', label: 'All Statuses' },
                 { value: 'published', label: 'Published' },
-                { value: 'scheduled', label: 'Scheduled' }
+                { value: 'scheduled', label: 'Scheduled' },
+                { value: 'failed', label: 'Failed' },
+                { value: 'archived', label: 'Archived' }
               ]}
               onChange={(val) => { setStatusFilter(val); setCurrentPage(1); }}
             />

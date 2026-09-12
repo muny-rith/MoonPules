@@ -19,6 +19,12 @@ const getFbData = async (endpoint, accessToken) => {
       err.isTokenExpired = true;
       throw err;
     }
+    if (fbError?.code === 100 && fbError?.error_subcode === 33) {
+      const err = new Error('This Facebook post no longer exists (deleted, or a Live video past its 30-day auto-removal).');
+      err.isPostDeleted = true;
+      throw err;
+    }
+
 
     const message = fbError?.error_user_msg || fbError?.message || error.message || 'Error calling Facebook Graph API';
     const err = new Error(message);
@@ -43,6 +49,11 @@ const postFbData = async (endpoint, accessToken, data, customHeaders = {}) => {
     if (fbError?.code === 190) {
       const err = new Error('Facebook access token is invalid or expired — this Page needs to be reconnected.');
       err.isTokenExpired = true;
+      throw err;
+    }
+    if (fbError?.code === 100 && fbError?.error_subcode === 33) {
+      const err = new Error('This Facebook post no longer exists (deleted, or a Live video past its 30-day auto-removal).');
+      err.isPostDeleted = true;
       throw err;
     }
 
