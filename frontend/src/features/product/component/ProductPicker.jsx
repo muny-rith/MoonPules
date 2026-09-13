@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, ChevronDown, Check, X, Tag, AlertCircle } from 'lucide-react';
 import * as productService from '../services/productService';
+import { PickerListSkeleton } from '../../../shared/components/skeletons';
 
 export const ProductPicker = ({ value, onChange, placeholder = 'Search product from catalog...' }) => {
   const [products, setProducts] = useState([]);
@@ -155,7 +156,7 @@ export const ProductPicker = ({ value, onChange, placeholder = 'Search product f
         <div className="product-picker-dropdown">
           <div className="product-picker-list">
             {loading ? (
-              <div className="product-picker-empty">Loading products...</div>
+              <PickerListSkeleton count={4} />
             ) : filteredProducts.length === 0 ? (
               <div className="product-picker-empty">
                 <AlertCircle size={16} />

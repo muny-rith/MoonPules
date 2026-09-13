@@ -40,6 +40,7 @@ import {
   Video
 } from 'lucide-react';
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
+import { PostEditorSkeleton } from '../../../shared/components/skeletons';
 import { MetaEmojiPicker } from '../components/MetaEmojiPicker';
 import { MetaSchedulePicker } from '../components/MetaSchedulePicker';
 import { ContactFooterModal } from '../components/ContactFooterModal';
@@ -374,23 +375,7 @@ export const EditPostPage = () => {
 
   // Loading Skeleton
   if (loadingPost) {
-    return (
-      <div className="meta-post-page">
-        <div className="meta-top-nav">
-          <Skeleton width={200} height={32} />
-        </div>
-        <div className="meta-layout-row">
-          <div className="meta-editor-col">
-            <Skeleton width="100%" height={120} style={{ borderRadius: '8px' }} />
-            <Skeleton width="100%" height={150} style={{ borderRadius: '8px' }} />
-            <Skeleton width="100%" height={220} style={{ borderRadius: '8px' }} />
-          </div>
-          <div className="meta-preview-col">
-            <Skeleton width={520} height={420} style={{ borderRadius: '8px' }} />
-          </div>
-        </div>
-      </div>
-    );
+    return <PostEditorSkeleton />;
   }
 
   // Error state

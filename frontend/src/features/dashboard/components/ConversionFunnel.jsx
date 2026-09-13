@@ -18,38 +18,11 @@ const FUNNEL_STEPS = [
   { key: 'revenue', label: 'Revenue', icon: DollarSign, color: '#10b981', bg: 'rgba(16, 185, 129, 0.12)', isCurrency: true },
 ];
 
+import { DashboardFunnelSkeleton } from '../../../shared/components/skeletons';
+
 export const ConversionFunnel = ({ data, loading }) => {
   if (loading || !data) {
-    return (
-      <div className="card funnel-card">
-        <div className="card-header funnel-header">
-          <div>
-            <Skeleton width="130px" height="15px" style={{ marginBottom: '4px' }} />
-            <Skeleton width="90px" height="11px" />
-          </div>
-          <Skeleton width="75px" height="20px" borderRadius="10px" />
-        </div>
-        <div className="funnel-skeleton funnel-body">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="funnel-bar-row">
-              <div className="funnel-bar-txt">
-                <div className="funnel-step-meta">
-                  <Skeleton width="26px" height="26px" borderRadius="7px" />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                    <Skeleton width="50px" height="11px" />
-                    <Skeleton width="65px" height="9px" />
-                  </div>
-                </div>
-                <Skeleton width="35px" height="15px" />
-              </div>
-              <div className="funnel-bar-track-wrapper">
-                <Skeleton height="24px" style={{ borderRadius: '5px' }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+    return <DashboardFunnelSkeleton />;
   }
 
   // Calculate max for proportional widths

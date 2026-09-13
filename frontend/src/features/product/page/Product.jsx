@@ -2,6 +2,7 @@ import React from 'react';
 import { useProducts } from '../hooks/useProducts';
 import { ProductCard } from '../component/ProductCard';
 import { ProductTable } from '../component/ProductTable';
+import { ProductGridSkeleton, ProductTableSkeleton, Skeleton } from '../../../shared/components/skeletons';
 import { 
   Package, 
   Search, 
@@ -180,15 +181,26 @@ export const Product = () => {
           >
             All Categories
           </button>
-          {categories.map((cat) => (
-            <button 
-              key={cat}
-              className={`category-pill ${selectedCategory === cat ? 'active' : ''}`}
-              onClick={() => setSelectedCategory(cat)}
-            >
-              {cat}
-            </button>
-          ))}
+          {loading && categories.length === 0 ? (
+            <>
+              <Skeleton width="90px" height={32} borderRadius={20} />
+              <Skeleton width="110px" height={32} borderRadius={20} />
+              <Skeleton width="85px" height={32} borderRadius={20} />
+              <Skeleton width="125px" height={32} borderRadius={20} />
+              <Skeleton width="95px" height={32} borderRadius={20} />
+              <Skeleton width="105px" height={32} borderRadius={20} />
+            </>
+          ) : (
+            categories.map((cat) => (
+              <button 
+                key={cat}
+                className={`category-pill ${selectedCategory === cat ? 'active' : ''}`}
+                onClick={() => setSelectedCategory(cat)}
+              >
+                {cat}
+              </button>
+            ))
+          )}
         </div>
       </div>
 
@@ -203,18 +215,18 @@ export const Product = () => {
 
       {/* Loading & Content View */}
       {loading ? (
-        <div className="product-loading-grid">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
-            <div key={n} className="product-card-skeleton card">
-              <div className="skeleton-image" />
-              <div className="skeleton-content">
-                <div className="skeleton-line short" />
-                <div className="skeleton-line" />
-                <div className="skeleton-line" />
-              </div>
-            </div>
-          ))}
-        </div>
+        <>
+          <div className="desktop-only" style={{ width: '100%' }}>
+            {viewMode === 'grid' ? (
+              <ProductGridSkeleton count={24} />
+            ) : (
+              <ProductTableSkeleton rowCount={10} />
+            )}
+          </div>
+          <div className="mobile-only" style={{ width: '100%' }}>
+            <ProductGridSkeleton count={6} />
+          </div>
+        </>
       ) : (
         <>
           <div className="desktop-only" style={{ width: '100%' }}>

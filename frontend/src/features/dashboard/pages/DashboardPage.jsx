@@ -5,6 +5,7 @@ import { RevenueAttributionChart } from '../components/RevenueAttributionChart';
 import { ProfitKPICards } from '../components/ProfitKPICards';
 import { ConversionFunnel } from '../components/ConversionFunnel';
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
+import { DashboardTopStatsSkeleton, DashboardScheduleSkeleton } from '../../../shared/components/skeletons';
 import apiClient from '../../../shared/utils/apiClient';
 import { syncPosts } from '../../postTracker/api/postTrackerApi';
 import '../dashboard.css';
@@ -33,22 +34,7 @@ const formatCompactNumber = (number) => {
 
 const ViewPercentageCard = ({ stats, loading }) => {
   if (loading || !stats) {
-    return (
-      <div className="card stat-card-group" style={{ display: 'flex' }}>
-        {[1, 2, 3].map(i => (
-          <React.Fragment key={i}>
-            <div className="stat-item" style={{ flex: 1 }}>
-              <div className="stat-header">
-                <Skeleton type="icon" width={18} height={18} borderRadius={4} />
-                <Skeleton width="60px" height={12} />
-              </div>
-              <Skeleton width="80px" height={24} style={{ marginTop: 8 }} />
-            </div>
-            {i < 3 && <div className="stat-divider" />}
-          </React.Fragment>
-        ))}
-      </div>
-    );
+    return <DashboardTopStatsSkeleton />;
   }
 
   return (
@@ -107,33 +93,7 @@ const getPlatformIcon = (platform) => {
 
 const SchedulePostList = ({ posts, loading }) => {
   if (loading) {
-    return (
-      <div className="card schedule-card">
-        <div className="card-header schedule-card-header">
-          <div>
-            <Skeleton width="140px" height={16} style={{ marginBottom: 4 }} />
-            <Skeleton width="100px" height={11} />
-          </div>
-        </div>
-        <div className="schedule-list">
-          {[1, 2, 3, 4, 5, 6].map(i => (
-            <div key={i} className="schedule-item-compact">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 9, flex: 1 }}>
-                <Skeleton width={24} height={24} borderRadius={6} />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <Skeleton width="100px" height={12} />
-                  <Skeleton width="55px" height={8} />
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Skeleton width="60px" height={18} borderRadius={6} />
-                <Skeleton width="45px" height={16} borderRadius={5} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+    return <DashboardScheduleSkeleton />;
   }
 
   const postCount = posts?.length || 0;

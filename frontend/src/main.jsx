@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import './shared/components/skeletons/skeletons.css'
 import './features/dashboard/dashboard.css'
 import './features/product/product.css'
 import './features/statistics/statistics.css'

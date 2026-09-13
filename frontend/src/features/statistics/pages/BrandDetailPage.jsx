@@ -6,6 +6,7 @@ import {
   CheckSquare, Square, BarChart, Layers, Image, Video, Radio, Globe, RotateCcw
 } from 'lucide-react';
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
+import { BrandDetailHeroSkeleton, BrandDetailKpisSkeleton, BrandDetailAnalyticsSkeleton } from '../../../shared/components/skeletons';
 import { getBrandDetail } from '../services/brandStatsService';
 import { BrandInsightsChart } from '../components/BrandInsightsChart';
 import { syncPosts } from '../../postTracker/api/postTrackerApi';
@@ -356,35 +357,9 @@ export const BrandDetailPage = () => {
 
       {loading ? (
         <>
-          {/* Skeleton Hero Header */}
-          <div className="brand-hero-card" style={{ marginBottom: '24px', padding: '24px', display: 'flex', justifyContent: 'space-between' }}>
-            <div className="hero-brand-info">
-              <Skeleton width={64} height={64} borderRadius={16} />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <Skeleton width="200px" height={28} />
-                <div style={{ display: 'flex', gap: '16px' }}>
-                  <Skeleton width="120px" height={16} />
-                  <Skeleton width="120px" height={16} />
-                </div>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <Skeleton width="100px" height={36} borderRadius={8} />
-              <Skeleton width="100px" height={36} borderRadius={8} />
-            </div>
-          </div>
-
-          {/* Skeleton Analytics Panel */}
-          <div className="card" style={{ padding: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-              <Skeleton width="200px" height={24} />
-              <Skeleton width="140px" height={36} borderRadius={8} />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <Skeleton width="100%" height={240} borderRadius={12} />
-              <Skeleton width="100%" height={120} borderRadius={12} />
-            </div>
-          </div>
+          <BrandDetailHeroSkeleton />
+          <BrandDetailKpisSkeleton />
+          <BrandDetailAnalyticsSkeleton />
         </>
       ) : detail && (
         <>

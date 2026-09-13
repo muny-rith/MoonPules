@@ -669,7 +669,7 @@
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  background: linear-gradient(90deg, var(--border-color) 0%, var(--border-color) 50%, var(--border-color) 100%);
+  background: linear-gradient(90deg, #e2e8f0 25%, #f8fafc 50%, #e2e8f0 75%);
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
 }
@@ -684,7 +684,7 @@
 .skeleton-line {
   height: 14px;
   border-radius: 6px;
-  background: linear-gradient(90deg, var(--border-color) 0%, var(--border-color) 50%, var(--border-color) 100%);
+  background: linear-gradient(90deg, #e2e8f0 25%, #f8fafc 50%, #e2e8f0 75%);
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
   width: 80%;

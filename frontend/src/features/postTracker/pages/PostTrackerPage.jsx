@@ -8,6 +8,7 @@ import { POST_STATUS } from '../constants';
 import { Search, Filter, Calendar, ExternalLink, RefreshCw, BarChart2, DollarSign, Image as ImageIcon, Heart, MessageCircle, Share2, Edit2, Trash2, ChevronLeft, ChevronRight, Users, ChevronDown, Eye, TrendingUp, Send, Award } from 'lucide-react';
 
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
+import { PostTrackerTableSkeleton, PostTrackerMobileSkeleton } from '../../../shared/components/skeletons';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
 import axios from 'axios';
 import api from '../../../shared/utils/apiClient';
@@ -326,40 +327,13 @@ export const PostTrackerPage = () => {
             </thead>
             <tbody>
               {loading && (!posts || posts.length === 0) ? (
-                [1, 2, 3, 4, 5].map(i => (
-                  <tr key={`skeleton-${i}`}>
-                    <td style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ width: '32px', height: '32px', borderRadius: '6px' }}><Skeleton width={32} height={32} /></div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          <Skeleton width="120px" height={14} />
-                          <Skeleton width="80px" height={12} />
-                        </div>
-                      </div>
-                    </td>
-                    <td style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9', textAlign: 'center' }}><Skeleton width={24} height={24} style={{ margin: '0 auto' }} /></td>
-                    <td style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9' }}><Skeleton width="70px" height={24} /></td>
-                    <td style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9' }}><Skeleton width="90px" height={14} /></td>
-                    <td style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9', textAlign: 'right' }}><Skeleton width="40px" height={14} style={{ marginLeft: 'auto' }} /></td>
-                    <td style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9', textAlign: 'right' }}><Skeleton width="40px" height={14} style={{ marginLeft: 'auto' }} /></td>
-                    <td style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9', textAlign: 'right' }}><Skeleton width="80px" height={14} style={{ marginLeft: 'auto' }} /></td>
-                    <td style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9', textAlign: 'right' }}><Skeleton width="60px" height={14} style={{ marginLeft: 'auto' }} /></td>
-                    <td style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9', textAlign: 'right' }}><Skeleton width="50px" height={14} style={{ marginLeft: 'auto' }} /></td>
-                    <td style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9', textAlign: 'right' }}><Skeleton width="60px" height={24} style={{ marginLeft: 'auto' }} /></td>
-                    <td style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9', textAlign: 'center' }}>
-                      <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
-                        <Skeleton width={28} height={28} />
-                        <Skeleton width={28} height={28} />
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                <PostTrackerTableSkeleton rowCount={5} />
               ) : paginatedPosts.map((post, index) => (
                 <React.Fragment key={post.id}>
                   <tr style={{ backgroundColor: index % 2 === 0 ? '#ffffff' : '#fafafa' }}>
                     <td style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+                        <div style={{ width: '48px', height: '48px', borderRadius: '8px', backgroundColor: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
                           <SafeImage
                             src={post.media_url || post.product_image || `https://ui-avatars.com/api/?name=${post.product_name || 'PR'}&background=c7d2fe&color=3730a3&rounded=false`}
                             alt={post.product_name || 'product'}
@@ -368,14 +342,14 @@ export const PostTrackerPage = () => {
                           />
                         </div>
                         <div>
-                          <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '14px', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div style={{ fontWeight: 600, color: "var(--text-main)", fontSize: '14px', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                             {post.tracking_type === 'brand' || (!post.product_id && post.brand_id) ? (
                               <>
                                 <span style={{ color: '#16a34a' }}>Brand: </span>
-                                <span>{post.brand_name || post.product_name || 'Brand Catalog'}</span>
+                                <span style={{ fontSize: "16px" }}>{post.brand_name || post.product_name || 'Brand Catalog'}</span>
                               </>
                             ) : (
-                              <span>{post.product_name || `Target #${post.product_id || post.brand_id}`}</span>
+                              <span style={{ fontSize: "16px" }}>{post.product_name || `Target #${post.product_id || post.brand_id}`}</span>
                             )}
                           </div>
                           <div style={{ fontSize: '12px', color: '#64748b' }}>{post.page_name || post.page_id}</div>
@@ -539,11 +513,7 @@ export const PostTrackerPage = () => {
         {/* MOBILE CARD VIEW */}
         <div className="mobile-only" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', backgroundColor: '#f8fafc' }}>
           {loading && (!posts || posts.length === 0) ? (
-            [1, 2, 3].map(i => (
-              <div key={`skeleton-mob-${i}`} style={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px' }}>
-                <Skeleton width="100%" height={200} />
-              </div>
-            ))
+            <PostTrackerMobileSkeleton cardCount={3} />
           ) : paginatedPosts.map((post) => (
             <div key={`mob-${post.id}`} style={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
               {/* Header */}

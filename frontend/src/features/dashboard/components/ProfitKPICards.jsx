@@ -2,6 +2,8 @@ import React from 'react';
 import { DollarSign, TrendingUp, TrendingDown, Target, Zap, ShoppingCart } from 'lucide-react';
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 
+import { DashboardProfitKpisSkeleton } from '../../../shared/components/skeletons';
+
 const formatCurrency = (val) => {
   if (val === undefined || val === null) return '$0';
   return '$' + Intl.NumberFormat('en-US', {
@@ -37,28 +39,7 @@ const KPICard = ({ icon: Icon, iconColor, iconBg, label, value, subtitle, trend,
 
 export const ProfitKPICards = ({ data, loading, dateRange = 'this_week' }) => {
   if (loading || !data) {
-    return (
-      <div className="profit-kpi-section">
-        <div className="profit-kpi-section-header">
-          <div className="profit-kpi-section-title">
-            <Skeleton type="icon" width={18} height={18} borderRadius={4} />
-            <Skeleton width="120px" height={16} />
-          </div>
-          <Skeleton width="80px" height={20} borderRadius={20} />
-        </div>
-        <div className="profit-kpi-grid">
-          {[1, 2, 3, 4, 5, 6].map(i => (
-            <div key={i} className="profit-kpi-card">
-              <Skeleton type="icon" />
-              <div className="skeleton-text" style={{ justifyContent: 'center' }}>
-                <Skeleton width="60%" height={12} style={{ marginBottom: '4px' }} />
-                <Skeleton width="40%" height={16} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+    return <DashboardProfitKpisSkeleton />;
   }
 
   const isProfitable = data.net_profit > 0;
