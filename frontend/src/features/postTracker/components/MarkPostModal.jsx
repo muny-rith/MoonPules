@@ -272,7 +272,7 @@ export const MarkPostModal = ({ isOpen, onClose, onPostMarked }) => {
 
         <div className="modal-form-group">
           <label className="modal-label">4. Costs & Attribution (Optional)</label>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+          <div className="modal-cost-grid">
             <div>
               <label style={{ fontSize: '11px', color: '#64748b', display: 'block', marginBottom: '4px' }}>Content Cost ($)</label>
               <input 

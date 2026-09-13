@@ -511,89 +511,127 @@ export const PostTrackerPage = () => {
         </div>
 
         {/* MOBILE CARD VIEW */}
-        <div className="mobile-only" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', backgroundColor: '#f8fafc' }}>
+        <div className="mobile-only" style={{ padding: '0 0 16px 0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {loading && (!posts || posts.length === 0) ? (
-            <PostTrackerMobileSkeleton cardCount={3} />
-          ) : paginatedPosts.map((post) => (
-            <div key={`mob-${post.id}`} style={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-              {/* Header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                  <div style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, border: '1px solid #e2e8f0' }}>
-                    <img src={post.product_image || `https://ui-avatars.com/api/?name=${post.product_name || 'PR'}&background=c7d2fe&color=3730a3&rounded=false`} alt="product" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                      {post.tracking_type === 'brand' || (!post.product_id && post.brand_id) ? (
-                        <>
-                          <span style={{ color: '#16a34a' }}>Brand: </span>
-                          <span>{post.brand_name || post.product_name || 'Brand Catalog'}</span>
-                        </>
-                      ) : (
-                        <span>{post.product_name || `Product ID: ${post.product_id}`}</span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                      <FacebookIcon size={12} /> {post.page_name || post.page_id}
-                    </div>
-                  </div>
-                </div>
-                <PostStatusBadge status={post.status} />
-              </div>
+            <PostTrackerMobileSkeleton cardCount={6} />
+          ) : paginatedPosts.map((post) => {
+            const profitData = postsProfit[post.id];
+            const totalCost = (parseFloat(post.content_cost) || 0) + (parseFloat(post.ad_spend) || 0);
+            const revenue = profitData?.revenue !== undefined ? profitData.revenue : 0;
+            const netProfit = profitData?.net_profit !== undefined ? profitData.net_profit : (revenue - totalCost);
+            const roi = profitData?.roi !== undefined
+              ? profitData.roi
+              : (totalCost > 0 ? ((revenue - totalCost) / totalCost * 100) : 0);
 
-              {/* Metrics Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                <div>
-                  <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Views</div>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#6366f1' }}>{post.views_count?.toLocaleString() || '-'}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Reach</div>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#0ea5e9' }}>{post.reach_count?.toLocaleString() || '-'}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Engagements</div>
-                  <div style={{ display: 'flex', gap: '8px', fontSize: '12px', color: '#334155', marginTop: '2px' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '2px' }}><Heart size={10} color="#f43f5e" /> {post.likes_count || 0}</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '2px' }}><MessageCircle size={10} color="#f59e0b" /> {post.comments_count || 0}</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '2px' }}><Share2 size={10} color="#10b981" /> {post.shares_count || 0}</span>
+            return (
+              <div key={`mob-${post.id}`} className="task-mobile-card">
+                {/* Header */}
+                <div className="task-mob-header">
+                  <div className="task-mob-product-wrap">
+                    <div className="task-mob-thumb">
+                      <SafeImage
+                        src={post.media_url || post.product_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.product_name || 'PR')}&background=c7d2fe&color=3730a3&rounded=false`}
+                        alt={post.product_name || 'product'}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        fallbackText=""
+                      />
+                    </div>
+                    <div className="task-mob-info">
+                      <div className="task-mob-title">
+                        {post.tracking_type === 'brand' || (!post.product_id && post.brand_id) ? (
+                          <>
+                            <span style={{ color: '#16a34a' }}>Brand: </span>
+                            <span>{post.brand_name || post.product_name || 'Brand Catalog'}</span>
+                          </>
+                        ) : (
+                          <span>{post.product_name || `Target #${post.product_id || post.brand_id}`}</span>
+                        )}
+                      </div>
+                      <div className="task-mob-sub">
+                        <FacebookIcon size={13} />
+                        <span>{post.page_name || post.page_id}</span>
+                      </div>
+                    </div>
                   </div>
+                  <PostStatusBadge status={post.status} />
                 </div>
-                <div>
-                  <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Profit / ROI</div>
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: postsProfit[post.id]?.net_profit >= 0 ? '#10b981' : '#ef4444', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    ${postsProfit[post.id]?.net_profit?.toFixed(2) || '0.00'}
-                    {postsProfit[post.id] && (
-                      <span style={{ fontSize: '10px', backgroundColor: postsProfit[post.id]?.roi >= 0 ? '#d1fae5' : '#fee2e2', padding: '2px 4px', borderRadius: '4px' }}>
-                        {postsProfit[post.id]?.roi >= 0 ? '+' : ''}{postsProfit[post.id]?.roi || 0}%
+
+                {/* Metrics Grid */}
+                <div className="task-mob-metrics-grid">
+                  <div className="task-mob-metric-cell">
+                    <span className="task-mob-metric-lbl">Views / Reach</span>
+                    <span className="task-mob-metric-val">
+                      <span style={{ color: '#6366f1' }}>{post.views_count ? post.views_count.toLocaleString() : '0'}</span>
+                      <span style={{ color: '#94a3b8', margin: '0 4px' }}>/</span>
+                      <span style={{ color: '#0ea5e9' }}>{post.reach_count ? post.reach_count.toLocaleString() : '0'}</span>
+                    </span>
+                  </div>
+
+                  <div className="task-mob-metric-cell">
+                    <span className="task-mob-metric-lbl">Engagements</span>
+                    <div className="task-mob-engagements">
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><Heart size={11} color="#f43f5e" /> {post.likes_count || 0}</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><MessageCircle size={11} color="#f59e0b" /> {post.comments_count || 0}</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><Share2 size={11} color="#10b981" /> {post.shares_count || 0}</span>
+                    </div>
+                  </div>
+
+                  <div className="task-mob-metric-cell">
+                    <span className="task-mob-metric-lbl">Cost / Revenue</span>
+                    <span className="task-mob-metric-val">
+                      ${totalCost.toFixed(0)}
+                      <span style={{ color: '#94a3b8', margin: '0 4px' }}>/</span>
+                      <span style={{ color: '#10b981' }}>${revenue.toFixed(0)}</span>
+                    </span>
+                  </div>
+
+                  <div className="task-mob-metric-cell">
+                    <span className="task-mob-metric-lbl">Net Profit / ROI</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: netProfit >= 0 ? '#10b981' : '#ef4444' }}>
+                        {netProfit < 0 ? `-$${Math.abs(netProfit).toFixed(2)}` : `$${netProfit.toFixed(2)}`}
                       </span>
+                      <span style={{
+                        fontSize: '10px',
+                        padding: '1px 5px',
+                        borderRadius: '4px',
+                        fontWeight: 600,
+                        backgroundColor: roi >= 0 ? '#ecfdf5' : '#fee2e2',
+                        color: roi >= 0 ? '#059669' : '#dc2626'
+                      }}>
+                        {roi >= 0 ? `+${roi.toFixed(0)}%` : `${roi.toFixed(0)}%`}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer: Date & Actions */}
+                <div className="task-mob-footer">
+                  <div className="task-mob-date">
+                    <Calendar size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
+                    {post.published_time
+                      ? new Date(post.published_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                      : post.scheduled_time
+                        ? `⏰ ${new Date(post.scheduled_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                        : 'Pending'}
+                  </div>
+                  <div className="task-mob-actions">
+                    {post.post_url && (
+                      <a href={post.post_url} target="_blank" rel="noopener noreferrer" className="btn-icon-action" title="View on FB">
+                        <ExternalLink size={14} />
+                      </a>
                     )}
+                    <button onClick={() => navigate(`/tasks/edit/${post.id}`)} className="btn-icon-action" title="Edit Post">
+                      <Edit2 size={14} />
+                    </button>
+                    <button onClick={() => setPostToDelete(post)} className="btn-icon-action delete" title="Delete">
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 </div>
               </div>
-
-              {/* Footer: Date & Actions */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e2e8f0', paddingTop: '12px' }}>
-                <div style={{ fontSize: '12px', color: '#64748b' }}>
-                  <Calendar size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
-                  {post.published_time ? new Date(post.published_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Scheduled'}
-                </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  {post.status === POST_STATUS.PUBLISHED && (
-                    <a href={`https://facebook.com/${post.fb_post_id}`} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '6px', color: '#3b82f6', backgroundColor: '#eff6ff' }}>
-                      <ExternalLink size={14} />
-                    </a>
-                  )}
-                  <button onClick={() => navigate(`/tasks/edit/${post.id}`)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '6px', color: '#64748b', border: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
-                    <Edit2 size={14} />
-                  </button>
-                  <button onClick={() => setPostToDelete(post)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '6px', color: '#ef4444', backgroundColor: '#fef2f2', border: 'none' }}>
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
           {!loading && filteredPosts.length === 0 && (
             <div style={{ textAlign: 'center', padding: '32px', color: '#94a3b8' }}>
               No posts matched your criteria.
@@ -602,7 +640,7 @@ export const PostTrackerPage = () => {
         </div>
 
         {filteredPosts.length > 0 && (
-          <div style={{ padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e2e8f0', backgroundColor: '#f8fafc', borderBottomLeftRadius: '12px', borderBottomRightRadius: '12px' }}>
+          <div className="tasks-pagination-bar" style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e2e8f0', backgroundColor: '#f8fafc', borderBottomLeftRadius: '12px', borderBottomRightRadius: '12px', flexWrap: 'wrap', gap: '10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: '#64748b' }}>
               <span>Rows per page:</span>
               <select

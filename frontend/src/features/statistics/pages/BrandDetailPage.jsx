@@ -364,11 +364,8 @@ export const BrandDetailPage = () => {
       ) : detail && (
         <>
           {/* Hero Header with Overview Integrated */}
-          <div className="card" style={{ marginBottom: '24px', padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px', position: 'relative', overflow: 'hidden' }}>
-            {/* Subtle background decoration */}
-            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100px', background: 'linear-gradient(to right, #eff6ff, #f8fafc)', zIndex: 0 }} />
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '24px', zIndex: 1 }}>
+          <div className="card brand-detail-hero-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px', width: '100%', position: 'relative', zIndex: 1 }}>
 
               {/* Brand Info (Left) */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>

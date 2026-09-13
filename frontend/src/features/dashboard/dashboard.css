@@ -1304,9 +1304,9 @@
     font-size: 20px;
   }
 
-  /* --- Profit KPI: 1 column --- */
+  /* --- Profit KPI: 2 columns --- */
   .profit-kpi-grid {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: repeat(2, 1fr) !important;
   }
 
   /* --- Zen followers card --- */
@@ -1358,40 +1358,142 @@
 
 @media (max-width: 480px) {
 
+  /* Dashboard Top Header & Controls */
+  .dashboard-top {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .dashboard-welcome {
+    font-size: 18px;
+  }
+
+  .dashboard-global-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .global-filter-btn {
+    padding: 7px 8px;
+    font-size: 11px;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .global-filter-btn span {
+    max-width: 70px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .btn-sync {
+    padding: 7px 10px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .global-filter-dropdown {
+    max-width: calc(100vw - 24px);
+  }
+
   /* Dashboard */
   .dashboard-grid {
     gap: 10px;
   }
 
-  /* Stat card */
-  .stat-value {
-    font-size: 18px;
+  /* Stat card group */
+  .stat-card-group {
+    padding: 8px 12px;
   }
 
-  /* KPI cards: always 1 col, tighter */
-  .profit-kpi-grid {
-    grid-template-columns: 1fr !important;
+  .stat-header {
+    font-size: 11.5px;
+    gap: 6px;
+  }
+
+  .stat-value {
+    font-size: 16px;
+  }
+
+  /* Profit KPI Section */
+  .profit-kpi-section {
+    padding: 12px 10px;
+  }
+
+  .profit-kpi-section-header {
+    flex-direction: column;
+    align-items: flex-start;
     gap: 8px;
   }
 
-  .profit-kpi-value {
-    font-size: 15px;
+  .profit-flow-labels {
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 10.5px;
+  }
+
+  /* KPI cards: clean 2-column executive mobile grid */
+  .profit-kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px;
+  }
+
+  .profit-kpi-card {
+    padding: 8px 10px;
+    gap: 8px;
   }
 
   .profit-kpi-icon {
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
   }
 
-  /* Zen mini cards: stack
-  .zen-mini-card {
-    flex: 1 1 100%;
-  } */
+  .profit-kpi-label {
+    font-size: 10px;
+  }
+
+  .profit-kpi-value {
+    font-size: 13.5px;
+  }
+
+  /* Zen Followers & Views Chart */
+  .zen-followers-card {
+    padding: 10px 8px;
+    height: 340px !important;
+    min-height: 320px !important;
+  }
+
+  .zen-card-title {
+    font-size: 15px;
+  }
+
+  .zen-x-dates-container {
+    padding: 0 4px 0 8px;
+  }
+
+  .zen-x-spacer {
+    width: 28px;
+  }
+
+  .zen-date-label {
+    font-size: 9px;
+  }
 
   .zen-mini-value {
-    font-size: 14px;
+    font-size: 13px;
   }
 
+  /* Schedule List Items */
+  .schedule-item-compact {
+    padding: 8px 10px;
+    gap: 8px;
+  }
 }
 
 @media (max-width: 480px) {
