@@ -35,7 +35,9 @@ import {
   Award,
   Radio,
   Copy,
-  Check
+  Check,
+  Play,
+  Video
 } from 'lucide-react';
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 import { MetaEmojiPicker } from '../components/MetaEmojiPicker';
@@ -45,7 +47,7 @@ import { AddHashtagsModal } from '../components/AddHashtagsModal';
 import { useWheelIsolation } from '../hooks/useWheelIsolation';
 import '../postTracker.css';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
-import { resolveMediaUrl, compressImageFile } from '../../../shared/utils/mediaUrl';
+import { resolveMediaUrl, compressImageFile, isVideoMedia, getMediaMetadata } from '../../../shared/utils/mediaUrl';
 
 export const EditPostPage = () => {
   const navigate = useNavigate();
@@ -84,6 +86,8 @@ export const EditPostPage = () => {
   const [mediaSource, setMediaSource] = useState('product');
   const [customFile, setCustomFile] = useState(null);
   const [customPreview, setCustomPreview] = useState('');
+  const [customThumb, setCustomThumb] = useState('');
+  const [isCustomVideo, setIsCustomVideo] = useState(false);
   const [uploadedMediaUrl, setUploadedMediaUrl] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
   const [scheduledDateTime, setScheduledDateTime] = useState('');
@@ -207,16 +211,20 @@ export const EditPostPage = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     setCustomFile(file);
-    setCustomPreview(URL.createObjectURL(file));
+    const previewUrl = URL.createObjectURL(file);
+    setCustomPreview(previewUrl);
     setMediaSource('upload');
+    const meta = await getMediaMetadata(file);
+    setIsCustomVideo(meta.isVideo);
+    setCustomThumb(meta.thumbUrl || previewUrl);
     try {
       setUploadingImage(true);
       const compressedFile = await compressImageFile(file, 1200, 0.85);
       const res = await api.uploadPostImage(compressedFile);
       setUploadedMediaUrl(res.url);
     } catch (err) {
-      console.error('Failed to upload image:', err);
-      alert('Failed to upload image. Please try again.');
+      console.error('Failed to upload media:', err);
+      alert('Failed to upload media. Please try again.');
     } finally {
       setUploadingImage(false);
     }
@@ -264,12 +272,14 @@ export const EditPostPage = () => {
         ? parseInt(productId, 10)
         : null;
 
+      const isVideo = isCustomVideo || (finalMediaUrl ? isVideoMedia(finalMediaUrl) : false);
       const updateData = {
         tracking_type: trackingTarget,
         product_id: targetProductId,
         brand_id: targetBrandId,
         message: message.trim(),
         media_url: finalMediaUrl,
+        media_type: isVideo ? 'video' : (finalMediaUrl ? 'photo' : 'status'),
         content_cost: parseFloat(contentCost) || 0,
         ad_spend: parseFloat(adSpend) || 0,
         attribution_window_days: parseInt(attributionWindow, 10) || 7,
@@ -617,9 +627,22 @@ export const EditPostPage = () => {
                 {mediaSource === 'upload' && customPreview && (
                   <div className="meta-media-preview-box">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <img src={customPreview} alt="Upload preview" className="meta-media-thumb" />
+                      {isCustomVideo || isVideoMedia(customPreview) ? (
+                        <div style={{ position: 'relative', width: '44px', height: '44px', borderRadius: '6px', overflow: 'hidden', background: '#0f172a', flexShrink: 0 }}>
+                          {customThumb ? (
+                            <img src={customThumb} alt="Video thumb" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            <video src={customPreview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted preload="metadata" />
+                          )}
+                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)' }}>
+                            <Play size={14} fill="#ffffff" color="#ffffff" />
+                          </div>
+                        </div>
+                      ) : (
+                        <img src={customPreview} alt="Upload preview" className="meta-media-thumb" />
+                      )}
                       <div>
-                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#050505' }}>{customFile?.name || 'Custom upload'}</div>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#050505' }}>{customFile?.name || (isCustomVideo ? 'Video file' : 'Custom upload')}</div>
                         <div style={{ fontSize: '11px', color: uploadingImage ? '#1877f2' : '#16a34a' }}>
                           {uploadingImage ? 'Uploading...' : '✓ Ready'}
                         </div>
@@ -946,6 +969,8 @@ export const EditPostPage = () => {
               <div className="meta-feed-media">
                 <SafeImage
                   src={previewMediaUrl}
+                  poster={customThumb || undefined}
+                  controls={true}
                   alt="Post preview"
                   className="meta-feed-image"
                   fallbackText="Attached media preview"

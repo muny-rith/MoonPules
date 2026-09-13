@@ -243,6 +243,48 @@ const publishPostToPage = async (pageId, { message, mediaUrl, scheduledTime }) =
       }
     }
 
+    // Check if media contains a video
+    const videoUrlItem = mediaUrls.find((url) => {
+      if (!url || typeof url !== 'string') return false;
+      const clean = url.split('?')[0].split('#')[0].toLowerCase();
+      return /\.(mp4|mov|webm|mkv|m4v|avi)$/i.test(clean);
+    });
+
+    if (videoUrlItem) {
+      const isRemoteUrl = videoUrlItem.startsWith('http://') || videoUrlItem.startsWith('https://');
+      const localPath = !isRemoteUrl ? resolveLocalUploadPath(videoUrlItem) : null;
+
+      try {
+        if (localPath && fs.existsSync(localPath)) {
+          const formData = new FormData();
+          formData.append('source', fs.createReadStream(localPath));
+          formData.append('description', message || '');
+          if (isScheduled) {
+            formData.append('published', 'false');
+            formData.append('scheduled_publish_time', String(scheduledPublishTime));
+          } else {
+            formData.append('published', 'true');
+          }
+          const videoRes = await fbClient.postFbData(`/${fb_page_id}/videos`, access_token, formData, formData.getHeaders());
+          return { fb_post_id: videoRes.id, is_scheduled: isScheduled, media_type: 'video' };
+        } else if (isRemoteUrl) {
+          const videoPayload = {
+            file_url: videoUrlItem,
+            description: message || '',
+            published: !isScheduled,
+          };
+          if (isScheduled) {
+            videoPayload.scheduled_publish_time = scheduledPublishTime;
+          }
+          const videoRes = await fbClient.postFbData(`/${fb_page_id}/videos`, access_token, videoPayload);
+          return { fb_post_id: videoRes.id, is_scheduled: isScheduled, media_type: 'video' };
+        }
+      } catch (videoErr) {
+        console.error(`Failed to publish video ${videoUrlItem} to Facebook:`, videoErr);
+        throw videoErr;
+      }
+    }
+
     const photoIds = [];
 
     for (const urlItem of mediaUrls) {

@@ -41,7 +41,9 @@ import {
   Package,
   Award,
   Radio,
-  GripVertical
+  GripVertical,
+  Play,
+  Video
 } from 'lucide-react';
 import { MetaEmojiPicker } from '../components/MetaEmojiPicker';
 import { MetaSchedulePicker } from '../components/MetaSchedulePicker';
@@ -49,7 +51,7 @@ import { ContactFooterModal } from '../components/ContactFooterModal';
 import { AddHashtagsModal } from '../components/AddHashtagsModal';
 import { useWheelIsolation } from '../hooks/useWheelIsolation';
 import '../postTracker.css';
-import { compressImageFile } from '../../../shared/utils/mediaUrl';
+import { compressImageFile, getMediaMetadata, isVideoMedia } from '../../../shared/utils/mediaUrl';
 
 export const CreatePostPage = () => {
   const navigate = useNavigate();
@@ -236,21 +238,6 @@ export const CreatePostPage = () => {
     handleTogglePage(pId);
   };
 
-  const getImageDimensions = (file) => {
-    return new Promise((resolve) => {
-      if (!file || !file.type.startsWith('image/')) {
-        resolve('Video');
-        return;
-      }
-      const img = new Image();
-      img.onload = () => {
-        resolve(`${img.naturalWidth} x ${img.naturalHeight}`);
-      };
-      img.onerror = () => resolve('Image');
-      img.src = URL.createObjectURL(file);
-    });
-  };
-
   const handleFileSelect = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -263,7 +250,7 @@ export const CreatePostPage = () => {
       editItemIndexRef.current = null;
       const file = files[0];
       const previewUrl = URL.createObjectURL(file);
-      const dimensions = await getImageDimensions(file);
+      const meta = await getMediaMetadata(file);
       const itemId = `${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
 
       setMediaItems((prev) => {
@@ -272,8 +259,10 @@ export const CreatePostPage = () => {
           id: itemId,
           file,
           previewUrl,
+          thumbUrl: meta.thumbUrl || previewUrl,
+          isVideo: meta.isVideo,
           serverUrl: '',
-          dimensions,
+          dimensions: meta.dimensions,
           uploading: true,
         };
         return updated;
@@ -285,7 +274,7 @@ export const CreatePostPage = () => {
           prev.map((it) => (it.id === itemId ? { ...it, serverUrl: res.url, uploading: false } : it))
         );
       } catch (err) {
-        console.error('Failed to upload image:', err);
+        console.error('Failed to upload media:', err);
         setMediaItems((prev) =>
           prev.map((it) => (it.id === itemId ? { ...it, uploading: false, error: true } : it))
         );
@@ -296,13 +285,15 @@ export const CreatePostPage = () => {
     const newItems = await Promise.all(
       files.map(async (file) => {
         const previewUrl = URL.createObjectURL(file);
-        const dimensions = await getImageDimensions(file);
+        const meta = await getMediaMetadata(file);
         return {
           id: `${Date.now()}_${Math.random().toString(36).substr(2, 7)}`,
           file,
           previewUrl,
+          thumbUrl: meta.thumbUrl || previewUrl,
+          isVideo: meta.isVideo,
           serverUrl: '',
-          dimensions,
+          dimensions: meta.dimensions,
           uploading: true,
         };
       })
@@ -522,6 +513,28 @@ export const CreatePostPage = () => {
     else { setParsedPostId(null); setUrlError("Couldn't recognize link. Paste standard Facebook URL or {pageId}_{postId}."); }
   };
 
+  const renderFeedGridItem = (item, idx) => {
+    if (!item) return null;
+    const isVid = item.isVideo || isVideoMedia(item.previewUrl) || isVideoMedia(item.serverUrl);
+    if (isVid) {
+      return (
+        <div className="meta-feed-grid-video-wrap">
+          {item.thumbUrl ? (
+            <img src={item.thumbUrl} alt={`Media ${idx + 1}`} className="meta-feed-grid-img" />
+          ) : (
+            <video src={item.previewUrl} className="meta-feed-grid-img" muted preload="metadata" playsInline />
+          )}
+          <div className="meta-feed-grid-play-badge">
+            <div className="meta-feed-grid-play-circle">
+              <Play size={16} fill="#ffffff" color="#ffffff" style={{ marginLeft: '2px' }} />
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return <img src={item.previewUrl} alt={`Media ${idx + 1}`} className="meta-feed-grid-img" />;
+  };
+
   const handleSubmit = async () => {
     const isTargetValid = trackingTarget === 'brand' ? Boolean(brandId) : Boolean(productId);
     if (!isTargetValid || selectedPageIds.length === 0) {
@@ -557,6 +570,9 @@ export const CreatePostPage = () => {
             finalMediaUrl = JSON.stringify(urls);
           }
         }
+        const hasVideo = mediaSource === 'upload' && mediaItems.some((m) => m.isVideo || isVideoMedia(m.previewUrl) || isVideoMedia(m.serverUrl));
+        const finalMediaType = hasVideo ? 'video' : (finalMediaUrl ? 'photo' : 'status');
+
         // Post/Schedule to all selected Facebook pages in parallel
         await Promise.all(
           selectedPageIds.map((pId) =>
@@ -568,6 +584,7 @@ export const CreatePostPage = () => {
               page_id: parseInt(pId, 10),
               message: message.trim(),
               media_url: finalMediaUrl,
+              media_type: finalMediaType,
               publish_now: publishMode === 'now',
               scheduled_time: publishMode === 'schedule' ? new Date(scheduledDateTime).toISOString() : null,
               content_cost: parseFloat(contentCost) || 0,
@@ -1066,13 +1083,36 @@ export const CreatePostPage = () => {
                                 {idx + 1}
                               </div>
 
-                              <img
-                                src={item.previewUrl}
-                                alt="Media item"
-                                className="meta-media-square-thumb"
-                                draggable={false}
-                                style={{ pointerEvents: 'none', userSelect: 'none' }}
-                              />
+                              {item.isVideo || isVideoMedia(item.previewUrl) ? (
+                                <div className="meta-media-square-thumb-wrap">
+                                  {item.thumbUrl ? (
+                                    <img
+                                      src={item.thumbUrl}
+                                      alt="Video thumbnail"
+                                      draggable={false}
+                                      style={{ pointerEvents: 'none', userSelect: 'none' }}
+                                    />
+                                  ) : (
+                                    <video
+                                      src={item.previewUrl}
+                                      muted
+                                      preload="metadata"
+                                      playsInline
+                                    />
+                                  )}
+                                  <div className="meta-media-thumb-play-overlay">
+                                    <Play size={14} fill="#ffffff" color="#ffffff" />
+                                  </div>
+                                </div>
+                              ) : (
+                                <img
+                                  src={item.previewUrl}
+                                  alt="Media item"
+                                  className="meta-media-square-thumb"
+                                  draggable={false}
+                                  style={{ pointerEvents: 'none', userSelect: 'none' }}
+                                />
+                              )}
                               <div>
                                 <div className="meta-media-dim-label">
                                   {item.dimensions || 'Image'}
@@ -1538,47 +1578,59 @@ export const CreatePostPage = () => {
               </div>
             ) : mediaSource === 'upload' && mediaItems.length > 0 ? (
               mediaItems.length === 1 ? (
-                <div className="meta-feed-media">
-                  <img
-                    src={mediaItems[0].previewUrl}
-                    alt="Post preview"
-                    className="meta-feed-image"
-                  />
-                </div>
+                (mediaItems[0].isVideo || isVideoMedia(mediaItems[0].previewUrl)) ? (
+                  <div className="meta-feed-media" style={{ background: '#000000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <video
+                      src={mediaItems[0].previewUrl}
+                      poster={mediaItems[0].thumbUrl || undefined}
+                      controls
+                      playsInline
+                      className="meta-feed-video"
+                    />
+                  </div>
+                ) : (
+                  <div className="meta-feed-media">
+                    <img
+                      src={mediaItems[0].previewUrl}
+                      alt="Post preview"
+                      className="meta-feed-image"
+                    />
+                  </div>
+                )
               ) : mediaItems.length === 2 ? (
                 <div className="meta-feed-multi-grid grid-2">
                   <div className="meta-feed-grid-item">
-                    <img src={mediaItems[0].previewUrl} alt="Media 1" className="meta-feed-grid-img" />
+                    {renderFeedGridItem(mediaItems[0], 0)}
                   </div>
                   <div className="meta-feed-grid-item">
-                    <img src={mediaItems[1].previewUrl} alt="Media 2" className="meta-feed-grid-img" />
+                    {renderFeedGridItem(mediaItems[1], 1)}
                   </div>
                 </div>
               ) : mediaItems.length === 3 ? (
                 <div className="meta-feed-multi-grid grid-3">
                   <div className="meta-feed-grid-item span-2-rows">
-                    <img src={mediaItems[0].previewUrl} alt="Media 1" className="meta-feed-grid-img" />
+                    {renderFeedGridItem(mediaItems[0], 0)}
                   </div>
                   <div className="meta-feed-grid-item">
-                    <img src={mediaItems[1].previewUrl} alt="Media 2" className="meta-feed-grid-img" />
+                    {renderFeedGridItem(mediaItems[1], 1)}
                   </div>
                   <div className="meta-feed-grid-item">
-                    <img src={mediaItems[2].previewUrl} alt="Media 3" className="meta-feed-grid-img" />
+                    {renderFeedGridItem(mediaItems[2], 2)}
                   </div>
                 </div>
               ) : (
                 <div className="meta-feed-multi-grid grid-4">
                   <div className="meta-feed-grid-item">
-                    <img src={mediaItems[0].previewUrl} alt="Media 1" className="meta-feed-grid-img" />
+                    {renderFeedGridItem(mediaItems[0], 0)}
                   </div>
                   <div className="meta-feed-grid-item">
-                    <img src={mediaItems[1].previewUrl} alt="Media 2" className="meta-feed-grid-img" />
+                    {renderFeedGridItem(mediaItems[1], 1)}
                   </div>
                   <div className="meta-feed-grid-item">
-                    <img src={mediaItems[2].previewUrl} alt="Media 3" className="meta-feed-grid-img" />
+                    {renderFeedGridItem(mediaItems[2], 2)}
                   </div>
                   <div className="meta-feed-grid-item">
-                    <img src={mediaItems[3].previewUrl} alt="Media 4" className="meta-feed-grid-img" />
+                    {renderFeedGridItem(mediaItems[3], 3)}
                     {mediaItems.length > 4 && (
                       <div className="meta-feed-more-overlay">
                         +{mediaItems.length - 4}

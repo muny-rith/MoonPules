@@ -51,6 +51,7 @@ const createAndSchedulePost = async (postData) => {
     page_id,
     message,
     media_url,
+    media_type,
     scheduled_time,
     publish_now = false,
     content_cost = 0,
@@ -58,6 +59,12 @@ const createAndSchedulePost = async (postData) => {
     attribution_window_days = 7,
     marked_by,
   } = postData;
+
+  const isVideoMediaUrl = (url) => {
+    if (!url || typeof url !== 'string') return false;
+    const clean = url.split('?')[0].split('#')[0].toLowerCase();
+    return /\.(mp4|mov|webm|mkv|m4v|avi)$/i.test(clean);
+  };
 
   const hasProduct = product_id !== undefined && product_id !== null && product_id !== '' && !isNaN(Number(product_id));
   const hasBrand = brand_id !== undefined && brand_id !== null && brand_id !== '' && !isNaN(Number(brand_id));
@@ -90,7 +97,7 @@ const createAndSchedulePost = async (postData) => {
     ad_spend: parseFloat(ad_spend) || 0,
     attribution_window_days: parseInt(attribution_window_days, 10) || 7,
 
-    media_type: media_url ? 'photo' : 'photo',
+    media_type: media_type || (media_url ? (isVideoMediaUrl(media_url) ? 'video' : 'photo') : 'status'),
     message: message || '',
     media_url: media_url || null,
   });

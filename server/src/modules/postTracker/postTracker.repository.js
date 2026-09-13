@@ -223,6 +223,10 @@ const updateTrackedPostData = async (id, data) => {
     fields.push(`media_url = $${idx++}`);
     values.push(data.media_url || null);
   }
+  if (data.media_type !== undefined) {
+    fields.push(`media_type = $${idx++}`);
+    values.push(data.media_type || 'photo');
+  }
   if (data.scheduled_time !== undefined) {
     fields.push(`scheduled_time = $${idx++}`);
     values.push(data.scheduled_time || null);
