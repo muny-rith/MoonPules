@@ -163,6 +163,8 @@ export const EditPostPage = () => {
 
       if (post.media_url) {
         const resolved = resolveMediaUrl(post.media_url);
+        const isVid = post.media_type === 'video' || isVideoMedia(post.media_url) || isVideoMedia(resolved);
+        setIsCustomVideo(isVid);
         if (post.media_url.includes('/uploads/') || post.media_url.includes('http') || post.media_url.startsWith('[')) {
           setMediaSource('upload');
           setUploadedMediaUrl(post.media_url);
@@ -170,6 +172,9 @@ export const EditPostPage = () => {
         } else {
           setMediaSource('product');
         }
+      } else if (post.media_type === 'video') {
+        setMediaSource('upload');
+        setIsCustomVideo(true);
       } else {
         setMediaSource('none');
       }
@@ -624,31 +629,74 @@ export const EditPostPage = () => {
                   </div>
                 )}
 
-                {mediaSource === 'upload' && customPreview && (
-                  <div className="meta-media-preview-box">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      {isCustomVideo || isVideoMedia(customPreview) ? (
-                        <div style={{ position: 'relative', width: '44px', height: '44px', borderRadius: '6px', overflow: 'hidden', background: '#0f172a', flexShrink: 0 }}>
-                          {customThumb ? (
-                            <img src={customThumb} alt="Video thumb" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          ) : (
-                            <video src={customPreview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted preload="metadata" />
-                          )}
-                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)' }}>
-                            <Play size={14} fill="#ffffff" color="#ffffff" />
+                {mediaSource === 'upload' && (
+                  customPreview ? (
+                    <div className="meta-media-preview-box">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {isCustomVideo || isVideoMedia(customPreview) ? (
+                          <div style={{ position: 'relative', width: '44px', height: '44px', borderRadius: '6px', overflow: 'hidden', background: '#0f172a', flexShrink: 0 }}>
+                            {customThumb ? (
+                              <img src={customThumb} alt="Video thumb" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <video src={customPreview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted preload="metadata" />
+                            )}
+                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)' }}>
+                              <Play size={14} fill="#ffffff" color="#ffffff" />
+                            </div>
+                          </div>
+                        ) : (
+                          <img src={customPreview} alt="Upload preview" className="meta-media-thumb" />
+                        )}
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#050505' }}>{customFile?.name || (isCustomVideo ? 'Video file' : 'Custom upload')}</div>
+                          <div style={{ fontSize: '11px', color: uploadingImage ? '#1877f2' : '#16a34a' }}>
+                            {uploadingImage ? 'Uploading...' : '✓ Ready'}
                           </div>
                         </div>
-                      ) : (
-                        <img src={customPreview} alt="Upload preview" className="meta-media-thumb" />
-                      )}
-                      <div>
-                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#050505' }}>{customFile?.name || (isCustomVideo ? 'Video file' : 'Custom upload')}</div>
-                        <div style={{ fontSize: '11px', color: uploadingImage ? '#1877f2' : '#16a34a' }}>
-                          {uploadingImage ? 'Uploading...' : '✓ Ready'}
-                        </div>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        style={{
+                          background: 'none',
+                          border: '1px solid #ced0d4',
+                          borderRadius: '6px',
+                          padding: '6px 12px',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          color: '#050505'
+                        }}
+                      >
+                        Change
+                      </button>
                     </div>
-                  </div>
+                  ) : (
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      style={{
+                        marginTop: '12px',
+                        padding: '16px',
+                        border: '2px dashed #cbd5e1',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        cursor: 'pointer',
+                        background: '#f8fafc'
+                      }}
+                    >
+                      <Upload size={20} color="#64748b" />
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#1877f2' }}>
+                        Click to choose video or photo to upload
+                      </span>
+                      <span style={{ fontSize: '11px', color: '#64748b' }}>
+                        Supports MP4, MOV, WEBM, JPG, PNG up to 200MB
+                      </span>
+                    </div>
+                  )
                 )}
               </>
             ) : (

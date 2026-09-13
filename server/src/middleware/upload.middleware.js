@@ -10,20 +10,22 @@ if (!fs.existsSync(uploadDir)) {
 const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
-  const allowed = /jpeg|jpg|png|webp|gif|mp4|mov/;
-  const ext = path.extname(file.originalname).toLowerCase();
-  const mime = file.mimetype.toLowerCase();
+  const ext = path.extname(file.originalname || '').toLowerCase();
+  const mime = (file.mimetype || '').toLowerCase();
 
-  if (allowed.test(ext) || allowed.test(mime)) {
+  const isImage = mime.startsWith('image/') || /\.(jpe?g|png|webp|gif|bmp|heic)$/i.test(ext);
+  const isVideo = mime.startsWith('video/') || /\.(mp4|mov|webm|avi|mkv|m4v|3gp)$/i.test(ext);
+
+  if (isImage || isVideo) {
     cb(null, true);
   } else {
-    cb(new Error('Only images and video files are supported (jpeg, jpg, png, webp, gif, mp4, mov)'));
+    cb(new Error('Only images and video files are supported'));
   }
 };
 
 const upload = multer({
   storage,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+  limits: { fileSize: 200 * 1024 * 1024 }, // 200MB
   fileFilter,
 });
 

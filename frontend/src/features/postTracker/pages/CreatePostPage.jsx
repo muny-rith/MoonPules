@@ -563,6 +563,11 @@ export const CreatePostPage = () => {
             setSubmitting(false);
             return;
           }
+          if (mediaItems.some((m) => m.error || !m.serverUrl)) {
+            setSubmitError('One or more media items failed to upload. Please remove or re-upload them.');
+            setSubmitting(false);
+            return;
+          }
           if (mediaItems.length === 1) {
             finalMediaUrl = mediaItems[0].serverUrl || null;
           } else if (mediaItems.length > 1) {
@@ -1117,8 +1122,8 @@ export const CreatePostPage = () => {
                                 <div className="meta-media-dim-label">
                                   {item.dimensions || 'Image'}
                                 </div>
-                                <div style={{ fontSize: '11px', color: item.uploading ? '#1877f2' : '#16a34a' }}>
-                                  {item.uploading ? 'Uploading...' : '✓ Ready'}
+                                <div style={{ fontSize: '11px', color: item.uploading ? '#1877f2' : item.error ? '#dc2626' : '#16a34a' }}>
+                                  {item.uploading ? 'Uploading...' : item.error ? 'Upload failed' : '✓ Ready'}
                                 </div>
                               </div>
                             </div>

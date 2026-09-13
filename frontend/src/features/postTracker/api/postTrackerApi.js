@@ -53,9 +53,7 @@ export const publishPostNow = async (id) => {
 export const uploadPostImage = async (file) => {
   const formData = new FormData();
   formData.append('image', file);
-  const response = await apiClient.post('/post-tracker/upload-image', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+  const response = await apiClient.post('/post-tracker/upload-image', formData);
   return response.data;
 };
 
