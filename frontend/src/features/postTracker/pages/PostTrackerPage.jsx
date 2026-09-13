@@ -369,7 +369,14 @@ export const PostTrackerPage = () => {
                         </div>
                         <div>
                           <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '14px', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span>{post.product_name || `Target #${post.product_id || post.brand_id}`}</span>
+                            {post.tracking_type === 'brand' || (!post.product_id && post.brand_id) ? (
+                              <>
+                                <span style={{ color: '#16a34a' }}>Brand: </span>
+                                <span>{post.brand_name || post.product_name || 'Brand Catalog'}</span>
+                              </>
+                            ) : (
+                              <span>{post.product_name || `Target #${post.product_id || post.brand_id}`}</span>
+                            )}
                           </div>
                           <div style={{ fontSize: '12px', color: '#64748b' }}>{post.page_name || post.page_id}</div>
                         </div>
@@ -546,7 +553,16 @@ export const PostTrackerPage = () => {
                     <img src={post.product_image || `https://ui-avatars.com/api/?name=${post.product_name || 'PR'}&background=c7d2fe&color=3730a3&rounded=false`} alt="product" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                   <div>
-                    <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '15px' }}>{post.product_name || `Product ID: ${post.product_id}`}</div>
+                    <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      {post.tracking_type === 'brand' || (!post.product_id && post.brand_id) ? (
+                        <>
+                          <span style={{ color: '#16a34a' }}>Brand: </span>
+                          <span>{post.brand_name || post.product_name || 'Brand Catalog'}</span>
+                        </>
+                      ) : (
+                        <span>{post.product_name || `Product ID: ${post.product_id}`}</span>
+                      )}
+                    </div>
                     <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
                       <FacebookIcon size={12} /> {post.page_name || post.page_id}
                     </div>

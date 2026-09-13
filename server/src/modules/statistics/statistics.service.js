@@ -79,7 +79,7 @@ const getBrandDetail = async (brandId) => {
        ...post,
        platform: post.platform || 'facebook',
        media_type: post.media_type || 'photo',
-       product_name: isBrandPost ? `Brand: ${brandName} (All Products)` : (prod ? prod.product_name : 'Unknown Product'),
+       product_name: isBrandPost ? (brandName || 'Brand Catalog') : (prod ? prod.product_name : 'Unknown Product'),
        product_image: isBrandPost ? brandImage : (prod ? prod.image_url : null)
      };
   });

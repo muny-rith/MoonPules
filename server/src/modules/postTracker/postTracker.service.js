@@ -21,7 +21,7 @@ const listPosts = async () => {
     let productImage = null;
 
     if (isBrandTracking) {
-      productName = brandName ? `Brand: ${brandName} (All Products)` : 'Entire Brand Catalog';
+      productName = brandName || 'Brand Catalog';
       productImage = brandImage;
     } else if (prod) {
       productName = prod.product_name;
@@ -340,7 +340,7 @@ const getPostById = async (id) => {
   let productImage = null;
 
   if (isBrandTracking) {
-    productName = brandName ? `Brand: ${brandName} (All Products)` : 'Entire Brand Catalog';
+    productName = brandName || 'Brand Catalog';
     productImage = brandImage;
   } else if (prod) {
     productName = prod.product_name;
