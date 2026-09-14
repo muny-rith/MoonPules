@@ -107,11 +107,11 @@ const getBrandDetail = async (brandId) => {
 };
 
 const getDashboardStats = async (filters = {}) => {
-  const { platform = 'all', range = 'this_week' } = filters;
+  const { platform = 'all', range = 'this_week', timezone } = filters;
   const posts = await postTrackerService.listPosts();
   const products = await productsService.listProducts();
   
-  const { start, end, prevStart, prevEnd } = getDateRangeBounds(range);
+  const { start, end, prevStart, prevEnd } = getDateRangeBounds(range, timezone);
 
   const filteredPosts = posts.filter(p => isPostInPlatform(p, platform) && isPostInRange(p, start, end));
   const prevPosts = prevStart ? posts.filter(p => isPostInPlatform(p, platform) && isPostInRange(p, prevStart, prevEnd)) : [];

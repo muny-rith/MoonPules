@@ -182,8 +182,9 @@ export const DashboardPage = () => {
   const fetchDashboard = async (range = dateRange, plat = platform) => {
     try {
       setLoading(true);
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Phnom_Penh';
       const res = await apiClient.get('/statistics/dashboard', {
-        params: { range, platform: plat }
+        params: { range, platform: plat, timezone }
       });
       if (res.data && res.data.success) {
         setStats(res.data.data);
@@ -198,8 +199,9 @@ export const DashboardPage = () => {
   const fetchProfit = async (range = dateRange, plat = platform) => {
     try {
       setProfitLoading(true);
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Phnom_Penh';
       const res = await apiClient.get('/profit/dashboard', {
-        params: { range, platform: plat }
+        params: { range, platform: plat, timezone }
       });
       if (res.data && res.data.success) {
         setProfitData(res.data.data);
