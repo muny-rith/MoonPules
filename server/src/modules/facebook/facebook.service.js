@@ -34,45 +34,107 @@ const getRecentPosts = async (pageId) => {
 
 const checkPublished = async (postId, pageId) => {
   const { access_token } = await getPageCredentials(pageId);
-  const data = await fbClient.getFbData(`/${postId}?fields=is_published,created_time,status_type,full_picture,attachments{media_type,type,media,subattachments,target{id}}`, access_token);
-  const createdDate = data.created_time ? new Date(data.created_time) : null;
-  // Facebook may omit is_published on standard published feed posts. If created_time exists and is in the past, it's published.
-  const isPublished = data.is_published === true || (data.is_published !== false && createdDate !== null && createdDate <= new Date());
+  const postIdStr = String(postId).trim();
+  const isVideoId = !postIdStr.includes('_');
 
-  let mediaType = 'photo';
-  const attMedia = data.attachments?.data?.[0]?.media_type?.toLowerCase();
-  const statusType = data.status_type?.toLowerCase();
-  const targetId = data.attachments?.data?.[0]?.target?.id || postId.split('_')[1];
-
-  if (statusType === 'live_video_broadcast') {
-    mediaType = 'live';
-  } else if (attMedia === 'video' || statusType === 'added_video') {
-    mediaType = 'video';
-    if (targetId) {
-      try {
-        const vid = await fbClient.getFbData(`/${targetId}?fields=live_status`, access_token);
-        if (vid.live_status === 'VOD' || vid.live_status === 'LIVE') {
-          mediaType = 'live';
-        }
-      } catch (_) {}
+  if (isVideoId) {
+    try {
+      const data = await fbClient.getFbData(
+        `/${postIdStr}?fields=id,published,status,created_time,picture,description,permalink_url`,
+        access_token
+      );
+      const isPublished = data.published === true || data.status?.publishing_phase?.publish_status === 'published';
+      const publishTimeStr = data.status?.publishing_phase?.publish_time || data.created_time;
+      const createdDate = publishTimeStr ? new Date(publishTimeStr) : null;
+      return {
+        is_published: isPublished,
+        created_time: createdDate,
+        media_type: 'video',
+        picture_url: data.picture || null,
+      };
+    } catch (err) {
+      console.warn(`[checkPublished] Video query failed for ${postIdStr}: ${err.message}. Trying feed post check...`);
     }
   }
 
-  const pictureUrl = data.full_picture || data.attachments?.data?.[0]?.media?.image?.src || null;
+  try {
+    const data = await fbClient.getFbData(
+      `/${postIdStr}?fields=is_published,created_time,status_type,full_picture,attachments{media_type,type,media,subattachments,target{id}}`,
+      access_token
+    );
+    const createdDate = data.created_time ? new Date(data.created_time) : null;
+    // Facebook may omit is_published on standard published feed posts. If created_time exists and is in the past, it's published.
+    const isPublished = data.is_published === true || (data.is_published !== false && createdDate !== null && createdDate <= new Date());
 
-  return {
-    is_published: isPublished,
-    created_time: createdDate,
-    media_type: mediaType,
-    picture_url: pictureUrl,
-  };
+    let mediaType = 'photo';
+    const attMedia = data.attachments?.data?.[0]?.media_type?.toLowerCase();
+    const statusType = data.status_type?.toLowerCase();
+    const targetId = data.attachments?.data?.[0]?.target?.id || postIdStr.split('_')[1];
+
+    if (statusType === 'live_video_broadcast') {
+      mediaType = 'live';
+    } else if (attMedia === 'video' || statusType === 'added_video') {
+      mediaType = 'video';
+      if (targetId) {
+        try {
+          const vid = await fbClient.getFbData(`/${targetId}?fields=live_status`, access_token);
+          if (vid.live_status === 'VOD' || vid.live_status === 'LIVE') {
+            mediaType = 'live';
+          }
+        } catch (_) {}
+      }
+    }
+
+    const pictureUrl = data.full_picture || data.attachments?.data?.[0]?.media?.image?.src || null;
+
+    return {
+      is_published: isPublished,
+      created_time: createdDate,
+      media_type: mediaType,
+      picture_url: pictureUrl,
+    };
+  } catch (feedErr) {
+    if (feedErr.message?.includes('is_published') || feedErr.message?.includes('status_type') || feedErr.message?.includes('nonexisting field')) {
+      try {
+        const data = await fbClient.getFbData(
+          `/${postIdStr}?fields=id,published,status,created_time,picture,description,permalink_url`,
+          access_token
+        );
+        const isPublished = data.published === true || data.status?.publishing_phase?.publish_status === 'published';
+        const publishTimeStr = data.status?.publishing_phase?.publish_time || data.created_time;
+        const createdDate = publishTimeStr ? new Date(publishTimeStr) : null;
+        return {
+          is_published: isPublished,
+          created_time: createdDate,
+          media_type: 'video',
+          picture_url: data.picture || null,
+        };
+      } catch (_) {}
+    }
+    throw feedErr;
+  }
 };
 
 const getPostMedia = async (postId, pageId) => {
+  const { access_token } = await getPageCredentials(pageId);
+  const postIdStr = String(postId).trim();
+  const isVideoId = !postIdStr.includes('_');
+
+  if (isVideoId) {
+    try {
+      const data = await fbClient.getFbData(`/${postIdStr}?fields=picture`, access_token);
+      return {
+        primaryUrl: data.picture || null,
+        allUrls: data.picture ? [data.picture] : [],
+      };
+    } catch (vidErr) {
+      console.warn(`[getPostMedia] Video media query failed for ${postIdStr}:`, vidErr.message);
+    }
+  }
+
   try {
-    const { access_token } = await getPageCredentials(pageId);
     const data = await fbClient.getFbData(
-      `/${postId}?fields=full_picture,attachments{media_type,type,media,subattachments}`,
+      `/${postIdStr}?fields=full_picture,attachments{media_type,type,media,subattachments}`,
       access_token
     );
     const primaryUrl = data.full_picture || data.attachments?.data?.[0]?.media?.image?.src || null;
@@ -86,18 +148,29 @@ const getPostMedia = async (postId, pageId) => {
       allUrls: allUrls.length > 0 ? allUrls : (primaryUrl ? [primaryUrl] : []),
     };
   } catch (err) {
-    console.warn(`[getPostMedia] Failed for ${postId}:`, err.message);
+    try {
+      const data = await fbClient.getFbData(`/${postIdStr}?fields=picture`, access_token);
+      if (data?.picture) {
+        return { primaryUrl: data.picture, allUrls: [data.picture] };
+      }
+    } catch (_) {}
+
+    console.warn(`[getPostMedia] Failed for ${postIdStr}:`, err.message);
     return { primaryUrl: null, allUrls: [] };
   }
 };
 
 const getPostMediaType = async (postId, pageId) => {
+  const postIdStr = String(postId).trim();
+  if (!postIdStr.includes('_')) {
+    return 'video';
+  }
   try {
     const { access_token } = await getPageCredentials(pageId);
-    const data = await fbClient.getFbData(`/${postId}?fields=status_type,attachments{media_type,type,target{id}}`, access_token);
+    const data = await fbClient.getFbData(`/${postIdStr}?fields=status_type,attachments{media_type,type,target{id}}`, access_token);
     const attMedia = data.attachments?.data?.[0]?.media_type?.toLowerCase();
     const statusType = data.status_type?.toLowerCase();
-    const targetId = data.attachments?.data?.[0]?.target?.id || postId.split('_')[1];
+    const targetId = data.attachments?.data?.[0]?.target?.id || postIdStr.split('_')[1];
 
     if (statusType === 'live_video_broadcast') {
       return 'live';
@@ -115,31 +188,100 @@ const getPostMediaType = async (postId, pageId) => {
     }
     return 'photo';
   } catch (err) {
-    console.warn(`[getPostMediaType] failed for ${postId}:`, err.message);
+    if (err.message?.includes('status_type') || err.message?.includes('attachments') || err.message?.includes('nonexisting field')) {
+      return 'video';
+    }
+    console.warn(`[getPostMediaType] failed for ${postIdStr}:`, err.message);
     return 'photo';
   }
 };
 
 const getInsights = async (postId, pageId) => {
   const { access_token } = await getPageCredentials(pageId);
+  const postIdStr = String(postId).trim();
+  const isVideoId = !postIdStr.includes('_');
+
+  if (isVideoId) {
+    try {
+      let views = null;
+      let reach = null;
+
+      try {
+        const vidData = await fbClient.getFbData(`/${postIdStr}?fields=views`, access_token);
+        if (vidData.views != null) views = vidData.views;
+      } catch (_) {}
+
+      try {
+        const vi = await fbClient.getFbData(`/${postIdStr}/video_insights`, access_token);
+        const reachItem = vi.data?.find((m) => m.name === 'post_impressions_unique');
+        if (reachItem?.values?.[0]?.value != null) {
+          reach = reachItem.values[0].value;
+        }
+        const playsItem = vi.data?.find((m) => m.name === 'fb_reels_total_plays' || m.name === 'blue_reels_play_count');
+        if (views == null && playsItem?.values?.[0]?.value != null) {
+          views = playsItem.values[0].value;
+        }
+      } catch (_) {}
+
+      return {
+        data: [
+          { name: 'post_media_view', values: [{ value: views }] },
+          { name: 'post_total_media_view_unique', values: [{ value: reach }] },
+        ],
+      };
+    } catch (err) {
+      console.warn(`[getInsights] Video insights query failed for ${postIdStr}: ${err.message}`);
+    }
+  }
+
   const metrics = 'post_media_view,post_total_media_view_unique';
   try {
-    return await fbClient.getFbData(`/${postId}/insights?metric=${metrics}`, access_token);
+    return await fbClient.getFbData(`/${postIdStr}/insights?metric=${metrics}`, access_token);
   } catch (err) {
-    console.warn(`[getInsights] Insights query failed for ${postId}: ${err.message}`);
+    if (err.message?.includes('insights') || err.message?.includes('nonexisting field')) {
+      try {
+        const vidData = await fbClient.getFbData(`/${postIdStr}?fields=views`, access_token);
+        const vi = await fbClient.getFbData(`/${postIdStr}/video_insights`, access_token);
+        const reachItem = vi.data?.find((m) => m.name === 'post_impressions_unique');
+        return {
+          data: [
+            { name: 'post_media_view', values: [{ value: vidData.views ?? null }] },
+            { name: 'post_total_media_view_unique', values: [{ value: reachItem?.values?.[0]?.value ?? null }] },
+          ],
+        };
+      } catch (_) {}
+    }
+    console.warn(`[getInsights] Insights query failed for ${postIdStr}: ${err.message}`);
     return { data: [] };
   }
 };
 
 const getPostMetrics = async (postId, pageId) => {
   const { access_token } = await getPageCredentials(pageId);
+  const postIdStr = String(postId).trim();
+  const isVideoId = !postIdStr.includes('_');
+
+  if (isVideoId) {
+    try {
+      const data = await fbClient.getFbData(
+        `/${postIdStr}?fields=likes.summary(true),comments.summary(true)`,
+        access_token
+      );
+      const likes = data.likes?.summary?.total_count ?? 0;
+      const comments = data.comments?.summary?.total_count ?? 0;
+      return { likes, comments, shares: 0 };
+    } catch (err) {
+      console.warn(`[getPostMetrics] Video metrics query failed for ${postIdStr}: ${err.message}`);
+    }
+  }
+
   let likes = 0;
   let comments = 0;
   let shares = 0;
 
   try {
     const data = await fbClient.getFbData(
-      `/${postId}?fields=reactions.summary(true),likes.summary(true),comments.summary(true),shares`,
+      `/${postIdStr}?fields=reactions.summary(true),likes.summary(true),comments.summary(true),shares`,
       access_token
     );
     likes = data.reactions?.summary?.total_count ?? data.likes?.summary?.total_count ?? 0;
@@ -147,27 +289,27 @@ const getPostMetrics = async (postId, pageId) => {
     shares = data.shares?.count ?? 0;
     return { likes, comments, shares };
   } catch (err) {
-    console.warn(`[getPostMetrics] Combined query failed for ${postId}: ${err.message}. Trying individual fields...`);
+    console.warn(`[getPostMetrics] Combined query failed for ${postIdStr}: ${err.message}. Trying individual fields...`);
   }
 
   // Fallback: try individual fields so one field error doesn't drop the rest
   try {
-    const rx = await fbClient.getFbData(`/${postId}?fields=reactions.summary(true)`, access_token);
+    const rx = await fbClient.getFbData(`/${postIdStr}?fields=reactions.summary(true)`, access_token);
     likes = rx.reactions?.summary?.total_count ?? 0;
   } catch (e) {
     try {
-      const lk = await fbClient.getFbData(`/${postId}?fields=likes.summary(true)`, access_token);
+      const lk = await fbClient.getFbData(`/${postIdStr}?fields=likes.summary(true)`, access_token);
       likes = lk.likes?.summary?.total_count ?? 0;
     } catch (_) { }
   }
 
   try {
-    const cm = await fbClient.getFbData(`/${postId}?fields=comments.summary(true)`, access_token);
+    const cm = await fbClient.getFbData(`/${postIdStr}?fields=comments.summary(true)`, access_token);
     comments = cm.comments?.summary?.total_count ?? 0;
   } catch (_) { }
 
   try {
-    const sh = await fbClient.getFbData(`/${postId}?fields=shares`, access_token);
+    const sh = await fbClient.getFbData(`/${postIdStr}?fields=shares`, access_token);
     shares = sh.shares?.count ?? 0;
   } catch (_) { }
 
@@ -177,15 +319,18 @@ const getPostMetrics = async (postId, pageId) => {
 const getPages = async () => {
   const pages = await repository.listPages();
   for (const p of pages) {
-    if (!p.picture_url) {
+    const isStale = !p.picture_url || !p.updated_at || (Date.now() - new Date(p.updated_at).getTime() > 6 * 60 * 60 * 1000);
+    if (isStale) {
       try {
         const creds = await getPageCredentials(p.id);
         const picRes = await fbClient.getFbData(`/${creds.fb_page_id}/picture?redirect=false&height=100&width=100`, creds.access_token);
         if (picRes?.data?.url) {
-          await db.query('UPDATE tb_fb_page SET picture_url = $1 WHERE id = $2', [picRes.data.url, p.id]);
+          await db.query('UPDATE tb_fb_page SET picture_url = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [picRes.data.url, p.id]);
           p.picture_url = picRes.data.url;
         }
-      } catch (_) {}
+      } catch (err) {
+        console.warn(`[getPages] Failed to refresh picture for page ${p.id}:`, err.message);
+      }
     }
   }
   return pages;

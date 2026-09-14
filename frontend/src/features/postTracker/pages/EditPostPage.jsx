@@ -50,6 +50,38 @@ import '../postTracker.css';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
 import { resolveMediaUrl, compressImageFile, isVideoMedia, getMediaMetadata } from '../../../shared/utils/mediaUrl';
 
+const PageAvatar = ({ page, size = 26, className = 'meta-page-avatar-img' }) => {
+  const [imgError, setImgError] = useState(false);
+  const name = page?.page_name || 'Facebook Page';
+  const initial = name.charAt(0).toUpperCase();
+
+  if (page?.picture_url && !imgError) {
+    return (
+      <img
+        src={page.picture_url}
+        alt={name}
+        className={className}
+        style={{ width: `${size}px`, height: `${size}px`, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, display: 'block', border: '1px solid rgba(0,0,0,0.08)' }}
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+
+  return (
+    <div
+      className="meta-page-avatar"
+      style={{
+        width: `${size}px`,
+        height: `${size}px`,
+        fontSize: size <= 20 ? '11px' : size <= 28 ? '13px' : '16px',
+        flexShrink: 0
+      }}
+    >
+      {initial}
+    </div>
+  );
+};
+
 export const EditPostPage = () => {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -476,17 +508,7 @@ export const EditPostPage = () => {
             <div className="meta-page-select-wrap">
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                 <div style={{ position: 'absolute', left: '10px', zIndex: 1, pointerEvents: 'none' }}>
-                  {currentPage?.picture_url ? (
-                    <img
-                      src={currentPage.picture_url}
-                      alt={pageDisplayName}
-                      style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', display: 'block', border: '1px solid rgba(0,0,0,0.08)' }}
-                    />
-                  ) : (
-                    <div className="meta-page-avatar">
-                      {pageDisplayName.charAt(0).toUpperCase()}
-                    </div>
-                  )}
+                  <PageAvatar page={currentPage} size={26} />
                 </div>
                 <select
                   value={pageId}
@@ -955,18 +977,7 @@ export const EditPostPage = () => {
             {/* Post Header */}
             <div className="meta-feed-header">
               <div className="meta-feed-author-wrap">
-                {currentPage?.picture_url ? (
-                  <img
-                    src={currentPage.picture_url}
-                    alt={pageDisplayName}
-                    className="meta-feed-avatar"
-                    style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover' }}
-                  />
-                ) : (
-                  <div className="meta-feed-avatar">
-                    {pageDisplayName.charAt(0).toUpperCase()}
-                  </div>
-                )}
+                <PageAvatar page={currentPage} size={38} className="meta-feed-avatar" />
                 <div>
                   <div className="meta-feed-name">{pageDisplayName}</div>
                   <div className="meta-feed-time">

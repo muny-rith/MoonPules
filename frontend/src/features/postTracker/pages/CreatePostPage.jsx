@@ -53,6 +53,38 @@ import { useWheelIsolation } from '../hooks/useWheelIsolation';
 import '../postTracker.css';
 import { compressImageFile, getMediaMetadata, isVideoMedia } from '../../../shared/utils/mediaUrl';
 
+const PageAvatar = ({ page, size = 20, className = 'meta-page-avatar-img' }) => {
+  const [imgError, setImgError] = useState(false);
+  const name = page?.page_name || 'Facebook Page';
+  const initial = name.charAt(0).toUpperCase();
+
+  if (page?.picture_url && !imgError) {
+    return (
+      <img
+        src={page.picture_url}
+        alt={name}
+        className={className}
+        style={{ width: `${size}px`, height: `${size}px`, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+
+  return (
+    <div
+      className="meta-page-avatar"
+      style={{
+        width: `${size}px`,
+        height: `${size}px`,
+        fontSize: size <= 20 ? '11px' : size <= 28 ? '13px' : '16px',
+        flexShrink: 0
+      }}
+    >
+      {initial}
+    </div>
+  );
+};
+
 export const CreatePostPage = () => {
   const navigate = useNavigate();
   const { addPost } = usePostTracker();
@@ -737,18 +769,7 @@ export const CreatePostPage = () => {
                     <span style={{ color: '#8a8d91', fontSize: '14px' }}>Select Facebook page...</span>
                   ) : tabMode === 'legacy' ? (
                     <div className="meta-page-tag" style={{ cursor: 'pointer' }}>
-                      {primaryPage?.picture_url ? (
-                        <img
-                          src={primaryPage.picture_url}
-                          alt={primaryPage.page_name}
-                          className="meta-page-avatar-img"
-                          style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }}
-                        />
-                      ) : (
-                        <div className="meta-page-avatar" style={{ width: '20px', height: '20px', fontSize: '11px' }}>
-                          {primaryPage?.page_name?.charAt(0).toUpperCase()}
-                        </div>
-                      )}
+                      <PageAvatar page={primaryPage} size={20} />
                       <span style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {primaryPage?.page_name}
                       </span>
@@ -757,18 +778,7 @@ export const CreatePostPage = () => {
                     <>
                       {selectedPages.slice(0, 2).map((page) => (
                         <div key={page.id} className="meta-page-tag">
-                          {page.picture_url ? (
-                            <img
-                              src={page.picture_url}
-                              alt={page.page_name}
-                              className="meta-page-avatar-img"
-                              style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }}
-                            />
-                          ) : (
-                            <div className="meta-page-avatar" style={{ width: '20px', height: '20px', fontSize: '11px' }}>
-                              {page.page_name?.charAt(0).toUpperCase()}
-                            </div>
-                          )}
+                          <PageAvatar page={page} size={20} />
                           <span style={{ maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {page.page_name}
                           </span>
@@ -867,18 +877,7 @@ export const CreatePostPage = () => {
                                 {isChecked && <Check size={12} strokeWidth={3} />}
                               </div>
                             )}
-                            {p.picture_url ? (
-                              <img
-                                src={p.picture_url}
-                                alt={p.page_name}
-                                className="meta-page-avatar-img"
-                                style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-                              />
-                            ) : (
-                              <div className="meta-page-avatar">
-                                {p.page_name?.charAt(0).toUpperCase()}
-                              </div>
-                            )}
+                            <PageAvatar page={p} size={28} />
                             <span style={{ fontSize: '13.5px', fontWeight: 600, color: '#050505' }}>
                               {p.page_name}
                             </span>
@@ -1523,18 +1522,7 @@ export const CreatePostPage = () => {
             {/* Post Header */}
             <div className="meta-feed-header">
               <div className="meta-feed-author-wrap">
-                {primaryPage?.picture_url ? (
-                  <img
-                    src={primaryPage.picture_url}
-                    alt={pageDisplayName}
-                    className="meta-feed-avatar"
-                    style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover' }}
-                  />
-                ) : (
-                  <div className="meta-feed-avatar">
-                    {pageDisplayName.charAt(0).toUpperCase()}
-                  </div>
-                )}
+                <PageAvatar page={primaryPage} size={38} className="meta-feed-avatar" />
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <div className="meta-feed-name">{pageDisplayName}</div>

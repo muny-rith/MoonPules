@@ -112,6 +112,19 @@ const getUpcomingScheduledPosts = async () => {
   return result.rows;
 };
 
+const getDueScheduledFbPosts = async () => {
+  const result = await db.query(`
+    SELECT pt.*, fp.page_name, fp.fb_page_id, fp.access_token 
+    FROM tb_post_tracker pt
+    JOIN tb_fb_page fp ON pt.page_id = fp.id
+    WHERE pt.status = 'scheduled' 
+      AND pt.fb_post_id IS NOT NULL 
+      AND pt.scheduled_time <= CURRENT_TIMESTAMP
+    ORDER BY pt.scheduled_time ASC
+  `);
+  return result.rows;
+};
+
 
 const setScheduledPostFbId = async (id, fbPostId) => {
   const result = await db.query(`
@@ -274,6 +287,7 @@ module.exports = {
   getTrackedPostsByStatus,
   getTrackedPostById,
   getDueScheduledPosts,
+  getDueScheduledFbPosts,
   getUpcomingScheduledPosts,
   createTrackedPost,
   setScheduledPostFbId,
