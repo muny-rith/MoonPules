@@ -5,7 +5,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import './ExportModal.css';
-import logo from "../../../assets/logo.png"
+import logo from "../../../assets/logo.png";
 
 const EXPORT_COLUMNS = [
     { key: 'media_type', label: 'Post Type' },
@@ -44,6 +44,66 @@ const formatCell = (post, col) => {
     return raw;
 };
 
+const prepareGroupData = (groupPosts) => {
+    const sorted = [...groupPosts].sort((a, b) => {
+        const isLiveA = (a.media_type || a.format || a.type || '').toLowerCase() === 'live' ? 1 : 0;
+        const isLiveB = (b.media_type || b.format || b.type || '').toLowerCase() === 'live' ? 1 : 0;
+
+        if (isLiveA !== isLiveB) {
+            return isLiveA - isLiveB;
+        }
+
+        const timeA = new Date(a.published_time || a.scheduled_time || a.created_at || 0).getTime() || 0;
+        const timeB = new Date(b.published_time || b.scheduled_time || b.created_at || 0).getTime() || 0;
+        if (timeA !== timeB) {
+            return timeA - timeB;
+        }
+
+        return (a.product_name || '').localeCompare(b.product_name || '');
+    });
+
+    const regular = sorted.filter((p) => (p.media_type || p.format || p.type || '').toLowerCase() !== 'live');
+    const live = sorted.filter((p) => (p.media_type || p.format || p.type || '').toLowerCase() === 'live');
+
+    const calc = (list) => [
+        list.reduce((sum, p) => sum + (Number(p.likes_count) || 0), 0),
+        list.reduce((sum, p) => sum + (Number(p.comments_count) || 0), 0),
+        list.reduce((sum, p) => sum + (Number(p.shares_count) || 0), 0),
+        list.reduce((sum, p) => sum + (Number(p.views_count) || 0), 0),
+        list.reduce((sum, p) => sum + (Number(p.reach_count) || 0), 0),
+    ];
+
+    const summaryMetrics = {
+        regular: calc(regular),
+        live: calc(live),
+        total: calc(sorted)
+    };
+
+    const rows = sorted.map((p) => EXPORT_COLUMNS.map((col) => formatCell(p, col)));
+
+    const totalRow = EXPORT_COLUMNS.map((col) => {
+        if (col.key === 'media_type' || col.key === 'product_name') return 'Total';
+        if (col.key === 'published_time') return '';
+        return sorted.reduce((sum, post) => sum + (Number(post[col.key]) || 0), 0);
+    });
+
+    const summaryRows = [
+        ['Regular Posts', regular.length, ...summaryMetrics.regular],
+        ['Live Stream', live.length, ...summaryMetrics.live],
+        ['Total', sorted.length, ...summaryMetrics.total]
+    ];
+
+    return {
+        sortedPosts: sorted,
+        regularPosts: regular,
+        livePosts: live,
+        summaryMetrics,
+        summaryRows,
+        rows,
+        totalRow,
+    };
+};
+
 export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateRangeText, startMonth, endMonth, clientLogo }) => {
     const [selectedFormat, setSelectedFormat] = useState('csv');
     const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
@@ -54,132 +114,102 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
             ? (startMonth === endMonth ? startMonth : `${startMonth} រហូតដល់ ${endMonth}`)
             : (startMonth || endMonth || 'គ្រប់ពេលវេលា')
     );
-    const displayPage = pageName || 'Chhorlyka Mart – Baby & Mom';
 
-    // Sort posts: Regular posts (Photo, Video, Reel) at top, Live streams at bottom.
-    // Within each group, sort chronologically ascending by date.
-    const sortedPosts = useMemo(() => {
-        if (!posts || !Array.isArray(posts)) return [];
-        return [...posts].sort((a, b) => {
-            const isLiveA = (a.media_type || a.format || a.type || '').toLowerCase() === 'live' ? 1 : 0;
-            const isLiveB = (b.media_type || b.format || b.type || '').toLowerCase() === 'live' ? 1 : 0;
+    // Group posts by page: If filtered by All Pages, separate each Facebook page into its own group
+    const pageGroups = useMemo(() => {
+        if (!posts || !Array.isArray(posts) || posts.length === 0) return [];
 
-            // 1. Regular posts first (0), Live posts at bottom (1)
-            if (isLiveA !== isLiveB) {
-                return isLiveA - isLiveB;
+        const map = new Map();
+        posts.forEach((post) => {
+            const pageKey = String(post.page_id || post.page_name || 'default');
+            const pageTitle = post.page_name || pageName || 'Facebook Page';
+
+            if (!map.has(pageKey)) {
+                map.set(pageKey, {
+                    id: pageKey,
+                    name: pageTitle,
+                    posts: []
+                });
             }
-
-            // 2. Chronological date ascending
-            const timeA = new Date(a.published_time || a.scheduled_time || a.created_at || 0).getTime() || 0;
-            const timeB = new Date(b.published_time || b.scheduled_time || b.created_at || 0).getTime() || 0;
-            if (timeA !== timeB) {
-                return timeA - timeB;
-            }
-
-            return (a.product_name || '').localeCompare(b.product_name || '');
+            map.get(pageKey).posts.push(post);
         });
-    }, [posts]);
 
-    const regularPosts = useMemo(() => {
-        if (!sortedPosts) return [];
-        return sortedPosts.filter((p) => (p.media_type || p.format || p.type || '').toLowerCase() !== 'live');
-    }, [sortedPosts]);
-
-    const livePosts = useMemo(() => {
-        if (!sortedPosts) return [];
-        return sortedPosts.filter((p) => (p.media_type || p.format || p.type || '').toLowerCase() === 'live');
-    }, [sortedPosts]);
-
-    const rows = useMemo(() => {
-        return sortedPosts.map((p) => EXPORT_COLUMNS.map((col) => formatCell(p, col)));
-    }, [sortedPosts]);
-
-    const hasBoth = regularPosts.length > 0 && livePosts.length > 0;
-
-    const summaryMetrics = useMemo(() => {
-        const calc = (list) => [
-            list.reduce((sum, p) => sum + (Number(p.likes_count) || 0), 0),
-            list.reduce((sum, p) => sum + (Number(p.comments_count) || 0), 0),
-            list.reduce((sum, p) => sum + (Number(p.shares_count) || 0), 0),
-            list.reduce((sum, p) => sum + (Number(p.views_count) || 0), 0),
-            list.reduce((sum, p) => sum + (Number(p.reach_count) || 0), 0),
-        ];
-        return {
-            regular: calc(regularPosts),
-            live: calc(livePosts),
-            total: calc(sortedPosts)
-        };
-    }, [regularPosts, livePosts, sortedPosts]);
-
-    const totalRow = useMemo(() => {
-        return EXPORT_COLUMNS.map((col) => {
-            if (col.key === 'media_type' || col.key === 'product_name') return 'Total';
-            if (col.key === 'published_time') return '';
-            return sortedPosts.reduce((sum, post) => sum + (Number(post[col.key]) || 0), 0);
-        });
-    }, [sortedPosts]);
+        return Array.from(map.values()).map((grp) => ({
+            ...grp,
+            ...prepareGroupData(grp.posts)
+        }));
+    }, [posts, pageName]);
 
     if (!isOpen) return null;
 
     const fileBaseName = `${(brandName || 'Brand').replace(/\s+/g, '_')}_Analytics`;
     const headers = EXPORT_COLUMNS.map((c) => c.label);
     const summaryHeaders = ['Post Type', 'Qty', 'Reaction', 'Cmt', 'Share', 'Views', 'Reach'];
-    const summaryRows = [
-        ['Regular Posts', regularPosts.length, ...summaryMetrics.regular],
-        ['Live Stream', livePosts.length, ...summaryMetrics.live],
-        ['Total', sortedPosts.length, ...summaryMetrics.total]
-    ];
 
     const downloadCSV = () => {
         const escape = (v) => `"${String(v).replace(/"/g, '""')}"`;
-        let sheetData = [];
-        if (hasBoth) {
-            sheetData = [
+        let allSections = [];
+
+        pageGroups.forEach((group, idx) => {
+            let sheetData = [];
+            if (pageGroups.length > 1) {
+                sheetData.push([`=== PAGE ${idx + 1}: ${group.name} ===`]);
+                sheetData.push([`Period: ${displayPeriod}`]);
+                sheetData.push([]);
+            }
+
+            sheetData.push(
                 ['EXECUTIVE SUMMARY'],
                 summaryHeaders,
-                ...summaryRows,
+                ...group.summaryRows,
                 [],
                 ['DETAILED POSTS'],
                 headers,
-                ...rows,
-                totalRow
-            ];
-        } else {
-            sheetData = [
-                headers,
-                ...rows,
-                totalRow
-            ];
-        }
-        const csvContent = sheetData.map((r) => r.map(escape).join(',')).join('\n');
+                ...group.rows,
+                group.totalRow
+            );
+
+            allSections.push(sheetData.map((r) => r.map(escape).join(',')).join('\n'));
+        });
+
+        const csvContent = allSections.join('\n\n\n');
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         triggerDownload(blob, `${fileBaseName}.csv`);
     };
 
     const downloadExcel = () => {
-        let sheetData = [];
-        if (hasBoth) {
-            sheetData = [
+        const workbook = XLSX.utils.book_new();
+        const usedSheetNames = new Set();
+
+        pageGroups.forEach((group, idx) => {
+            const sheetData = [
+                [`PAGE: ${group.name}`],
+                [`Period: ${displayPeriod}`],
+                [],
                 ['EXECUTIVE SUMMARY'],
                 summaryHeaders,
-                ...summaryRows,
+                ...group.summaryRows,
                 [],
                 ['DETAILED POSTS'],
                 headers,
-                ...rows,
-                totalRow
+                ...group.rows,
+                group.totalRow
             ];
-        } else {
-            sheetData = [
-                headers,
-                ...rows,
-                totalRow
-            ];
-        }
-        const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
-        worksheet['!cols'] = headers.map(() => ({ wch: 18 }));
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Analytics');
+
+            const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+            worksheet['!cols'] = headers.map(() => ({ wch: 18 }));
+
+            let rawName = (group.name || `Page ${idx + 1}`).replace(/[\\/?*:[\]]/g, '').trim().slice(0, 28) || `Sheet${idx + 1}`;
+            let sheetName = rawName;
+            let counter = 1;
+            while (usedSheetNames.has(sheetName)) {
+                sheetName = `${rawName.slice(0, 25)}_${counter++}`;
+            }
+            usedSheetNames.add(sheetName);
+
+            XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+        });
+
         XLSX.writeFile(workbook, `${fileBaseName}.xlsx`);
     };
 
@@ -188,36 +218,53 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
         setIsGeneratingPDF(true);
 
         try {
-            // Render the hidden container to canvas
-            const canvas = await html2canvas(pdfContainerRef.current, {
-                scale: 2,
-                useCORS: true,
-                logging: false
-            });
+            const pageContainers = pdfContainerRef.current.querySelectorAll('.export-pdf-page-container');
+            if (pageContainers.length === 0) {
+                console.warn('No page containers found in pdfContainerRef');
+                return;
+            }
 
-            const imgData = canvas.toDataURL('image/png');
             const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-            // Handle multi-page pagination
-            let heightLeft = pdfHeight;
-            let position = 0;
+            const pageWidth = pdf.internal.pageSize.getWidth();
             const pageHeight = pdf.internal.pageSize.getHeight();
 
-            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
-            heightLeft -= pageHeight;
+            for (let i = 0; i < pageContainers.length; i++) {
+                const el = pageContainers[i];
+                const canvas = await html2canvas(el, {
+                    scale: 2,
+                    useCORS: true,
+                    logging: false,
+                    scrollX: 0,
+                    scrollY: 0,
+                    imageTimeout: 15000,
+                });
 
-            while (heightLeft > 1) {
-                position = heightLeft - pdfHeight;
-                pdf.addPage();
-                pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+                const imgData = canvas.toDataURL('image/png');
+                const imgWidth = pageWidth;
+                const imgHeight = (canvas.height * pageWidth) / canvas.width;
+
+                if (i > 0) {
+                    pdf.addPage();
+                }
+
+                let heightLeft = imgHeight;
+                let position = 0;
+
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
                 heightLeft -= pageHeight;
+
+                while (heightLeft > 2) {
+                    position = heightLeft - imgHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                }
             }
 
             pdf.save(`${fileBaseName}.pdf`);
         } catch (error) {
             console.error('Error generating PDF:', error);
+            alert('Failed to generate PDF. Please try again.');
         } finally {
             setIsGeneratingPDF(false);
         }
@@ -234,12 +281,18 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
         URL.revokeObjectURL(url);
     };
 
-    const handleExport = () => {
-        if (sortedPosts.length === 0) return;
-        if (selectedFormat === 'csv') downloadCSV();
-        if (selectedFormat === 'excel') downloadExcel();
-        if (selectedFormat === 'pdf') downloadPDF();
-        onClose();
+    const handleExport = async () => {
+        if (!posts || posts.length === 0 || isGeneratingPDF) return;
+        if (selectedFormat === 'csv') {
+            downloadCSV();
+            onClose();
+        } else if (selectedFormat === 'excel') {
+            downloadExcel();
+            onClose();
+        } else if (selectedFormat === 'pdf') {
+            await downloadPDF();
+            onClose();
+        }
     };
 
     const formatOptions = [
@@ -248,137 +301,150 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
         { value: 'pdf', label: 'PDF', icon: FileType, desc: 'Printable report with a title' },
     ];
 
+    const totalPostsCount = posts?.length || 0;
+
     return (
         <div className="export-modal-overlay">
             <div className="card export-modal-container">
-                <button onClick={onClose} className="export-modal-close">
+                <button onClick={onClose} className="export-modal-close" disabled={isGeneratingPDF}>
                     <X size={20} />
                 </button>
 
                 <div className="export-modal-content">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                         <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 600 }}>Report Digital Marketing</h2>
-                        {/* <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 600 }}>{brandName}</h2> */}
                     </div>
                     <div className="post-count">
-                        {sortedPosts.length} post{sortedPosts.length !== 1 ? 's' : ''} in the current filter will be included.
+                        {totalPostsCount} post{totalPostsCount !== 1 ? 's' : ''} {pageGroups.length > 1 ? `across ${pageGroups.length} pages` : ''} in the current filter will be included.
                     </div>
 
                     {/* Report Preview */}
                     <div className="export-preview-wrapper">
-                        <div className="export-preview-page">
-
-                            <div className='logo' style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0px' }}>
-                                {/* My Logo */}
-                                <div style={{ width: '240px', display: 'flex', alignItems: 'center' }}>
-                                    <img src={logo} alt="My Logo" style={{ maxHeight: '80px', maxWidth: '100%', objectFit: 'contain' }} />
-                                </div>
-
-                                {/* Client Logo */}
-                                <div style={{ width: '240px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                    {clientLogo ? (
-                                        <img src={clientLogo} alt="Client Logo" style={{ maxHeight: '80px', maxWidth: '100%', objectFit: 'contain' }} />
-                                    ) : (
-                                        <div style={{ border: '1px dashed #cbd5e1', padding: '4px 8px', color: '#94a3b8', fontSize: '10px', textAlign: 'center' }}>Client Logo</div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="export-preview-meta" style={{ marginBottom: '20px' }}>
-                                <h3 style={{ margin: '0 0 8px', fontSize: '24px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', textAlign: 'center', flex: 1 }}>
-                                    REPORT DIGITAL MARKETING
-                                </h3>
-                                <span>រយៈពេល ៖ {displayPeriod}</span>
-                                <span>ទិន្នន័យការផ្សាយនៅក្នុង page {displayPage}</span>
-                            </div>
-
-                            {hasBoth && (
-                                <div style={{ marginBottom: '24px' }}>
-                                    <h4 style={{ margin: '0 0 10px', fontSize: '13px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                        Executive Summary
-                                    </h4>
-                                    <table className="export-preview-table" style={{ marginBottom: '8px' }}>
-                                        <colgroup>
-                                            {COLUMN_WIDTHS.map((w, idx) => (
-                                                <col key={idx} style={{ width: w }} />
-                                            ))}
-                                        </colgroup>
-                                        <thead>
-                                            <tr>
-                                                {summaryHeaders.map((h) => (
-                                                    <th key={h} style={{ fontSize: '12px' }}>{h}</th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr>
-                                                <td style={{ fontWeight: 500 }}>Regular Posts</td>
-                                                <td style={{ fontWeight: 600 }}>{regularPosts.length}</td>
-                                                {summaryMetrics.regular.map((val, idx) => (
-                                                    <td key={idx}>{val}</td>
-                                                ))}
-                                            </tr>
-                                            <tr>
-                                                <td style={{ fontWeight: 500 }}>Live Stream</td>
-                                                <td style={{ fontWeight: 600 }}>{livePosts.length}</td>
-                                                {summaryMetrics.live.map((val, idx) => (
-                                                    <td key={idx}>{val}</td>
-                                                ))}
-                                            </tr>
-                                        </tbody>
-                                        <tfoot>
-                                            <tr>
-                                                <td>Total</td>
-                                                <td>{sortedPosts.length}</td>
-                                                {summaryMetrics.total.map((val, idx) => (
-                                                    <td key={idx}>{val}</td>
-                                                ))}
-                                            </tr>
-                                        </tfoot>
-                                    </table>
-                                </div>
-                            )}
-
-                            {hasBoth && (
-                                <h4 style={{ margin: '0 0 10px', fontSize: '13px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                    Detailed Posts
-                                </h4>
-                            )}
-
-                            <table className="export-preview-table">
-                                <colgroup>
-                                    {COLUMN_WIDTHS.map((w, idx) => (
-                                        <col key={idx} style={{ width: w }} />
-                                    ))}
-                                </colgroup>
-                                <thead>
-                                    <tr>
-                                        {headers.map((h) => (
-                                            <th key={h} style={{ fontSize: '12px' }}>{h}</th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {rows.map((row, i) => (
-                                        <tr key={i}>
-                                            {row.map((cell, j) => (
-                                                <td key={j}>{cell}</td>
-                                            ))}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                                <tfoot>
-                                    <tr>
-                                        {totalRow.map((cell, j) => (
-                                            <td key={j}>{cell}</td>
-                                        ))}
-                                    </tr>
-                                </tfoot>
-                            </table>
-                            {rows.length === 0 && (
+                        {pageGroups.length === 0 ? (
+                            <div className="export-preview-page">
                                 <div className="export-preview-empty">No posts to export in this filter.</div>
-                            )}
-                        </div>
+                            </div>
+                        ) : (
+                            pageGroups.map((group, pageIndex) => (
+                                <div key={group.id} style={{ width: '100%', maxWidth: '900px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {pageGroups.length > 1 && (
+                                        <div className="export-page-indicator">
+                                            Page {pageIndex + 1} of {pageGroups.length} · {group.name}
+                                        </div>
+                                    )}
+                                    <div className="export-preview-page">
+                                        <div className='logo' style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0px' }}>
+                                            {/* My Logo */}
+                                            <div style={{ width: '240px', display: 'flex', alignItems: 'center' }}>
+                                                <img src={logo} alt="My Logo" style={{ maxHeight: '80px', maxWidth: '100%', objectFit: 'contain' }} />
+                                            </div>
+
+                                            {/* Client Logo */}
+                                            <div style={{ width: '240px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                                {clientLogo ? (
+                                                    <img src={clientLogo} alt="Client Logo" style={{ maxHeight: '80px', maxWidth: '100%', objectFit: 'contain' }} />
+                                                ) : (
+                                                    <div style={{ border: '1px dashed #cbd5e1', padding: '4px 8px', color: '#94a3b8', fontSize: '10px', textAlign: 'center' }}>Client Logo</div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="export-preview-meta" style={{ marginBottom: '20px' }}>
+                                            <h3 style={{ margin: '0 0 8px', fontSize: '24px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', textAlign: 'center', flex: 1 }}>
+                                                REPORT DIGITAL MARKETING
+                                            </h3>
+                                            <span>រយៈពេល ៖ {displayPeriod}</span>
+                                            <span>ទិន្នន័យការផ្សាយនៅក្នុង page {group.name}</span>
+                                        </div>
+
+                                        {/* Executive Summary - Always shown on every page */}
+                                        <div style={{ marginBottom: '24px' }}>
+                                            <h4 style={{ margin: '0 0 10px', fontSize: '13px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                Executive Summary
+                                            </h4>
+                                            <table className="export-preview-table" style={{ marginBottom: '8px' }}>
+                                                <colgroup>
+                                                    {COLUMN_WIDTHS.map((w, idx) => (
+                                                        <col key={idx} style={{ width: w }} />
+                                                    ))}
+                                                </colgroup>
+                                                <thead>
+                                                    <tr>
+                                                        {summaryHeaders.map((h) => (
+                                                            <th key={h} style={{ fontSize: '12px' }}>{h}</th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr>
+                                                        <td style={{ fontWeight: 500 }}>Regular Posts</td>
+                                                        <td style={{ fontWeight: 600 }}>{group.regularPosts.length}</td>
+                                                        {group.summaryMetrics.regular.map((val, idx) => (
+                                                            <td key={idx}>{val}</td>
+                                                        ))}
+                                                    </tr>
+                                                    <tr>
+                                                        <td style={{ fontWeight: 500 }}>Live Stream</td>
+                                                        <td style={{ fontWeight: 600 }}>{group.livePosts.length}</td>
+                                                        {group.summaryMetrics.live.map((val, idx) => (
+                                                            <td key={idx}>{val}</td>
+                                                        ))}
+                                                    </tr>
+                                                </tbody>
+                                                <tfoot>
+                                                    <tr>
+                                                        <td>Total</td>
+                                                        <td>{group.sortedPosts.length}</td>
+                                                        {group.summaryMetrics.total.map((val, idx) => (
+                                                            <td key={idx}>{val}</td>
+                                                        ))}
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+
+                                        {/* Detailed Posts Header */}
+                                        <h4 style={{ margin: '0 0 10px', fontSize: '13px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                            Detailed Posts
+                                        </h4>
+
+                                        <table className="export-preview-table">
+                                            <colgroup>
+                                                {COLUMN_WIDTHS.map((w, idx) => (
+                                                    <col key={idx} style={{ width: w }} />
+                                                ))}
+                                            </colgroup>
+                                            <thead>
+                                                <tr>
+                                                    {headers.map((h) => (
+                                                        <th key={h} style={{ fontSize: '12px' }}>{h}</th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {group.rows.map((row, i) => (
+                                                    <tr key={i}>
+                                                        {row.map((cell, j) => (
+                                                            <td key={j}>{cell}</td>
+                                                        ))}
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                            <tfoot>
+                                                <tr>
+                                                    {group.totalRow.map((cell, j) => (
+                                                        <td key={j}>{cell}</td>
+                                                    ))}
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                        {group.rows.length === 0 && (
+                                            <div className="export-preview-empty">No posts to export for this page.</div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))
+                        )}
                     </div>
                 </div>
 
@@ -401,6 +467,7 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
                                             value={opt.value}
                                             checked={selected}
                                             onChange={() => setSelectedFormat(opt.value)}
+                                            disabled={isGeneratingPDF}
                                             style={{ display: 'none' }}
                                         />
                                         <div className={`export-format-label ${selected ? 'selected' : ''}`}>
@@ -416,7 +483,7 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
 
                         <div className="export-actions">
                             <button onClick={onClose} className="btn-secondary" disabled={isGeneratingPDF}>Cancel</button>
-                            <button onClick={handleExport} className="btn-primary" disabled={sortedPosts.length === 0 || isGeneratingPDF} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <button onClick={handleExport} className="btn-primary" disabled={totalPostsCount === 0 || isGeneratingPDF} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 {isGeneratingPDF ? 'Generating PDF...' : 'Download'}
                             </button>
                         </div>
@@ -424,37 +491,62 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
                 </div>
 
                 {/* Hidden container for full PDF render using HTML2Canvas */}
-                <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
-                    <div ref={pdfContainerRef} className="export-preview-page" style={{ width: '210mm', minHeight: '297mm', padding: '10mm', backgroundColor: 'white' }}>
-                        <div className='logo' style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0px' }}>
-                            {/* My Logo */}
-                            <div style={{ width: '200px', display: 'flex', alignItems: 'center' }}>
-                                <img src={logo} alt="My Logo" style={{ maxHeight: '90px', maxWidth: '100%', objectFit: 'contain' }} />
+                <div
+                    ref={pdfContainerRef}
+                    style={{
+                        position: 'fixed',
+                        left: 0,
+                        top: 0,
+                        opacity: 0,
+                        pointerEvents: 'none',
+                        zIndex: -9999,
+                        width: '210mm',
+                    }}
+                >
+                    {pageGroups.map((group) => (
+                        <div
+                            key={group.id}
+                            className="export-pdf-page-container"
+                            style={{
+                                width: '210mm',
+                                minHeight: '297mm',
+                                padding: '12mm 15mm',
+                                backgroundColor: '#ffffff',
+                                color: '#0f172a',
+                                boxSizing: 'border-box',
+                                marginBottom: '20px'
+                            }}
+                        >
+                            <div className='logo' style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0px' }}>
+                                {/* My Logo */}
+                                <div style={{ width: '200px', display: 'flex', alignItems: 'center' }}>
+                                    <img src={logo} alt="My Logo" style={{ maxHeight: '90px', maxWidth: '100%', objectFit: 'contain' }} />
+                                </div>
+
+                                {/* Client Logo */}
+                                <div style={{ width: '200px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                    {clientLogo ? (
+                                        <img src={clientLogo} alt="Client Logo" style={{ maxHeight: '90px', maxWidth: '100%', objectFit: 'contain' }} />
+                                    ) : (
+                                        <div style={{ border: '1px dashed #cbd5e1', padding: '6px 12px', color: '#94a3b8', fontSize: '12px', textAlign: 'center' }}>Client Logo</div>
+                                    )}
+                                </div>
                             </div>
 
-                            {/* Client Logo */}
-                            <div style={{ width: '200px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                {clientLogo ? (
-                                    <img src={clientLogo} alt="Client Logo" style={{ maxHeight: '90px', maxWidth: '100%', objectFit: 'contain' }} />
-                                ) : (
-                                    <div style={{ border: '1px dashed #cbd5e1', padding: '6px 12px', color: '#94a3b8', fontSize: '12px', textAlign: 'center' }}>Client Logo</div>
-                                )}
+                            <div className="export-preview-meta" style={{ textAlign: 'center', marginBottom: '20px' }}>
+                                <h3 style={{ margin: '0 0 8px', fontSize: '28px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', textAlign: 'center' }}>
+                                    REPORT DIGITAL MARKETING
+                                </h3>
+                                <div style={{ marginBottom: '6px' }}>រយៈពេល ៖ {displayPeriod}</div>
+                                <div>ទិន្នន័យការផ្សាយនៅក្នុង page {group.name}</div>
                             </div>
-                        </div>
-                        <div className="export-preview-meta" style={{ textAlign: 'center', marginBottom: '20px' }}>
-                            <h3 style={{ margin: '0 0 8px', fontSize: '28px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', textAlign: 'center' }}>
-                                REPORT DIGITAL MARKETING
-                            </h3>
-                            <div style={{ marginBottom: '6px' }}>រយៈពេល ៖ {displayPeriod}</div>
-                            <div>ទិន្នន័យការផ្សាយនៅក្នុង page {displayPage}</div>
-                        </div>
 
-                        {hasBoth && (
+                            {/* Executive Summary - Always shown on every page */}
                             <div style={{ marginBottom: '24px' }}>
                                 <h4 style={{ margin: '0 0 10px', fontSize: '14px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                     Executive Summary
                                 </h4>
-                                <table className="export-preview-table" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '11px', marginBottom: '8px' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '11px', marginBottom: '8px' }}>
                                     <colgroup>
                                         {COLUMN_WIDTHS.map((w, idx) => (
                                             <col key={idx} style={{ width: w }} />
@@ -470,15 +562,15 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
                                     <tbody>
                                         <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
                                             <td style={{ padding: '8px', color: '#2b384bff', fontWeight: 500 }}>Regular Posts</td>
-                                            <td style={{ padding: '8px', color: '#2b384bff', fontWeight: 600 }}>{regularPosts.length}</td>
-                                            {summaryMetrics.regular.map((val, idx) => (
+                                            <td style={{ padding: '8px', color: '#2b384bff', fontWeight: 600 }}>{group.regularPosts.length}</td>
+                                            {group.summaryMetrics.regular.map((val, idx) => (
                                                 <td key={idx} style={{ padding: '8px', color: '#2b384bff' }}>{val}</td>
                                             ))}
                                         </tr>
                                         <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
                                             <td style={{ padding: '8px', color: '#2b384bff', fontWeight: 500 }}>Live Stream</td>
-                                            <td style={{ padding: '8px', color: '#2b384bff', fontWeight: 600 }}>{livePosts.length}</td>
-                                            {summaryMetrics.live.map((val, idx) => (
+                                            <td style={{ padding: '8px', color: '#2b384bff', fontWeight: 600 }}>{group.livePosts.length}</td>
+                                            {group.summaryMetrics.live.map((val, idx) => (
                                                 <td key={idx} style={{ padding: '8px', color: '#2b384bff' }}>{val}</td>
                                             ))}
                                         </tr>
@@ -486,53 +578,52 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
                                     <tfoot>
                                         <tr style={{ borderTop: '2px solid #0f172a', fontWeight: 'bold', backgroundColor: '#f8fafc' }}>
                                             <td style={{ padding: '8px', color: '#0f172a' }}>Total</td>
-                                            <td style={{ padding: '8px', color: '#0f172a' }}>{sortedPosts.length}</td>
-                                            {summaryMetrics.total.map((val, idx) => (
+                                            <td style={{ padding: '8px', color: '#0f172a' }}>{group.sortedPosts.length}</td>
+                                            {group.summaryMetrics.total.map((val, idx) => (
                                                 <td key={idx} style={{ padding: '8px', color: '#0f172a' }}>{val}</td>
                                             ))}
                                         </tr>
                                     </tfoot>
                                 </table>
                             </div>
-                        )}
 
-                        {hasBoth && (
+                            {/* Detailed Posts Header */}
                             <h4 style={{ margin: '0 0 10px', fontSize: '14px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                 Detailed Posts
                             </h4>
-                        )}
 
-                        <table className="export-preview-table" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '11px' }}>
-                            <colgroup>
-                                {COLUMN_WIDTHS.map((w, idx) => (
-                                    <col key={idx} style={{ width: w }} />
-                                ))}
-                            </colgroup>
-                            <thead>
-                                <tr>
-                                    {headers.map((h) => (
-                                        <th key={h} style={{ backgroundColor: '#0f172a', color: 'white', padding: '8px', textAlign: 'left', fontSize: '13px' }}>{h}</th>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '11px' }}>
+                                <colgroup>
+                                    {COLUMN_WIDTHS.map((w, idx) => (
+                                        <col key={idx} style={{ width: w }} />
                                     ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {rows.map((row, i) => (
-                                    <tr key={i} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                                        {row.map((cell, j) => (
-                                            <td key={j} style={{ padding: '8px', color: '#2b384bff' }}>{cell}</td>
+                                </colgroup>
+                                <thead>
+                                    <tr>
+                                        {headers.map((h) => (
+                                            <th key={h} style={{ backgroundColor: '#0f172a', color: 'white', padding: '8px', textAlign: 'left', fontSize: '13px' }}>{h}</th>
                                         ))}
                                     </tr>
-                                ))}
-                            </tbody>
-                            <tfoot>
-                                <tr style={{ borderTop: '2px solid #0f172a', fontWeight: 'bold', backgroundColor: '#f8fafc' }}>
-                                    {totalRow.map((cell, j) => (
-                                        <td key={j} style={{ padding: '8px', color: '#0f172a' }}>{cell}</td>
+                                </thead>
+                                <tbody>
+                                    {group.rows.map((row, i) => (
+                                        <tr key={i} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                            {row.map((cell, j) => (
+                                                <td key={j} style={{ padding: '8px', color: '#2b384bff' }}>{cell}</td>
+                                            ))}
+                                        </tr>
                                     ))}
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
+                                </tbody>
+                                <tfoot>
+                                    <tr style={{ borderTop: '2px solid #0f172a', fontWeight: 'bold', backgroundColor: '#f8fafc' }}>
+                                        {group.totalRow.map((cell, j) => (
+                                            <td key={j} style={{ padding: '8px', color: '#0f172a' }}>{cell}</td>
+                                        ))}
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    ))}
                 </div>
             </div>
         </div>
