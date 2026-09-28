@@ -11,24 +11,45 @@ const getBrandStats = async () => {
 
   // Initialize with all brands from IMS
   brands.forEach(b => {
-    brandMap[b.brand_id] = {
-      brand_id: b.brand_id,
-      brand_name: b.brand_name,
+    const bId = String(b.brand_id || b.id);
+    brandMap[bId] = {
+      brand_id: b.brand_id || b.id,
+      brand_name: b.brand_name || b.name,
+      logo_url: b.logo_url || b.image_url || '',
+      image_url: b.image_url || b.logo_url || '',
       total_products: 0,
-      total_posts: 0
+      total_posts: 0,
+      total_views: 0,
+      total_reach: 0,
+      total_likes: 0,
+      total_comments: 0,
+      total_shares: 0,
+      total_engagement: 0,
+      posts: []
     };
   });
 
+  const productToBrandMap = {};
   products.forEach(p => {
-    const bId = p.brand_id || 'unbranded';
+    const bId = p.brand_id ? String(p.brand_id) : 'unbranded';
     const bName = p.brand_name || 'Unbranded';
+    productToBrandMap[String(p.id)] = bId;
     
     if (!brandMap[bId]) {
       brandMap[bId] = {
         brand_id: bId === 'unbranded' ? null : bId,
         brand_name: bName,
+        logo_url: p.brand_image || '',
+        image_url: p.brand_image || '',
         total_products: 0,
-        total_posts: 0
+        total_posts: 0,
+        total_views: 0,
+        total_reach: 0,
+        total_likes: 0,
+        total_comments: 0,
+        total_shares: 0,
+        total_engagement: 0,
+        posts: []
       };
     }
     
@@ -38,15 +59,42 @@ const getBrandStats = async () => {
   posts.forEach(post => {
     let bId = post.brand_id ? String(post.brand_id) : null;
     if (!bId && post.product_id) {
-      const product = products.find(p => String(p.id) === String(post.product_id));
-      bId = product ? (product.brand_id || 'unbranded') : null;
+      bId = productToBrandMap[String(post.product_id)] || null;
     }
     if (bId && brandMap[bId]) {
+      const views = Number(post.views_count) || 0;
+      const reach = Number(post.reach_count) || 0;
+      const likes = Number(post.likes_count) || 0;
+      const comments = Number(post.comments_count) || 0;
+      const shares = Number(post.shares_count) || 0;
+      const engagement = likes + comments + shares;
+
       brandMap[bId].total_posts += 1;
+      brandMap[bId].total_views += views;
+      brandMap[bId].total_reach += reach;
+      brandMap[bId].total_likes += likes;
+      brandMap[bId].total_comments += comments;
+      brandMap[bId].total_shares += shares;
+      brandMap[bId].total_engagement += engagement;
+
+      brandMap[bId].posts.push({
+        id: post.id,
+        published_time: post.published_time,
+        scheduled_time: post.scheduled_time,
+        created_at: post.created_at,
+        platform: post.platform,
+        status: post.status,
+        views_count: views,
+        reach_count: reach,
+        likes_count: likes,
+        comments_count: comments,
+        shares_count: shares,
+        engagement: engagement
+      });
     }
   });
 
-  return Object.values(brandMap).sort((a, b) => b.total_posts - a.total_posts);
+  return Object.values(brandMap).sort((a, b) => (a.brand_name || '').localeCompare(b.brand_name || ''));
 };
 
 const getBrandDetail = async (brandId) => {

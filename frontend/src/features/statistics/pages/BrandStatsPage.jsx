@@ -1,23 +1,78 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { BarChart2, Package, Eye, Tag, Search, Layers, Hash, DollarSign } from 'lucide-react';
-import { Skeleton } from '../../../shared/components/ui/Skeleton';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { BarChart2, Eye, Tag, Search, Layers, TrendingUp, Heart, RotateCcw, Flame } from 'lucide-react';
 import { BrandStatsTopBannerSkeleton, BrandStatsTableSkeleton, BrandStatsMobileSkeleton } from '../../../shared/components/skeletons';
-import { getBrandProfitability } from '../services/brandStatsService';
+import { getBrandStats } from '../services/brandStatsService';
+import { SortableHeader } from '../../../shared/components/ui/SortableHeader';
+import { useSortableTable } from '../../../shared/hooks/useSortableTable';
+import { DateRangeFilter, isPostInDateRange } from '../../../shared/components/ui/DateRangeFilter';
 
 export const BrandStatsPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [dateFilter, setDateFilter] = useState(() => searchParams.get('range') || 'all');
+  const [customRange, setCustomRange] = useState(() => ({
+    start: searchParams.get('start') || '',
+    end: searchParams.get('end') || ''
+  }));
+
+  const handleDateFilterChange = (newVal) => {
+    setDateFilter(newVal);
+    const params = new URLSearchParams(searchParams);
+    if (newVal === 'all') {
+      params.delete('range');
+      params.delete('start');
+      params.delete('end');
+    } else {
+      params.set('range', newVal);
+      if (newVal !== 'custom') {
+        params.delete('start');
+        params.delete('end');
+      }
+    }
+    setSearchParams(params, { replace: true });
+  };
+
+  const handleCustomRangeChange = (range) => {
+    setCustomRange(range);
+    const params = new URLSearchParams(searchParams);
+    if (range.start) params.set('start', range.start);
+    else params.delete('start');
+    if (range.end) params.set('end', range.end);
+    else params.delete('end');
+    setSearchParams(params, { replace: true });
+  };
+
+  const handleResetFilters = () => {
+    setDateFilter('all');
+    setCustomRange({ start: '', end: '' });
+    setSearchTerm('');
+    setSearchParams({}, { replace: true });
+  };
+
+  const handleNavigateToBrand = (brandId) => {
+    const params = new URLSearchParams();
+    if (dateFilter !== 'all') {
+      params.set('range', dateFilter);
+      if (dateFilter === 'custom') {
+        if (customRange.start) params.set('start', customRange.start);
+        if (customRange.end) params.set('end', customRange.end);
+      }
+    }
+    const q = params.toString() ? `?${params.toString()}` : '';
+    navigate(`/stats/brands/${brandId || 'unbranded'}${q}`);
+  };
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
         setLoading(true);
-        const data = await getBrandProfitability();
-        setBrands(data);
+        const data = await getBrandStats();
+        setBrands(data || []);
         setError(null);
       } catch (err) {
         setError(err.message || 'Failed to fetch brand statistics');
@@ -29,24 +84,73 @@ export const BrandStatsPage = () => {
     fetchStats();
   }, []);
 
+  // Dynamically compute social performance metrics per brand based on selected date range
+  const brandsWithCalculatedMetrics = useMemo(() => {
+    return brands.map(brand => {
+      if (dateFilter === 'all') {
+        return {
+          ...brand,
+          posts_count: brand.total_posts || 0,
+          views_count: brand.total_views || 0,
+          reach_count: brand.total_reach || 0,
+          engagement_count: brand.total_engagement || 0
+        };
+      }
+
+      // Filter brand posts according to the date range
+      const matchingPosts = (brand.posts || []).filter(p =>
+        isPostInDateRange(p, dateFilter, customRange.start, customRange.end)
+      );
+
+      const views = matchingPosts.reduce((sum, p) => sum + (p.views_count || 0), 0);
+      const reach = matchingPosts.reduce((sum, p) => sum + (p.reach_count || 0), 0);
+      const engagement = matchingPosts.reduce((sum, p) => sum + (p.engagement || 0), 0);
+
+      return {
+        ...brand,
+        posts_count: matchingPosts.length,
+        views_count: views,
+        reach_count: reach,
+        engagement_count: engagement
+      };
+    });
+  }, [brands, dateFilter, customRange]);
+
   const stats = useMemo(() => {
-    const totalBrands = brands.length;
-    const activeBrands = brands.filter(b => b.total_products > 0).length;
-    const totalPosts = brands.reduce((sum, b) => sum + (b.total_posts || 0), 0);
-    const topBrand = [...brands].sort((a, b) => (b.net_profit || 0) - (a.net_profit || 0))[0];
+    const totalBrands = brandsWithCalculatedMetrics.length;
+    const activeBrands = brandsWithCalculatedMetrics.filter(b => (b.posts_count || 0) > 0).length;
+    const totalPosts = brandsWithCalculatedMetrics.reduce((sum, b) => sum + (b.posts_count || 0), 0);
+    const totalViews = brandsWithCalculatedMetrics.reduce((sum, b) => sum + (b.views_count || 0), 0);
+    const topBrand = [...brandsWithCalculatedMetrics].sort((a, b) => (b.views_count || 0) - (a.views_count || 0))[0];
 
     return {
       totalBrands,
       activeBrands,
       totalPosts,
-      topBrandName: topBrand && topBrand.total_posts > 0 ? topBrand.brand_name : 'N/A'
+      totalViews,
+      topBrandName: topBrand && topBrand.posts_count > 0 ? topBrand.brand_name : 'N/A'
     };
-  }, [brands]);
+  }, [brandsWithCalculatedMetrics]);
 
   const filteredBrands = useMemo(() => {
-    if (!searchTerm) return brands;
-    return brands.filter(b => b.brand_name.toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [brands, searchTerm]);
+    if (!searchTerm) return brandsWithCalculatedMetrics;
+    const q = searchTerm.toLowerCase();
+    return brandsWithCalculatedMetrics.filter(b => (b.brand_name || '').toLowerCase().includes(q));
+  }, [brandsWithCalculatedMetrics, searchTerm]);
+
+  const { sortedItems: sortedBrands, sortConfig, requestSort } = useSortableTable(
+    filteredBrands,
+    { key: 'brand_name', direction: 'asc' },
+    {
+      brand_name: (b) => (b.brand_name || '').toLowerCase(),
+      posts_count: (b) => Number(b.posts_count) || 0,
+      views_count: (b) => Number(b.views_count) || 0,
+      reach_count: (b) => Number(b.reach_count) || 0,
+      engagement_count: (b) => Number(b.engagement_count) || 0,
+    }
+  );
+
+  const hasActiveFilters = dateFilter !== 'all' || searchTerm.trim() !== '';
 
   return (
     <div className="product-page-container">
@@ -57,14 +161,14 @@ export const BrandStatsPage = () => {
           </div>
           <h1 className="page-title">Brand Statistics</h1>
           <p className="page-subtitle">
-            Track social media post volume grouped by product brands.
+            Track social media content performance and audience engagement across all brands.
           </p>
         </div>
       </div>
 
       {loading ? (
         <div style={{ marginBottom: '24px' }}>
-          <BrandStatsTopBannerSkeleton />
+          <BrandStatsTopBannerSkeleton count={5} />
         </div>
       ) : (
         <div className="card stat-card-group" style={{ marginBottom: '24px' }}>
@@ -81,7 +185,7 @@ export const BrandStatsPage = () => {
           <div className="stat-item">
             <div className="stat-header">
               <Layers size={18} style={{ color: '#10b981' }} />
-              <span>Active (With Products)</span>
+              <span>Active Brands</span>
             </div>
             <div className="stat-value">{stats.activeBrands}</div>
           </div>
@@ -90,8 +194,8 @@ export const BrandStatsPage = () => {
 
           <div className="stat-item">
             <div className="stat-header">
-              <Hash size={18} className="icon-purple" />
-              <span>Total Tracked Posts</span>
+              <BarChart2 size={18} className="icon-purple" />
+              <span>Tracked Posts</span>
             </div>
             <div className="stat-value">{stats.totalPosts}</div>
           </div>
@@ -100,17 +204,30 @@ export const BrandStatsPage = () => {
 
           <div className="stat-item">
             <div className="stat-header">
-              <DollarSign size={18} style={{ color: '#f59e0b' }} />
-              <span>Top Brand (Profit)</span>
+              <Eye size={18} style={{ color: '#6366f1' }} />
+              <span>Total Views</span>
             </div>
-            <div className="stat-value" style={{ fontSize: '20px' }}>{stats.topBrandName}</div>
+            <div className="stat-value" style={{ fontSize: '20px' }}>{stats.totalViews.toLocaleString()}</div>
+          </div>
+
+          <div className="stat-divider" />
+
+          <div className="stat-item">
+            <div className="stat-header">
+              <Flame size={18} style={{ color: '#f59e0b' }} />
+              <span>Top Brand (Views)</span>
+            </div>
+            <div className="stat-value" style={{ fontSize: '18px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={stats.topBrandName}>
+              {stats.topBrandName}
+            </div>
           </div>
         </div>
       )}
 
+      {/* TOOLBAR: Search + Date Range Filter + Reset */}
       <div className="product-toolbar-card card" style={{ marginBottom: '24px' }}>
-        <div className="product-toolbar-top" style={{ borderBottom: 'none', paddingBottom: '0' }}>
-          <div className="search-input-wrap">
+        <div className="product-toolbar-top" style={{ borderBottom: 'none', paddingBottom: '0', display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="search-input-wrap" style={{ flex: '1 1 280px' }}>
             <Search size={16} className="search-icon" />
             <input
               type="text"
@@ -119,6 +236,41 @@ export const BrandStatsPage = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="toolbar-search-input"
             />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <DateRangeFilter
+              value={dateFilter}
+              onChange={handleDateFilterChange}
+              customRange={customRange}
+              onCustomRangeChange={handleCustomRangeChange}
+              minWidth="160px"
+            />
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="btn-secondary"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '7px 12px',
+                  borderRadius: '20px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  backgroundColor: '#f1f5f9',
+                  border: '1px solid #e2e8f0',
+                  color: '#475569',
+                  cursor: 'pointer'
+                }}
+                title="Reset all filters"
+              >
+                <RotateCcw size={13} />
+                <span>Reset</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -129,24 +281,24 @@ export const BrandStatsPage = () => {
         </div>
       )}
 
+      {/* TABLE SECTION */}
       <div className="table-card product-table-card">
         <div className="desktop-only" style={{ overflowX: 'auto', width: '100%' }}>
           <table className="custom-table">
             <thead>
               <tr>
-                <th>Brand Name</th>
-                <th>Posts / Products</th>
-                <th style={{ textAlign: 'right' }}>Revenue</th>
-                <th style={{ textAlign: 'right' }}>Spend</th>
-                <th style={{ textAlign: 'center' }}>ROI</th>
-                <th style={{ textAlign: 'right' }}>Net Profit</th>
+                <SortableHeader label="Brand Name" sortKey="brand_name" currentSort={sortConfig} onSort={requestSort} />
+                <SortableHeader label="Posts" sortKey="posts_count" currentSort={sortConfig} onSort={requestSort} defaultDirection="desc" />
+                <SortableHeader label="Views" sortKey="views_count" currentSort={sortConfig} onSort={requestSort} align="right" defaultDirection="desc" />
+                <SortableHeader label="Reach" sortKey="reach_count" currentSort={sortConfig} onSort={requestSort} align="right" defaultDirection="desc" />
+                <SortableHeader label="Engagement" sortKey="engagement_count" currentSort={sortConfig} onSort={requestSort} align="right" defaultDirection="desc" />
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <BrandStatsTableSkeleton rowCount={5} />
-              ) : filteredBrands.map((brand) => (
+              ) : sortedBrands.map((brand) => (
                 <tr key={brand.brand_id || 'unbranded'}>
                   <td data-label="Brand Name">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -164,38 +316,43 @@ export const BrandStatsPage = () => {
                       </div>
                     </div>
                   </td>
-                  <td data-label="Posts / Products">
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <span className="product-table-qty" style={{ color: 'var(--color-primary)', fontWeight: 'bold' }}>
-                        <BarChart2 size={12} style={{ marginRight: '4px' }} />
-                        {brand.total_posts} posts
-                      </span>
-                      <span className="product-table-qty" style={{ color: 'var(--text-muted)' }}>
-                        <Package size={12} style={{ marginRight: '4px' }} />
-                        {brand.total_products || 0} products
-                      </span>
-                    </div>
-                  </td>
-                  <td data-label="Revenue" style={{ textAlign: 'right', fontWeight: 600, color: 'var(--text-main)' }}>
-                    ${(brand.total_revenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </td>
-                  <td data-label="Spend" style={{ textAlign: 'right', fontWeight: 600, color: 'var(--text-muted)' }}>
-                    ${(brand.total_spend || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </td>
-                  <td data-label="ROI" style={{ textAlign: 'center' }}>
-                    <span className={`roi-badge ${(brand.roi || 0) >= 0 ? 'roi-badge-positive' : 'roi-badge-negative'}`}>
-                      {(brand.roi || 0) >= 0 ? '+' : ''}{(brand.roi || 0).toFixed(1)}%
+                  <td data-label="Posts">
+                    <span className="product-table-qty" style={{ color: 'var(--color-primary)', fontWeight: 'bold' }}>
+                      <BarChart2 size={12} style={{ marginRight: '4px' }} />
+                      {brand.posts_count} posts
                     </span>
                   </td>
-                  <td data-label="Net Profit" style={{ textAlign: 'right' }}>
-                    <span className={`profit-col-positive ${(brand.net_profit || 0) >= 0 ? 'profit-col-positive' : 'profit-col-negative'}`}>
-                      ${(brand.net_profit || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <td data-label="Views" style={{ textAlign: 'right', fontWeight: 600, color: 'var(--text-main)' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
+                      <Eye size={12} style={{ color: '#6366f1' }} />
+                      {(brand.views_count || 0).toLocaleString()}
+                    </span>
+                  </td>
+                  <td data-label="Reach" style={{ textAlign: 'right', fontWeight: 600, color: 'var(--text-muted)' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
+                      <TrendingUp size={12} style={{ color: '#10b981' }} />
+                      {(brand.reach_count || 0).toLocaleString()}
+                    </span>
+                  </td>
+                  <td data-label="Engagement" style={{ textAlign: 'right' }}>
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      backgroundColor: (brand.engagement_count || 0) > 0 ? '#fdf2f8' : '#f8fafc',
+                      color: (brand.engagement_count || 0) > 0 ? '#db2777' : '#94a3b8',
+                      fontWeight: 600
+                    }}>
+                      <Heart size={12} />
+                      {(brand.engagement_count || 0).toLocaleString()}
                     </span>
                   </td>
                   <td data-label="Actions" style={{ textAlign: 'right' }}>
                     <button
                       className="btn-primary-soft"
-                      onClick={() => navigate(`/stats/brands/${brand.brand_id || 'unbranded'}`)}
+                      onClick={() => handleNavigateToBrand(brand.brand_id)}
                     >
                       <Eye size={12} />
                       <span>View</span>
@@ -203,9 +360,9 @@ export const BrandStatsPage = () => {
                   </td>
                 </tr>
               ))}
-              {!loading && filteredBrands.length === 0 && (
+              {!loading && sortedBrands.length === 0 && (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
                     No brands found matching your criteria.
                   </td>
                 </tr>
@@ -218,7 +375,7 @@ export const BrandStatsPage = () => {
         <div className="mobile-only" style={{ padding: '0 0 16px 0', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {loading ? (
             <BrandStatsMobileSkeleton cardCount={3} />
-          ) : filteredBrands.map((brand) => (
+          ) : sortedBrands.map((brand) => (
             <div key={`mob-${brand.brand_id || 'unbranded'}`} style={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
               {/* Header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
@@ -228,9 +385,6 @@ export const BrandStatsPage = () => {
                   </div>
                   <div>
                     <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '16px' }}>{brand.brand_name}</div>
-                    <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                      <Package size={12} /> {brand.total_products || 0} Products
-                    </div>
                   </div>
                 </div>
               </div>
@@ -239,26 +393,19 @@ export const BrandStatsPage = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
                 <div>
                   <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Posts</div>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#6366f1' }}>{brand.total_posts?.toLocaleString() || '0'}</div>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--color-primary)' }}>{brand.posts_count?.toLocaleString() || '0'}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Revenue</div>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#10b981' }}>${(brand.total_revenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                  <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Views</div>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#6366f1' }}>{(brand.views_count || 0).toLocaleString()}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Spend</div>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#64748b' }}>${(brand.total_spend || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                  <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Reach</div>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#10b981' }}>{(brand.reach_count || 0).toLocaleString()}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Profit / ROI</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                    <span style={{ fontSize: '15px', fontWeight: 600, color: (brand.net_profit || 0) >= 0 ? '#10b981' : '#ef4444' }}>
-                      ${(brand.net_profit || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                    <span style={{ fontSize: '11px', color: (brand.roi || 0) >= 0 ? '#10b981' : '#ef4444', fontWeight: 600, backgroundColor: (brand.roi || 0) >= 0 ? '#d1fae5' : '#fee2e2', padding: '2px 6px', borderRadius: '4px' }}>
-                      {(brand.roi || 0) >= 0 ? '+' : ''}{(brand.roi || 0).toFixed(1)}%
-                    </span>
-                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Engagement</div>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#db2777' }}>{(brand.engagement_count || 0).toLocaleString()}</div>
                 </div>
               </div>
 
@@ -267,7 +414,7 @@ export const BrandStatsPage = () => {
                 <button
                   className="btn-primary-soft"
                   style={{ width: '100%', justifyContent: 'center', padding: '10px' }}
-                  onClick={() => navigate(`/stats/brands/${brand.brand_id || 'unbranded'}`)}
+                  onClick={() => handleNavigateToBrand(brand.brand_id)}
                 >
                   <Eye size={14} style={{ marginRight: '6px' }} />
                   <span>View Details</span>
@@ -275,7 +422,7 @@ export const BrandStatsPage = () => {
               </div>
             </div>
           ))}
-          {!loading && filteredBrands.length === 0 && (
+          {!loading && sortedBrands.length === 0 && (
             <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
               No brands found matching your criteria.
             </div>

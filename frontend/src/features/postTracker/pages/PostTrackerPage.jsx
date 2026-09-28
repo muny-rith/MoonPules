@@ -5,11 +5,15 @@ import { InsightPanel } from '../components/InsightPanel';
 import { DeleteConfirmModal } from '../components/DeleteConfirmModal';
 import { useNavigate } from 'react-router-dom';
 import { POST_STATUS } from '../constants';
-import { Search, Filter, Calendar, ExternalLink, RefreshCw, BarChart2, DollarSign, Image as ImageIcon, Heart, MessageCircle, Share2, Edit2, Trash2, ChevronLeft, ChevronRight, Users, ChevronDown, Eye, TrendingUp, Send, Award } from 'lucide-react';
+import { Search, Filter, Calendar, ExternalLink, RefreshCw, BarChart2, DollarSign, Image as ImageIcon, Heart, MessageCircle, Share2, Edit2, Trash2, ChevronLeft, ChevronRight, Users, ChevronDown, Eye, TrendingUp, Send, Award, RotateCcw, Check, Sparkles, X } from 'lucide-react';
+import { FaFacebook, FaTiktok, FaInstagram } from 'react-icons/fa';
 
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 import { PostTrackerTableSkeleton, PostTrackerMobileSkeleton } from '../../../shared/components/skeletons';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
+import { SortableHeader } from '../../../shared/components/ui/SortableHeader';
+import { useSortableTable } from '../../../shared/hooks/useSortableTable';
+import { DateRangeFilter, isPostInDateRange } from '../../../shared/components/ui/DateRangeFilter';
 import axios from 'axios';
 import api from '../../../shared/utils/apiClient';
 
@@ -18,6 +22,21 @@ const FacebookIcon = ({ size = 24 }) => (
     <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
   </svg>
 );
+
+const PLATFORM_OPTIONS = [
+  { value: 'all', label: 'All Platforms', icon: <Sparkles size={14} color="#64748b" /> },
+  { value: 'facebook', label: 'Facebook', icon: <FaFacebook size={14} color="#1877F2" /> },
+  { value: 'tiktok', label: 'TikTok', icon: <FaTiktok size={14} color="#000000" /> },
+  { value: 'instagram', label: 'Instagram', icon: <FaInstagram size={14} color="#E1306C" /> },
+];
+
+const STATUS_OPTIONS = [
+  { value: 'all', label: 'All Statuses', icon: <Sparkles size={14} color="#64748b" /> },
+  { value: 'published', label: 'Published', icon: <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block' }} /> },
+  { value: 'scheduled', label: 'Scheduled', icon: <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#f59e0b', display: 'inline-block' }} /> },
+  { value: 'failed', label: 'Failed', icon: <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#ef4444', display: 'inline-block' }} /> },
+  { value: 'archived', label: 'Archived', icon: <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#94a3b8', display: 'inline-block' }} /> },
+];
 
 const FilterDropdown = ({ icon: Icon, value, options, onChange, minWidth = '130px' }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -34,18 +53,20 @@ const FilterDropdown = ({ icon: Icon, value, options, onChange, minWidth = '130p
   }, []);
 
   const selectedOption = options.find(o => o.value === value) || options[0];
+  const isFiltered = value !== 'all';
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
-      <div
+      <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         style={{
           padding: '8px 12px',
           borderRadius: '8px',
-          border: '1px solid #e2e8f0',
+          border: isFiltered ? '1px solid #93c5fd' : '1px solid #e2e8f0',
           fontSize: '13px',
-          backgroundColor: 'white',
-          color: '#334155',
+          backgroundColor: isFiltered ? '#eff6ff' : 'white',
+          color: isFiltered ? '#1d4ed8' : '#334155',
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
@@ -53,51 +74,85 @@ const FilterDropdown = ({ icon: Icon, value, options, onChange, minWidth = '130p
           minWidth,
           justifyContent: 'space-between',
           boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-          whiteSpace: 'nowrap'
+          whiteSpace: 'nowrap',
+          fontWeight: isFiltered ? 600 : 500,
+          transition: 'all 0.15s ease',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          {Icon && <Icon size={14} style={{ color: '#64748b' }} />}
+          {selectedOption.icon ? (
+            selectedOption.icon
+          ) : Icon ? (
+            <Icon size={14} style={{ color: isFiltered ? '#2563eb' : '#64748b' }} />
+          ) : null}
           <span>{selectedOption.label}</span>
         </div>
-        <ChevronDown size={14} style={{ color: '#94a3b8', transform: isOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }} />
-      </div>
+        <ChevronDown
+          size={14}
+          style={{
+            color: isFiltered ? '#2563eb' : '#94a3b8',
+            transform: isOpen ? 'rotate(180deg)' : 'rotate(0)',
+            transition: 'transform 0.2s',
+          }}
+        />
+      </button>
 
       {isOpen && (
-        <div style={{
-          position: 'absolute',
-          top: 'calc(100% + 4px)',
-          right: 0,
-          backgroundColor: 'white',
-          border: '1px solid #e2e8f0',
-          borderRadius: '8px',
-          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-          minWidth: '100%',
-          zIndex: 50,
-          overflow: 'hidden'
-        }}>
-          {options.map((option) => (
-            <div
-              key={option.value}
-              onClick={() => {
-                onChange(option.value);
-                setIsOpen(false);
-              }}
-              style={{
-                padding: '10px 12px',
-                fontSize: '13px',
-                cursor: 'pointer',
-                color: value === option.value ? '#2563eb' : '#475569',
-                backgroundColor: value === option.value ? '#eff6ff' : 'transparent',
-                fontWeight: value === option.value ? 600 : 400,
-                transition: 'background-color 0.15s'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = value === option.value ? '#eff6ff' : '#f8fafc'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = value === option.value ? '#eff6ff' : 'transparent'}
-            >
-              {option.label}
-            </div>
-          ))}
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 6px)',
+            right: 0,
+            backgroundColor: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: '10px',
+            boxShadow: '0 15px 30px -5px rgba(0, 0, 0, 0.12), 0 8px 12px -4px rgba(0, 0, 0, 0.06)',
+            minWidth: '180px',
+            zIndex: 100,
+            overflow: 'hidden',
+            padding: '6px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '2px',
+          }}
+        >
+          {options.map((option) => {
+            const isSelected = value === option.value;
+            return (
+              <div
+                key={option.value}
+                onClick={() => {
+                  onChange(option.value);
+                  setIsOpen(false);
+                }}
+                style={{
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  color: isSelected ? '#1d4ed8' : '#334155',
+                  backgroundColor: isSelected ? '#eff6ff' : 'transparent',
+                  fontWeight: isSelected ? 600 : 400,
+                  transition: 'background-color 0.12s ease',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSelected) e.currentTarget.style.backgroundColor = '#f8fafc';
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {option.icon}
+                  <span>{option.label}</span>
+                </div>
+                {isSelected && <Check size={14} color="#2563eb" strokeWidth={2.5} />}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -114,6 +169,7 @@ export const PostTrackerPage = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [platformFilter, setPlatformFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
+  const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [postsProfit, setPostsProfit] = useState({});
@@ -153,29 +209,77 @@ export const PostTrackerPage = () => {
   const filteredPosts = useMemo(() => {
     if (!posts) return [];
     return posts.filter(post => {
-      const matchesSearch =
-        post.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        post.page_name?.toLowerCase().includes(searchTerm.toLowerCase());
+      // 1. Search across product name, brand name, page name, message, ID
+      const q = searchTerm.trim().toLowerCase();
+      const matchesSearch = !q || (
+        post.product_name?.toLowerCase().includes(q) ||
+        post.brand_name?.toLowerCase().includes(q) ||
+        post.page_name?.toLowerCase().includes(q) ||
+        post.message?.toLowerCase().includes(q) ||
+        String(post.id).includes(q) ||
+        (post.fb_post_id && String(post.fb_post_id).toLowerCase().includes(q))
+      );
 
+      // 2. Status filter
       const matchesStatus = statusFilter === 'all' || post.status === statusFilter;
-      const matchesPlatform = platformFilter === 'all' || platformFilter === 'facebook';
 
-      let matchesDate = true;
-      if (dateFilter === '7days' && post.published_time) {
-        matchesDate = new Date(post.published_time) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      } else if (dateFilter === '30days' && post.published_time) {
-        matchesDate = new Date(post.published_time) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      // 3. Platform filter
+      let matchesPlatform = true;
+      if (platformFilter !== 'all') {
+        const p = (post.platform || 'facebook').toLowerCase();
+        const target = platformFilter.toLowerCase();
+        matchesPlatform = (target === 'facebook' || target === 'fb')
+          ? (p === 'facebook' || p === 'fb')
+          : p === target;
       }
+
+      // 4. Date filter (Using robust isPostInDateRange with start/end of day and all post date fields)
+      const matchesDate = isPostInDateRange(post, dateFilter, customDateRange.start, customDateRange.end);
 
       return matchesSearch && matchesStatus && matchesPlatform && matchesDate;
     });
-  }, [posts, searchTerm, statusFilter, platformFilter, dateFilter]);
+  }, [posts, searchTerm, statusFilter, platformFilter, dateFilter, customDateRange]);
 
-  const totalPages = Math.ceil(filteredPosts.length / rowsPerPage);
+  const isAnyFilterActive = searchTerm !== '' || statusFilter !== 'all' || platformFilter !== 'all' || dateFilter !== 'all';
+
+  const resetAllFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setPlatformFilter('all');
+    setDateFilter('all');
+    setCustomDateRange({ start: '', end: '' });
+    setCurrentPage(1);
+  };
+
+  const customAccessors = useMemo(() => ({
+    post_content: (p) => (p.brand_name || p.product_name || '').toLowerCase(),
+    platform: (p) => (p.platform || 'facebook').toLowerCase(),
+    status: (p) => (p.status || 'scheduled').toLowerCase(),
+    dates: (p) => (p.published_time ? new Date(p.published_time).getTime() : (p.scheduled_time ? new Date(p.scheduled_time).getTime() : 0)),
+    views_count: (p) => Number(p.views_count) || 0,
+    reach_count: (p) => Number(p.reach_count) || 0,
+    engagements: (p) => (Number(p.likes_count) || 0) + (Number(p.comments_count) || 0) + (Number(p.shares_count) || 0),
+    costs: (p) => (parseFloat(p.content_cost) || 0) + (parseFloat(p.ad_spend) || 0),
+    revenue: (p) => (postsProfit[p.id]?.revenue !== undefined ? postsProfit[p.id].revenue : 0),
+    profit: (p) => {
+      const profitData = postsProfit[p.id];
+      const totalCost = (parseFloat(p.content_cost) || 0) + (parseFloat(p.ad_spend) || 0);
+      const revenue = profitData?.revenue !== undefined ? profitData.revenue : 0;
+      return profitData?.net_profit !== undefined ? profitData.net_profit : (revenue - totalCost);
+    },
+  }), [postsProfit]);
+
+  const { sortedItems: sortedPosts, sortConfig, requestSort } = useSortableTable(
+    filteredPosts,
+    { key: 'dates', direction: 'desc' },
+    customAccessors
+  );
+
+  const totalPages = Math.max(1, Math.ceil(sortedPosts.length / rowsPerPage));
   const paginatedPosts = useMemo(() => {
     const start = (currentPage - 1) * rowsPerPage;
-    return filteredPosts.slice(start, start + rowsPerPage);
-  }, [filteredPosts, currentPage, rowsPerPage]);
+    return sortedPosts.slice(start, start + rowsPerPage);
+  }, [sortedPosts, currentPage, rowsPerPage]);
 
   const summary = useMemo(() => {
     if (!posts) return { total: 0, views: 0, reach: 0, engagements: 0 };
@@ -274,37 +378,51 @@ export const PostTrackerPage = () => {
             />
           </div>
 
-          <div className="toolbar-filter-row" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="toolbar-filter-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <FilterDropdown
-              icon={Filter}
               value={platformFilter}
-              options={[
-                { value: 'all', label: 'All Platforms' },
-                { value: 'facebook', label: 'Facebook' }
-              ]}
+              options={PLATFORM_OPTIONS}
               onChange={(val) => { setPlatformFilter(val); setCurrentPage(1); }}
+              minWidth="140px"
             />
-            <FilterDropdown
-              icon={Calendar}
+            <DateRangeFilter
               value={dateFilter}
-              options={[
-                { value: 'all', label: 'All Time' },
-                { value: '7days', label: 'Last 7 Days' },
-                { value: '30days', label: 'Last 30 Days' }
-              ]}
               onChange={(val) => { setDateFilter(val); setCurrentPage(1); }}
+              customRange={customDateRange}
+              onCustomRangeChange={(range) => { setCustomDateRange(range); setCurrentPage(1); }}
+              minWidth="150px"
             />
             <FilterDropdown
               value={statusFilter}
-              options={[
-                { value: 'all', label: 'All Statuses' },
-                { value: 'published', label: 'Published' },
-                { value: 'scheduled', label: 'Scheduled' },
-                { value: 'failed', label: 'Failed' },
-                { value: 'archived', label: 'Archived' }
-              ]}
+              options={STATUS_OPTIONS}
               onChange={(val) => { setStatusFilter(val); setCurrentPage(1); }}
+              minWidth="135px"
             />
+            {isAnyFilterActive && (
+              <button
+                type="button"
+                onClick={resetAllFilters}
+                className="btn-secondary"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '7px 11px',
+                  fontSize: '12px',
+                  color: '#ef4444',
+                  backgroundColor: '#fef2f2',
+                  border: '1px solid #fee2e2',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  transition: 'all 0.15s ease'
+                }}
+                title="Reset all active filters"
+              >
+                <RotateCcw size={12} />
+                <span>Reset</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -312,16 +430,16 @@ export const PostTrackerPage = () => {
           <table className="custom-table" style={{ width: '100%', minWidth: '1000px', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                <th style={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'left' }}>Post Content</th>
-                <th style={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Platform</th>
-                <th style={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'left' }}>Status</th>
-                <th style={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'left' }}>Dates</th>
-                <th style={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Views</th>
-                <th style={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Reach</th>
-                <th style={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Engagements</th>
-                <th style={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Costs</th>
-                <th style={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Revenue</th>
-                <th style={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Est. Profit</th>
+                <SortableHeader label="Post Content" sortKey="post_content" currentSort={sortConfig} onSort={requestSort} thStyle={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }} />
+                <SortableHeader label="Platform" sortKey="platform" currentSort={sortConfig} onSort={requestSort} align="center" thStyle={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }} />
+                <SortableHeader label="Status" sortKey="status" currentSort={sortConfig} onSort={requestSort} thStyle={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }} />
+                <SortableHeader label="Dates" sortKey="dates" currentSort={sortConfig} onSort={requestSort} defaultDirection="desc" thStyle={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }} />
+                <SortableHeader label="Views" sortKey="views_count" currentSort={sortConfig} onSort={requestSort} align="right" defaultDirection="desc" thStyle={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }} />
+                <SortableHeader label="Reach" sortKey="reach_count" currentSort={sortConfig} onSort={requestSort} align="right" defaultDirection="desc" thStyle={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }} />
+                <SortableHeader label="Engagements" sortKey="engagements" currentSort={sortConfig} onSort={requestSort} align="right" defaultDirection="desc" thStyle={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }} />
+                <SortableHeader label="Costs" sortKey="costs" currentSort={sortConfig} onSort={requestSort} align="right" defaultDirection="desc" thStyle={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }} />
+                <SortableHeader label="Revenue" sortKey="revenue" currentSort={sortConfig} onSort={requestSort} align="right" defaultDirection="desc" thStyle={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }} />
+                <SortableHeader label="Est. Profit" sortKey="profit" currentSort={sortConfig} onSort={requestSort} align="right" defaultDirection="desc" thStyle={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }} />
                 <th style={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Actions</th>
               </tr>
             </thead>
@@ -501,8 +619,32 @@ export const PostTrackerPage = () => {
               ))}
               {!loading && filteredPosts.length === 0 && (
                 <tr>
-                  <td colSpan="11" style={{ textAlign: 'center', padding: '48px', color: '#94a3b8' }}>
-                    No posts matched your criteria.
+                  <td colSpan="11" style={{ textAlign: 'center', padding: '48px 24px', color: '#64748b' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '15px', fontWeight: 600, color: '#334155' }}>No posts found</span>
+                      <span style={{ fontSize: '13px', color: '#94a3b8', maxWidth: '360px' }}>
+                        No content matches your current search or date criteria. Try adjusting or clearing your filters.
+                      </span>
+                      {isAnyFilterActive && (
+                        <button
+                          type="button"
+                          onClick={resetAllFilters}
+                          style={{
+                            marginTop: '6px',
+                            padding: '6px 14px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            color: '#2563eb',
+                            backgroundColor: '#eff6ff',
+                            border: '1px solid #bfdbfe',
+                            borderRadius: '6px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Clear All Filters
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               )}

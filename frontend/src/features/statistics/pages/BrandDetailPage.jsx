@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   BarChart2, Package, Calendar, ExternalLink, ArrowLeft, Tag, Search,
   RefreshCw, ChevronDown, Filter, Eye, Heart, MessageCircle, Share2, Trophy, Download, X,
@@ -11,10 +11,15 @@ import { getBrandDetail } from '../services/brandStatsService';
 import { BrandInsightsChart } from '../components/BrandInsightsChart';
 import { syncPosts } from '../../postTracker/api/postTrackerApi';
 import { ExportModal } from '../components/ExportModal';
+import { SortableHeader } from '../../../shared/components/ui/SortableHeader';
+import { useSortableTable } from '../../../shared/hooks/useSortableTable';
+import { DateRangeFilter, isPostInDateRange, DATE_PRESETS } from '../../../shared/components/ui/DateRangeFilter';
 
 export const BrandDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -25,13 +30,66 @@ export const BrandDetailPage = () => {
   const [showExportModal, setShowExportModal] = useState(false);
 
   // Multi-Filter States
-  const [openDropdown, setOpenDropdown] = useState(null); // 'time' | 'platform' | 'page' | 'product' | 'format' | null
-  const [timeFilter, setTimeFilter] = useState('all');
+  const [openDropdown, setOpenDropdown] = useState(null); // 'platform' | 'page' | 'product' | 'format' | null
+  const [timeFilter, setTimeFilter] = useState(() => searchParams.get('range') || 'all');
+  const [customRange, setCustomRange] = useState(() => ({
+    start: searchParams.get('start') || '',
+    end: searchParams.get('end') || ''
+  }));
   const [platformFilter, setPlatformFilter] = useState('all');
   const [pageFilter, setPageFilter] = useState('all');
   const [productFilter, setProductFilter] = useState('all');
   const [formatFilter, setFormatFilter] = useState('all');
   const filterToolbarRef = useRef(null);
+
+  // Keep state synced if URL searchParams change
+  useEffect(() => {
+    const range = searchParams.get('range') || 'all';
+    const start = searchParams.get('start') || '';
+    const end = searchParams.get('end') || '';
+    setTimeFilter(range);
+    setCustomRange({ start, end });
+  }, [searchParams]);
+
+  const handleTimeFilterChange = (newVal) => {
+    setTimeFilter(newVal);
+    const params = new URLSearchParams(searchParams);
+    if (newVal === 'all') {
+      params.delete('range');
+      params.delete('start');
+      params.delete('end');
+    } else {
+      params.set('range', newVal);
+      if (newVal !== 'custom') {
+        params.delete('start');
+        params.delete('end');
+      }
+    }
+    setSearchParams(params, { replace: true });
+  };
+
+  const handleCustomRangeChange = (range) => {
+    setCustomRange(range);
+    const params = new URLSearchParams(searchParams);
+    if (range.start) params.set('start', range.start);
+    else params.delete('start');
+    if (range.end) params.set('end', range.end);
+    else params.delete('end');
+    setSearchParams(params, { replace: true });
+  };
+
+  const handleBackToBrands = () => {
+    const params = new URLSearchParams();
+    if (timeFilter !== 'all') {
+      params.set('range', timeFilter);
+      if (timeFilter === 'custom') {
+        if (customRange.start) params.set('start', customRange.start);
+        if (customRange.end) params.set('end', customRange.end);
+      }
+    }
+    const q = params.toString() ? `?${params.toString()}` : '';
+    navigate(`/stats/brands${q}`);
+  };
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -46,14 +104,6 @@ export const BrandDetailPage = () => {
   const toggleDropdown = (name) => {
     setOpenDropdown(prev => prev === name ? null : name);
   };
-
-  const filterOptions = [
-    { value: 'all', label: 'All Time' },
-    { value: 'this_week', label: 'This Week' },
-    { value: 'this_month', label: 'This Month' },
-    { value: 'last_month', label: 'Last Month' },
-    { value: 'last_3_months', label: 'Last 3 Months' }
-  ];
 
   const platformOptions = [
     { value: 'all', label: 'All Platforms', isAll: true },
@@ -98,7 +148,6 @@ export const BrandDetailPage = () => {
     }));
   }, [detail]);
 
-  const currentFilterLabel = filterOptions.find(o => o.value === timeFilter)?.label || 'All Time';
   const currentPlatformLabel = platformOptions.find(o => o.value === platformFilter)?.label || 'All Platforms';
   const currentPageLabel = pageFilter === 'all'
     ? 'All Pages'
@@ -137,41 +186,15 @@ export const BrandDetailPage = () => {
     fetchDetail();
   }, [id]);
 
-  // Helper: get date range from filter value
-  const getDateRange = (filter) => {
-    const now = new Date();
-    switch (filter) {
-      case 'this_week': {
-        const start = new Date(now);
-        start.setDate(now.getDate() - now.getDay()); // Sunday
-        start.setHours(0, 0, 0, 0);
-        return { start, end: now };
-      }
-      case 'this_month': {
-        const start = new Date(now.getFullYear(), now.getMonth(), 1);
-        return { start, end: now };
-      }
-      case 'last_month': {
-        const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
-        return { start, end };
-      }
-      case 'last_3_months': {
-        const start = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-        return { start, end: now };
-      }
-      default:
-        return null; // all time
-    }
-  };
-
   const resetAllFilters = () => {
     setTimeFilter('all');
+    setCustomRange({ start: '', end: '' });
     setPlatformFilter('all');
     setPageFilter('all');
     setProductFilter('all');
     setFormatFilter('all');
     setSearchTerm('');
+    setSearchParams({}, { replace: true });
   };
 
   const hasActiveFilters = timeFilter !== 'all' || platformFilter !== 'all' || pageFilter !== 'all' || productFilter !== 'all' || formatFilter !== 'all' || searchTerm !== '';
@@ -180,16 +203,8 @@ export const BrandDetailPage = () => {
     if (!detail || !detail.posts) return [];
     let posts = detail.posts.filter(p => p.status === 'published' || p.published_time);
 
-    // 1. Time filter
-    const range = getDateRange(timeFilter);
-    if (range) {
-      posts = posts.filter(p => {
-        const timestamp = p.published_time;
-        if (!timestamp) return false;
-        const d = new Date(timestamp);
-        return d >= range.start && d <= range.end;
-      });
-    }
+    // 1. Time filter using isPostInDateRange
+    posts = posts.filter(p => isPostInDateRange(p, timeFilter, customRange.start, customRange.end));
 
     // 2. Platform filter
     if (platformFilter !== 'all') {
@@ -226,33 +241,89 @@ export const BrandDetailPage = () => {
     }
 
     return posts;
-  }, [detail, timeFilter, platformFilter, pageFilter, productFilter, formatFilter, searchTerm]);
+  }, [detail, timeFilter, customRange, platformFilter, pageFilter, productFilter, formatFilter, searchTerm]);
 
-  const { exportStart, exportEnd } = useMemo(() => {
+  const { sortedItems: sortedPosts, sortConfig, requestSort } = useSortableTable(
+    filteredPosts,
+    { key: 'published_time', direction: 'desc' },
+    {
+      product_name: (p) => (p.product_name || '').toLowerCase(),
+      channel: (p) => (p.page_name || '').toLowerCase(),
+      format: (p) => (p.media_type || 'photo').toLowerCase(),
+      published_time: (p) => (p.published_time ? new Date(p.published_time).getTime() : (p.scheduled_time ? new Date(p.scheduled_time).getTime() : 0)),
+      engagement: (p) => (Number(p.views_count) || 0) + (Number(p.reach_count) || 0) + (Number(p.likes_count) || 0) + (Number(p.comments_count) || 0) + (Number(p.shares_count) || 0),
+    }
+  );
+
+  const exportDateRange = useMemo(() => {
     const KHMER_MONTHS = ['មករា', 'កុម្ភៈ', 'មីនា', 'មេសា', 'ឧសភា', 'មិថុនា', 'កក្កដា', 'សីហា', 'កញ្ញា', 'តុលា', 'វិច្ឆិកា', 'ធ្នូ'];
     const formatDateKhmer = (d) => {
       if (isNaN(d.getTime())) return '';
       return `${d.getDate()} ${KHMER_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
     };
 
-    const range = getDateRange(timeFilter);
-    if (range) {
-      return {
-        exportStart: formatDateKhmer(range.start),
-        exportEnd: formatDateKhmer(range.end)
-      };
+    const now = new Date();
+
+    if (timeFilter === 'today') {
+      const todayStr = formatDateKhmer(now);
+      return { label: todayStr, start: todayStr, end: todayStr };
     }
-    if (filteredPosts && filteredPosts.length > 0) {
-      const dates = filteredPosts.map(p => new Date(p.published_time || p.scheduled_time)).filter(d => !isNaN(d.getTime()));
-      if (dates.length > 0) {
-        return {
-          exportStart: formatDateKhmer(new Date(Math.min(...dates))),
-          exportEnd: formatDateKhmer(new Date(Math.max(...dates)))
-        };
+
+    if (timeFilter === 'this_week') {
+      const day = now.getDay();
+      const diffToMonday = day === 0 ? -6 : 1 - day;
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday);
+      const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
+      const startStr = formatDateKhmer(start);
+      const endStr = formatDateKhmer(end);
+      return { label: `${startStr} រហូតដល់ ${endStr}`, start: startStr, end: endStr };
+    }
+
+    if (timeFilter === 'this_month') {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const startStr = formatDateKhmer(start);
+      const endStr = formatDateKhmer(end);
+      return { label: `${startStr} រហូតដល់ ${endStr}`, start: startStr, end: endStr };
+    }
+
+    if (timeFilter === 'last_month') {
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const end = new Date(now.getFullYear(), now.getMonth(), 0);
+      const startStr = formatDateKhmer(start);
+      const endStr = formatDateKhmer(end);
+      return { label: `${startStr} រហូតដល់ ${endStr}`, start: startStr, end: endStr };
+    }
+
+    if (timeFilter === 'custom') {
+      const startStr = customRange.start ? formatDateKhmer(customRange.start) : '';
+      const endStr = customRange.end ? formatDateKhmer(customRange.end) : '';
+      if (startStr && endStr) {
+        return { label: `${startStr} រហូតដល់ ${endStr}`, start: startStr, end: endStr };
+      }
+      if (startStr) {
+        return { label: `ចាប់ពី ${startStr}`, start: startStr, end: '' };
+      }
+      if (endStr) {
+        return { label: `រហូតដល់ ${endStr}`, start: '', end: endStr };
       }
     }
-    return { exportStart: 'N/A', exportEnd: 'N/A' };
-  }, [timeFilter, filteredPosts]);
+
+    // Default / 'all' - All Time
+    return { label: 'គ្រប់ពេលវេលា', start: 'គ្រប់ពេលវេលា', end: 'គ្រប់ពេលវេលា' };
+  }, [timeFilter, customRange]);
+
+  const exportPageName = useMemo(() => {
+    if (pageFilter !== 'all') {
+      const selected = availablePages.find(p => p.id === String(pageFilter));
+      if (selected) return selected.name;
+    }
+    const uniquePages = Array.from(new Set((filteredPosts || []).map(p => p.page_name).filter(Boolean)));
+    if (uniquePages.length === 1) return uniquePages[0];
+    if (uniquePages.length > 1) return uniquePages.join(', ');
+    if (availablePages.length === 1) return availablePages[0].name;
+    return detail?.brand_name || 'All Pages';
+  }, [pageFilter, availablePages, filteredPosts, detail]);
 
   const topPost = useMemo(() => {
     if (!filteredPosts || filteredPosts.length === 0) return null;
@@ -337,15 +408,15 @@ export const BrandDetailPage = () => {
       {/* Breadcrumb & Back */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
         <button
-          onClick={() => navigate('/stats/brands')}
+          onClick={handleBackToBrands}
           className="btn-secondary"
-          style={{ padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px' }}
+          style={{ padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px', cursor: 'pointer' }}
           title="Back to Brands"
         >
           <ArrowLeft size={18} />
         </button>
         <div className="page-breadcrumb" style={{ margin: 0 }}>
-          <span style={{ cursor: 'pointer' }} onClick={() => navigate('/stats/brands')}>Brands</span> / <span style={{ color: 'var(--text-main)', fontWeight: 500 }}>Detail</span>
+          <span style={{ cursor: 'pointer' }} onClick={handleBackToBrands}>Brands</span> / <span style={{ color: 'var(--text-main)', fontWeight: 500 }}>Detail</span>
         </div>
       </div>
 
@@ -427,31 +498,14 @@ export const BrandDetailPage = () => {
               {/* Filter Toolbar: Dropdowns */}
               <div className="analytics-filter-toolbar">
                 {/* 1. Date Range Dropdown */}
-                <div className="filter-dropdown-group">
-                  <button
-                    type="button"
-                    onClick={() => toggleDropdown('time')}
-                    className={`filter-dropdown-btn ${timeFilter !== 'all' ? 'active-filter' : ''}`}
-                  >
-                    <Calendar size={13} />
-                    <span>{currentFilterLabel}</span>
-                    <ChevronDown size={13} style={{ transform: openDropdown === 'time' ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-                  </button>
-
-                  {openDropdown === 'time' && (
-                    <div className="filter-dropdown-menu">
-                      {filterOptions.map(opt => (
-                        <div
-                          key={opt.value}
-                          onClick={() => { setTimeFilter(opt.value); setOpenDropdown(null); }}
-                          className={`filter-dropdown-item ${timeFilter === opt.value ? 'selected' : ''}`}
-                        >
-                          {opt.label}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <DateRangeFilter
+                  value={timeFilter}
+                  onChange={handleTimeFilterChange}
+                  customRange={customRange}
+                  onCustomRangeChange={handleCustomRangeChange}
+                  minWidth="145px"
+                  align="left"
+                />
 
                 {/* 2. Platform Dropdown */}
                 <div className="filter-dropdown-group">
@@ -612,8 +666,8 @@ export const BrandDetailPage = () => {
                   <span className="active-filter-label">Active:</span>
                   {timeFilter !== 'all' && (
                     <span className="active-filter-tag">
-                      <span>Date: {currentFilterLabel}</span>
-                      <button type="button" onClick={() => setTimeFilter('all')}><X size={12} /></button>
+                      <span>Date: {timeFilter === 'custom' ? `${customRange.start || 'Start'} to ${customRange.end || 'End'}` : (DATE_PRESETS.find(p => p.id === timeFilter)?.label || timeFilter)}</span>
+                      <button type="button" onClick={() => handleTimeFilterChange('all')}><X size={12} /></button>
                     </span>
                   )}
                   {platformFilter !== 'all' && (
@@ -713,16 +767,16 @@ export const BrandDetailPage = () => {
                       <thead>
                         <tr>
                           <th style={{ width: '40px' }}></th>
-                          <th>Linked Product</th>
-                          <th>Channel & Page</th>
-                          <th>Format</th>
-                          <th>Published Date</th>
-                          <th>Engagement</th>
+                          <SortableHeader label="Linked Product" sortKey="product_name" currentSort={sortConfig} onSort={requestSort} />
+                          <SortableHeader label="Channel & Page" sortKey="channel" currentSort={sortConfig} onSort={requestSort} />
+                          <SortableHeader label="Format" sortKey="format" currentSort={sortConfig} onSort={requestSort} />
+                          <SortableHeader label="Published Date" sortKey="published_time" currentSort={sortConfig} onSort={requestSort} defaultDirection="desc" />
+                          <SortableHeader label="Engagement" sortKey="engagement" currentSort={sortConfig} onSort={requestSort} defaultDirection="desc" />
                           <th style={{ textAlign: 'right' }}>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredPosts.map((post) => (
+                        {sortedPosts.map((post) => (
                           <tr key={post.id} style={{ backgroundColor: selectedPosts.includes(post.id) ? '#f8fafc' : 'transparent' }}>
                             <td data-label="Select">
                               <div
@@ -817,7 +871,7 @@ export const BrandDetailPage = () => {
 
                   {/* MOBILE CARD VIEW */}
                   <div className="mobile-only" style={{ padding: '0 0 16px 0', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {filteredPosts.map((post) => (
+                    {sortedPosts.map((post) => (
                       <div key={`mob-${post.id}`} style={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
                         {/* Header */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
@@ -923,8 +977,10 @@ export const BrandDetailPage = () => {
         onClose={() => setShowExportModal(false)}
         posts={filteredPosts}
         brandName={detail?.brand_name}
-        startMonth={exportStart}
-        endMonth={exportEnd}
+        pageName={exportPageName}
+        dateRangeText={exportDateRange.label}
+        startMonth={exportDateRange.start}
+        endMonth={exportDateRange.end}
         clientLogo={detail?.logo_url || detail?.image_url}
       />
       {/* Compare Modal */}

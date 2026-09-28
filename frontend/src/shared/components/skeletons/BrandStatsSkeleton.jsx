@@ -9,10 +9,10 @@ const BRAND_STAGGER = [
   { nameWidth: '125px', revWidth: '80px', spendWidth: '72px', profitWidth: '78px', roiWidth: '52px' }
 ];
 
-export const BrandStatsTopBannerSkeleton = () => {
+export const BrandStatsTopBannerSkeleton = ({ count = 5 }) => {
   return (
     <div className="card stat-card-group" style={{ display: 'flex' }}>
-      {[1, 2, 3, 4].map((i) => (
+      {Array.from({ length: count }).map((_, i) => (
         <React.Fragment key={`brand-stat-skel-${i}`}>
           <div className="stat-item" style={{ flex: 1 }}>
             <div className="stat-header">
@@ -21,7 +21,7 @@ export const BrandStatsTopBannerSkeleton = () => {
             </div>
             <Skeleton width="60px" height={26} style={{ marginTop: 8 }} />
           </div>
-          {i < 4 && <div className="stat-divider" />}
+          {i < count - 1 && <div className="stat-divider" />}
         </React.Fragment>
       ))}
     </div>
@@ -47,38 +47,27 @@ export const BrandStatsTableSkeleton = ({ rowCount = 8 }) => {
               </div>
             </td>
 
-            {/* Posts / Products */}
-            <td data-label="Posts / Products" style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Skeleton width={12} height={12} borderRadius={2} />
-                  <Skeleton width="55px" height={14} borderRadius={3} />
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Skeleton width={12} height={12} borderRadius={2} />
-                  <Skeleton width="70px" height={13} borderRadius={3} />
-                </div>
+            {/* Posts */}
+            <td data-label="Posts" style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Skeleton width={14} height={14} borderRadius={3} />
+                <Skeleton width="60px" height={15} borderRadius={3} />
               </div>
             </td>
 
-            {/* Revenue */}
-            <td data-label="Revenue" style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', textAlign: 'right' }}>
+            {/* Views */}
+            <td data-label="Views" style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', textAlign: 'right' }}>
               <Skeleton width={s.revWidth} height={16} borderRadius={4} style={{ marginLeft: 'auto' }} />
             </td>
 
-            {/* Spend */}
-            <td data-label="Spend" style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', textAlign: 'right' }}>
+            {/* Reach */}
+            <td data-label="Reach" style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', textAlign: 'right' }}>
               <Skeleton width={s.spendWidth} height={16} borderRadius={4} style={{ marginLeft: 'auto' }} />
             </td>
 
-            {/* ROI */}
-            <td data-label="ROI" style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', textAlign: 'center' }}>
-              <Skeleton width={s.roiWidth} height={24} borderRadius={12} style={{ margin: '0 auto' }} />
-            </td>
-
-            {/* Net Profit */}
-            <td data-label="Net Profit" style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', textAlign: 'right' }}>
-              <Skeleton width={s.profitWidth} height={16} borderRadius={4} style={{ marginLeft: 'auto' }} />
+            {/* Engagement */}
+            <td data-label="Engagement" style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', textAlign: 'right' }}>
+              <Skeleton width={s.profitWidth} height={20} borderRadius={6} style={{ marginLeft: 'auto' }} />
             </td>
 
             {/* Actions */}

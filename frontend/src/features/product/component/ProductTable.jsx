@@ -1,9 +1,20 @@
 import React from 'react';
 import { Tag, CheckCircle2, AlertTriangle, XCircle, Share2, Layers } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { SortableHeader } from '../../../shared/components/ui/SortableHeader';
+import { useSortableTable } from '../../../shared/hooks/useSortableTable';
 
 export const ProductTable = ({ products }) => {
   const navigate = useNavigate();
+
+  const { sortedItems, sortConfig, requestSort } = useSortableTable(
+    products,
+    { key: 'product_name', direction: 'asc' },
+    {
+      unit_price: (p) => Number(p.unit_price) || 0,
+      on_hand_qty: (p) => Number(p.on_hand_qty) || 0,
+    }
+  );
 
   const getStockBadge = (qty) => {
     if (qty > 20) {
@@ -33,17 +44,17 @@ export const ProductTable = ({ products }) => {
         <thead>
           <tr>
             <th style={{ width: '60px' }}>Item</th>
-            <th>Product Name</th>
-            <th>SKU / Code</th>
-            <th>Category</th>
-            <th>Unit Price</th>
-            <th>On Hand</th>
-            <th>Stock Status</th>
+            <SortableHeader label="Product Name" sortKey="product_name" currentSort={sortConfig} onSort={requestSort} />
+            <SortableHeader label="SKU / Code" sortKey="product_code" currentSort={sortConfig} onSort={requestSort} />
+            <SortableHeader label="Category" sortKey="category_name" currentSort={sortConfig} onSort={requestSort} />
+            <SortableHeader label="Unit Price" sortKey="unit_price" currentSort={sortConfig} onSort={requestSort} align="right" defaultDirection="desc" />
+            <SortableHeader label="On Hand" sortKey="on_hand_qty" currentSort={sortConfig} onSort={requestSort} align="right" defaultDirection="desc" />
+            <SortableHeader label="Stock Status" sortKey="on_hand_qty" currentSort={sortConfig} onSort={requestSort} />
             <th style={{ textAlign: 'right' }}>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {products.map((product) => (
+          {sortedItems.map((product) => (
             <tr key={product.product_id}>
               <td>
                 <img 
@@ -94,7 +105,7 @@ export const ProductTable = ({ products }) => {
               </td>
             </tr>
           ))}
-          {products.length === 0 && (
+          {sortedItems.length === 0 && (
             <tr>
               <td colSpan="8" style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
                 No products found matching your filters.

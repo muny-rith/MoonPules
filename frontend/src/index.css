@@ -1114,3 +1114,28 @@ a {
     background-position: -200% 0;
   }
 }
+
+/* ==========================================================================
+   Sortable Table Headers
+   ========================================================================== */
+.sortable-th {
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.sortable-th:hover {
+  background-color: #f1f5f9 !important;
+}
+
+.sortable-th:hover .sort-icon-badge.inactive {
+  color: #475569 !important;
+  background-color: rgba(148, 163, 184, 0.15) !important;
+}
+
+.sortable-th.sorted-active {
+  background-color: #f8fafc;
+}
+
+.sortable-th:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: -2px;
+}
