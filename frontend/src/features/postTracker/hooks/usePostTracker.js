@@ -2,18 +2,24 @@ import { useState, useEffect } from 'react';
 import * as api from '../api/postTrackerApi';
 
 export const usePostTracker = () => {
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const initialPosts = api.getCachedPosts();
+  const [posts, setPosts] = useState(() => initialPosts || []);
+  const [loading, setLoading] = useState(() => !initialPosts);
   const [error, setError] = useState(null);
 
-  const loadPosts = async () => {
+  const loadPosts = async (force = false) => {
     try {
-      setLoading(true);
-      const data = await api.fetchPosts();
+      const hasCached = !!api.getCachedPosts();
+      if (!hasCached || force) {
+        setLoading(true);
+      }
+      const data = await api.fetchPosts(force);
       setPosts(data);
       setError(null);
     } catch (err) {
-      setError(err.message);
+      if (!api.getCachedPosts()) {
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -22,7 +28,7 @@ export const usePostTracker = () => {
   const addPost = async (postData) => {
     try {
       const newPost = await api.createPost(postData);
-      await loadPosts();
+      await loadPosts(true);
       return newPost;
     } catch (err) {
       throw err;
@@ -32,7 +38,7 @@ export const usePostTracker = () => {
   const updatePost = async (id, data) => {
     try {
       const updated = await api.updatePostData(id, data);
-      await loadPosts(); // Refresh to get the new product_image and name
+      await loadPosts(true); // Refresh to get the new product_image and name
       return updated;
     } catch (err) {
       throw err;
@@ -52,7 +58,7 @@ export const usePostTracker = () => {
     try {
       setLoading(true);
       await api.syncPosts();
-      await loadPosts();
+      await loadPosts(true);
     } catch (err) {
       setError(err.message);
       setLoading(false);

@@ -7,7 +7,12 @@ import {
 } from 'lucide-react';
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 import { BrandDetailHeroSkeleton, BrandDetailKpisSkeleton, BrandDetailAnalyticsSkeleton } from '../../../shared/components/skeletons';
-import { getBrandDetail } from '../services/brandStatsService';
+import {
+  getBrandDetail,
+  getCombinedBrandDetail,
+  getCachedBrandDetail,
+  clearBrandCache
+} from '../services/brandStatsService';
 import { BrandInsightsChart } from '../components/BrandInsightsChart';
 import { syncPosts } from '../../postTracker/api/postTrackerApi';
 import { ExportModal } from '../components/ExportModal';
@@ -20,8 +25,15 @@ export const BrandDetailPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [detail, setDetail] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Compute cache key for instant initial render
+  const idsParam = searchParams.get('ids');
+  const initialCacheKey = (id === 'combined' || idsParam)
+    ? `combined_${(idsParam ? idsParam.split(',').filter(Boolean) : [id]).sort().join(',')}`
+    : id;
+
+  const initialCached = getCachedBrandDetail(initialCacheKey);
+  const [detail, setDetail] = useState(() => initialCached || null);
+  const [loading, setLoading] = useState(() => !initialCached);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPosts, setSelectedPosts] = useState([]);
@@ -157,55 +169,29 @@ export const BrandDetailPage = () => {
     : (availableProducts.find(p => p.id === String(productFilter))?.name || 'Selected Product');
   const currentFormatLabel = formatOptions.find(f => f.value === formatFilter)?.label || 'All Formats';
 
-  const fetchDetail = async () => {
+  const fetchDetail = async (force = false) => {
     try {
-      setLoading(true);
       const idsParam = searchParams.get('ids');
+      const currentCacheKey = (id === 'combined' || idsParam)
+        ? `combined_${(idsParam ? idsParam.split(',').filter(Boolean) : [id]).sort().join(',')}`
+        : id;
+      const currentCache = getCachedBrandDetail(currentCacheKey);
+
+      if (!currentCache || force) {
+        setLoading(true);
+      }
 
       if (id === 'combined' || idsParam) {
         const brandIds = idsParam ? idsParam.split(',').filter(Boolean) : [id];
         if (brandIds.length === 1 && brandIds[0] !== 'combined') {
-          const data = await getBrandDetail(brandIds[0]);
+          const data = await getBrandDetail(brandIds[0], force);
           setDetail(data);
         } else {
-          // Fetch details for all selected brands in parallel
-          const allDetails = await Promise.all(brandIds.map(bId => getBrandDetail(bId)));
-          const validDetails = allDetails.filter(Boolean);
-
-          if (validDetails.length === 0) {
-            throw new Error('No brand details found for selected IDs');
-          }
-
-          // Combine brand details
-          const combinedDetail = {
-            brand_id: 'combined',
-            brand_name: validDetails.map(d => d.brand_name).filter(Boolean).join(' & '),
-            image_url: validDetails[0]?.image_url || validDetails[0]?.logo_url,
-            logo_url: validDetails[0]?.logo_url || validDetails[0]?.image_url,
-            logos: validDetails.map(d => ({
-              id: d.brand_id,
-              name: d.brand_name,
-              url: d.logo_url || d.image_url
-            })),
-            total_products: validDetails.reduce((sum, d) => sum + (d.total_products || 0), 0),
-            total_posts: validDetails.reduce((sum, d) => sum + (d.total_posts || 0), 0),
-            total_likes: validDetails.reduce((sum, d) => sum + (d.total_likes || 0), 0),
-            total_comments: validDetails.reduce((sum, d) => sum + (d.total_comments || 0), 0),
-            total_shares: validDetails.reduce((sum, d) => sum + (d.total_shares || 0), 0),
-            total_views: validDetails.reduce((sum, d) => sum + (d.total_views || 0), 0),
-            total_reach: validDetails.reduce((sum, d) => sum + (d.total_reach || 0), 0),
-            products: validDetails.flatMap(d => d.products || []),
-            posts: validDetails.flatMap(d => (d.posts || []).map(p => ({
-              ...p,
-              brand_name: p.brand_name || d.brand_name,
-              brand_id: p.brand_id || d.brand_id
-            }))),
-          };
-
-          setDetail(combinedDetail);
+          const combinedData = await getCombinedBrandDetail(brandIds, force);
+          setDetail(combinedData);
         }
       } else {
-        const data = await getBrandDetail(id);
+        const data = await getBrandDetail(id, force);
         if (data && data.posts) {
           data.posts = data.posts.map(p => ({
             ...p,
@@ -217,7 +203,13 @@ export const BrandDetailPage = () => {
       }
       setError(null);
     } catch (err) {
-      setError(err.message || 'Failed to fetch brand details');
+      const idsParam = searchParams.get('ids');
+      const currentCacheKey = (id === 'combined' || idsParam)
+        ? `combined_${(idsParam ? idsParam.split(',').filter(Boolean) : [id]).sort().join(',')}`
+        : id;
+      if (!getCachedBrandDetail(currentCacheKey)) {
+        setError(err.message || 'Failed to fetch brand details');
+      }
     } finally {
       setLoading(false);
     }
@@ -227,7 +219,8 @@ export const BrandDetailPage = () => {
     try {
       setIsSyncing(true);
       await syncPosts();
-      await fetchDetail();
+      clearBrandCache();
+      await fetchDetail(true);
     } catch (err) {
       console.error('Failed to sync posts', err);
     } finally {

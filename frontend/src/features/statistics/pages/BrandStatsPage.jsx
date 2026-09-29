@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { BarChart2, Eye, Tag, Search, Layers, TrendingUp, Heart, RotateCcw, Flame } from 'lucide-react';
 import { BrandStatsTopBannerSkeleton, BrandStatsTableSkeleton, BrandStatsMobileSkeleton } from '../../../shared/components/skeletons';
-import { getBrandStats } from '../services/brandStatsService';
+import { getBrandStats, getCachedBrandStats } from '../services/brandStatsService';
 import { SortableHeader } from '../../../shared/components/ui/SortableHeader';
 import { useSortableTable } from '../../../shared/hooks/useSortableTable';
 import { DateRangeFilter, isPostInDateRange } from '../../../shared/components/ui/DateRangeFilter';
@@ -10,8 +10,9 @@ import { DateRangeFilter, isPostInDateRange } from '../../../shared/components/u
 export const BrandStatsPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [brands, setBrands] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const initialCached = getCachedBrandStats();
+  const [brands, setBrands] = useState(() => initialCached || []);
+  const [loading, setLoading] = useState(() => !initialCached);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState(() => searchParams.get('range') || 'all');
@@ -105,20 +106,33 @@ export const BrandStatsPage = () => {
   };
 
   useEffect(() => {
+    let isMounted = true;
     const fetchStats = async () => {
-      try {
+      const hasCached = !!getCachedBrandStats();
+      if (!hasCached) {
         setLoading(true);
+      }
+      try {
         const data = await getBrandStats();
-        setBrands(data || []);
-        setError(null);
+        if (isMounted) {
+          setBrands(data || []);
+          setError(null);
+        }
       } catch (err) {
-        setError(err.message || 'Failed to fetch brand statistics');
+        if (isMounted && !hasCached) {
+          setError(err.message || 'Failed to fetch brand statistics');
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchStats();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Dynamically compute social performance metrics per brand based on selected date range

@@ -1,11 +1,35 @@
 import apiClient from '../../../shared/utils/apiClient';
 
-export const fetchPosts = async () => {
+// In-memory cache for Post Tracker
+let postsCache = null;
+let postsCacheTimestamp = 0;
+const POSTS_TTL = 2 * 60 * 1000; // 2 minutes
+
+export const getCachedPosts = () => {
+  if (postsCache && Date.now() - postsCacheTimestamp < POSTS_TTL) {
+    return postsCache;
+  }
+  return null;
+};
+
+export const clearPostsCache = () => {
+  postsCache = null;
+  postsCacheTimestamp = 0;
+};
+
+export const fetchPosts = async (forceRefresh = false) => {
+  if (!forceRefresh) {
+    const cached = getCachedPosts();
+    if (cached) return cached;
+  }
   const response = await apiClient.get('/post-tracker');
+  postsCache = response.data;
+  postsCacheTimestamp = Date.now();
   return response.data;
 };
 
 export const createPost = async (data) => {
+  clearPostsCache();
   const response = await apiClient.post('/post-tracker', data);
   return response.data;
 };
@@ -31,21 +55,25 @@ export const fetchRecentPosts = async (pageId) => {
 };
 
 export const deletePost = async (id) => {
+  clearPostsCache();
   const response = await apiClient.delete(`/post-tracker/${id}`);
   return response.data;
 };
 
 export const updatePostData = async (id, data) => {
+  clearPostsCache();
   const response = await apiClient.put(`/post-tracker/${id}`, data);
   return response.data;
 };
 
 export const syncPosts = async () => {
+  clearPostsCache();
   const response = await apiClient.post('/post-tracker/sync');
   return response.data;
 };
 
 export const publishPostNow = async (id) => {
+  clearPostsCache();
   const response = await apiClient.post(`/post-tracker/${id}/publish-now`);
   return response.data;
 };

@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import * as productService from '../services/productService';
 
 export const useProducts = () => {
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const initialProds = productService.getCachedProducts();
+  const initialCats = productService.getCachedProductCategories();
+  const [products, setProducts] = useState(() => initialProds || []);
+  const [categories, setCategories] = useState(() => initialCats || []);
+  const [loading, setLoading] = useState(() => !initialProds);
   const [error, setError] = useState(null);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -12,23 +14,33 @@ export const useProducts = () => {
   const [stockFilter, setStockFilter] = useState('all'); // 'all' | 'in_stock' | 'low_stock' | 'out_of_stock'
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (force = false) => {
     try {
-      setLoading(true);
+      const hasCached = !!productService.getCachedProducts();
+      if (!hasCached || force) {
+        setLoading(true);
+      }
       setError(null);
       const [prodsData, catsData] = await Promise.all([
-        productService.fetchProducts(),
-        productService.fetchProductCategories()
+        productService.fetchProducts({}, force),
+        productService.fetchProductCategories(force)
       ]);
       setProducts(prodsData || []);
       setCategories(catsData || []);
     } catch (err) {
       console.error('Failed to load products:', err);
-      setError(err?.response?.data?.error || err.message || 'Failed to fetch products');
+      if (!productService.getCachedProducts()) {
+        setError(err?.response?.data?.error || err.message || 'Failed to fetch products');
+      }
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const reload = useCallback(() => {
+    productService.clearProductCache();
+    return loadData(true);
+  }, [loadData]);
 
   useEffect(() => {
     loadData();
@@ -93,6 +105,6 @@ export const useProducts = () => {
     viewMode,
     setViewMode,
     stats,
-    reload: loadData,
+    reload,
   };
 };
