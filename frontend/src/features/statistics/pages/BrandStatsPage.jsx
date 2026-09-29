@@ -54,6 +54,43 @@ export const BrandStatsPage = () => {
     setSearchParams({}, { replace: true });
   };
 
+  const [selectedBrandIds, setSelectedBrandIds] = useState([]);
+
+  const handleToggleBrand = (brandId) => {
+    const idStr = String(brandId || 'unbranded');
+    setSelectedBrandIds((prev) =>
+      prev.includes(idStr) ? prev.filter((id) => id !== idStr) : [...prev, idStr]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedBrandIds.length === sortedBrands.length) {
+      setSelectedBrandIds([]);
+    } else {
+      setSelectedBrandIds(sortedBrands.map((b) => String(b.brand_id || 'unbranded')));
+    }
+  };
+
+  const handleViewCombined = () => {
+    if (selectedBrandIds.length === 0) return;
+    const params = new URLSearchParams();
+    if (dateFilter !== 'all') {
+      params.set('range', dateFilter);
+      if (dateFilter === 'custom') {
+        if (customRange.start) params.set('start', customRange.start);
+        if (customRange.end) params.set('end', customRange.end);
+      }
+    }
+
+    if (selectedBrandIds.length === 1) {
+      const q = params.toString() ? `?${params.toString()}` : '';
+      navigate(`/stats/brands/${selectedBrandIds[0]}${q}`);
+    } else {
+      params.set('ids', selectedBrandIds.join(','));
+      navigate(`/stats/brands/combined?${params.toString()}`);
+    }
+  };
+
   const handleNavigateToBrand = (brandId) => {
     const params = new URLSearchParams();
     if (dateFilter !== 'all') {
@@ -287,6 +324,15 @@ export const BrandStatsPage = () => {
           <table className="custom-table">
             <thead>
               <tr>
+                <th style={{ width: '44px', textAlign: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={sortedBrands.length > 0 && selectedBrandIds.length === sortedBrands.length}
+                    onChange={handleSelectAll}
+                    style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#3b82f6' }}
+                    title="Select All"
+                  />
+                </th>
                 <SortableHeader label="Brand Name" sortKey="brand_name" currentSort={sortConfig} onSort={requestSort} />
                 <SortableHeader label="Posts" sortKey="posts_count" currentSort={sortConfig} onSort={requestSort} defaultDirection="desc" />
                 <SortableHeader label="Views" sortKey="views_count" currentSort={sortConfig} onSort={requestSort} align="right" defaultDirection="desc" />
@@ -298,71 +344,86 @@ export const BrandStatsPage = () => {
             <tbody>
               {loading ? (
                 <BrandStatsTableSkeleton rowCount={5} />
-              ) : sortedBrands.map((brand) => (
-                <tr key={brand.brand_id || 'unbranded'}>
-                  <td data-label="Brand Name">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <div style={{ width: '48px', height: '48px', borderRadius: '6px', overflow: 'hidden', flexShrink: 0, border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <img
-                          src={brand.logo_url || brand.image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(brand.brand_name || 'Brand')}&background=e0e7ff&color=3730a3&bold=true&size=128`}
-                          alt={brand.brand_name}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
+              ) : sortedBrands.map((brand) => {
+                const bIdStr = String(brand.brand_id || 'unbranded');
+                const isSelected = selectedBrandIds.includes(bIdStr);
+                return (
+                  <tr
+                    key={bIdStr}
+                    style={{ backgroundColor: isSelected ? '#f8faff' : undefined, transition: 'background-color 0.15s ease' }}
+                  >
+                    <td style={{ width: '44px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleToggleBrand(brand.brand_id)}
+                        style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#3b82f6' }}
+                      />
+                    </td>
+                    <td data-label="Brand Name">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ width: '48px', height: '48px', borderRadius: '6px', overflow: 'hidden', flexShrink: 0, border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <img
+                            src={brand.logo_url || brand.image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(brand.brand_name || 'Brand')}&background=e0e7ff&color=3730a3&bold=true&size=128`}
+                            alt={brand.brand_name}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        </div>
+                        <div className="product-table-name-wrap">
+                          <span className="product-table-name">
+                            {brand.brand_name}
+                          </span>
+                        </div>
                       </div>
-                      <div className="product-table-name-wrap">
-                        <span className="product-table-name">
-                          {brand.brand_name}
-                        </span>
-                      </div>
-                    </div>
-                  </td>
-                  <td data-label="Posts">
-                    <span className="product-table-qty" style={{ color: 'var(--color-primary)', fontWeight: 'bold' }}>
-                      <BarChart2 size={12} style={{ marginRight: '4px' }} />
-                      {brand.posts_count} posts
-                    </span>
-                  </td>
-                  <td data-label="Views" style={{ textAlign: 'right', fontWeight: 600, color: 'var(--text-main)' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
-                      <Eye size={12} style={{ color: '#6366f1' }} />
-                      {(brand.views_count || 0).toLocaleString()}
-                    </span>
-                  </td>
-                  <td data-label="Reach" style={{ textAlign: 'right', fontWeight: 600, color: 'var(--text-muted)' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
-                      <TrendingUp size={12} style={{ color: '#10b981' }} />
-                      {(brand.reach_count || 0).toLocaleString()}
-                    </span>
-                  </td>
-                  <td data-label="Engagement" style={{ textAlign: 'right' }}>
-                    <span style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '4px 8px',
-                      borderRadius: '6px',
-                      backgroundColor: (brand.engagement_count || 0) > 0 ? '#fdf2f8' : '#f8fafc',
-                      color: (brand.engagement_count || 0) > 0 ? '#db2777' : '#94a3b8',
-                      fontWeight: 600
-                    }}>
-                      <Heart size={12} />
-                      {(brand.engagement_count || 0).toLocaleString()}
-                    </span>
-                  </td>
-                  <td data-label="Actions" style={{ textAlign: 'right' }}>
-                    <button
-                      className="btn-primary-soft"
-                      onClick={() => handleNavigateToBrand(brand.brand_id)}
-                    >
-                      <Eye size={12} />
-                      <span>View</span>
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td data-label="Posts">
+                      <span className="product-table-qty" style={{ color: 'var(--color-primary)', fontWeight: 'bold' }}>
+                        <BarChart2 size={12} style={{ marginRight: '4px' }} />
+                        {brand.posts_count} posts
+                      </span>
+                    </td>
+                    <td data-label="Views" style={{ textAlign: 'right', fontWeight: 600, color: 'var(--text-main)' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
+                        <Eye size={12} style={{ color: '#6366f1' }} />
+                        {(brand.views_count || 0).toLocaleString()}
+                      </span>
+                    </td>
+                    <td data-label="Reach" style={{ textAlign: 'right', fontWeight: 600, color: 'var(--text-muted)' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
+                        <TrendingUp size={12} style={{ color: '#10b981' }} />
+                        {(brand.reach_count || 0).toLocaleString()}
+                      </span>
+                    </td>
+                    <td data-label="Engagement" style={{ textAlign: 'right' }}>
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        backgroundColor: (brand.engagement_count || 0) > 0 ? '#fdf2f8' : '#f8fafc',
+                        color: (brand.engagement_count || 0) > 0 ? '#db2777' : '#94a3b8',
+                        fontWeight: 600
+                      }}>
+                        <Heart size={12} />
+                        {(brand.engagement_count || 0).toLocaleString()}
+                      </span>
+                    </td>
+                    <td data-label="Actions" style={{ textAlign: 'right' }}>
+                      <button
+                        className="btn-primary-soft"
+                        onClick={() => handleNavigateToBrand(brand.brand_id)}
+                      >
+                        <Eye size={12} />
+                        <span>View</span>
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
               {!loading && sortedBrands.length === 0 && (
                 <tr>
-                  <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
                     No brands found matching your criteria.
                   </td>
                 </tr>
@@ -375,53 +436,63 @@ export const BrandStatsPage = () => {
         <div className="mobile-only" style={{ padding: '0 0 16px 0', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {loading ? (
             <BrandStatsMobileSkeleton cardCount={3} />
-          ) : sortedBrands.map((brand) => (
-            <div key={`mob-${brand.brand_id || 'unbranded'}`} style={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-              {/* Header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                  <div style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, border: '1px solid #e2e8f0' }}>
-                    <img src={brand.logo_url || brand.image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(brand.brand_name || 'Brand')}&background=e0e7ff&color=3730a3&bold=true&size=128`} alt={brand.brand_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : sortedBrands.map((brand) => {
+            const bIdStr = String(brand.brand_id || 'unbranded');
+            const isSelected = selectedBrandIds.includes(bIdStr);
+            return (
+              <div key={`mob-${bIdStr}`} style={{ backgroundColor: 'white', border: isSelected ? '2px solid #3b82f6' : '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => handleToggleBrand(brand.brand_id)}
+                      style={{ cursor: 'pointer', width: '18px', height: '18px', accentColor: '#3b82f6' }}
+                    />
+                    <div style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, border: '1px solid #e2e8f0' }}>
+                      <img src={brand.logo_url || brand.image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(brand.brand_name || 'Brand')}&background=e0e7ff&color=3730a3&bold=true&size=128`} alt={brand.brand_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '16px' }}>{brand.brand_name}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Metrics Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                  <div>
+                    <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Posts</div>
+                    <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--color-primary)' }}>{brand.posts_count?.toLocaleString() || '0'}</div>
                   </div>
                   <div>
-                    <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '16px' }}>{brand.brand_name}</div>
+                    <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Views</div>
+                    <div style={{ fontSize: '15px', fontWeight: 600, color: '#6366f1' }}>{(brand.views_count || 0).toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Reach</div>
+                    <div style={{ fontSize: '15px', fontWeight: 600, color: '#10b981' }}>{(brand.reach_count || 0).toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Engagement</div>
+                    <div style={{ fontSize: '15px', fontWeight: 600, color: '#db2777' }}>{(brand.engagement_count || 0).toLocaleString()}</div>
                   </div>
                 </div>
-              </div>
 
-              {/* Metrics Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                <div>
-                  <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Posts</div>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--color-primary)' }}>{brand.posts_count?.toLocaleString() || '0'}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Views</div>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#6366f1' }}>{(brand.views_count || 0).toLocaleString()}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Reach</div>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#10b981' }}>{(brand.reach_count || 0).toLocaleString()}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Engagement</div>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#db2777' }}>{(brand.engagement_count || 0).toLocaleString()}</div>
+                {/* Footer */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
+                  <button
+                    className="btn-primary-soft"
+                    style={{ width: '100%', justifyContent: 'center', padding: '10px' }}
+                    onClick={() => handleNavigateToBrand(brand.brand_id)}
+                  >
+                    <Eye size={14} style={{ marginRight: '6px' }} />
+                    <span>View Details</span>
+                  </button>
                 </div>
               </div>
-
-              {/* Footer */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
-                <button
-                  className="btn-primary-soft"
-                  style={{ width: '100%', justifyContent: 'center', padding: '10px' }}
-                  onClick={() => handleNavigateToBrand(brand.brand_id)}
-                >
-                  <Eye size={14} style={{ marginRight: '6px' }} />
-                  <span>View Details</span>
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
           {!loading && sortedBrands.length === 0 && (
             <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
               No brands found matching your criteria.
@@ -429,6 +500,80 @@ export const BrandStatsPage = () => {
           )}
         </div>
       </div>
+
+      {/* FLOATING ACTION BAR FOR MULTI-SELECT */}
+      {selectedBrandIds.length > 0 && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          backgroundColor: '#0f172a',
+          color: 'white',
+          padding: '12px 24px',
+          borderRadius: '16px',
+          boxShadow: '0 12px 32px rgba(15, 23, 42, 0.35)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '20px',
+          zIndex: 1000,
+          maxWidth: '92vw',
+          border: '1px solid rgba(255, 255, 255, 0.1)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{
+              backgroundColor: '#3b82f6',
+              color: 'white',
+              borderRadius: '20px',
+              padding: '2px 10px',
+              fontSize: '12px',
+              fontWeight: '700'
+            }}>
+              {selectedBrandIds.length}
+            </span>
+            <span style={{ fontSize: '14px', fontWeight: '600', whiteSpace: 'nowrap' }}>
+              {selectedBrandIds.length === 1 ? '1 Brand Selected' : `${selectedBrandIds.length} Brands Selected`}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              onClick={handleViewCombined}
+              style={{
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                padding: '9px 18px',
+                borderRadius: '8px',
+                fontWeight: '600',
+                fontSize: '13px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <Layers size={15} />
+              <span>{selectedBrandIds.length > 1 ? 'View Combined Detail' : 'View Detail'}</span>
+            </button>
+
+            <button
+              onClick={() => setSelectedBrandIds([])}
+              style={{
+                backgroundColor: 'transparent',
+                color: '#94a3b8',
+                border: 'none',
+                padding: '8px 12px',
+                fontSize: '13px',
+                fontWeight: '500',
+                cursor: 'pointer'
+              }}
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

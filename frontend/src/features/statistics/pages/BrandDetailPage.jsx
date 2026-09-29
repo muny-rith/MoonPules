@@ -160,8 +160,50 @@ export const BrandDetailPage = () => {
   const fetchDetail = async () => {
     try {
       setLoading(true);
-      const data = await getBrandDetail(id);
-      setDetail(data);
+      const idsParam = searchParams.get('ids');
+
+      if (id === 'combined' || idsParam) {
+        const brandIds = idsParam ? idsParam.split(',').filter(Boolean) : [id];
+        if (brandIds.length === 1 && brandIds[0] !== 'combined') {
+          const data = await getBrandDetail(brandIds[0]);
+          setDetail(data);
+        } else {
+          // Fetch details for all selected brands in parallel
+          const allDetails = await Promise.all(brandIds.map(bId => getBrandDetail(bId)));
+          const validDetails = allDetails.filter(Boolean);
+
+          if (validDetails.length === 0) {
+            throw new Error('No brand details found for selected IDs');
+          }
+
+          // Combine brand details
+          const combinedDetail = {
+            brand_id: 'combined',
+            brand_name: validDetails.map(d => d.brand_name).filter(Boolean).join(' & '),
+            image_url: validDetails[0]?.image_url || validDetails[0]?.logo_url,
+            logo_url: validDetails[0]?.logo_url || validDetails[0]?.image_url,
+            logos: validDetails.map(d => ({
+              id: d.brand_id,
+              name: d.brand_name,
+              url: d.logo_url || d.image_url
+            })),
+            total_products: validDetails.reduce((sum, d) => sum + (d.total_products || 0), 0),
+            total_posts: validDetails.reduce((sum, d) => sum + (d.total_posts || 0), 0),
+            total_likes: validDetails.reduce((sum, d) => sum + (d.total_likes || 0), 0),
+            total_comments: validDetails.reduce((sum, d) => sum + (d.total_comments || 0), 0),
+            total_shares: validDetails.reduce((sum, d) => sum + (d.total_shares || 0), 0),
+            total_views: validDetails.reduce((sum, d) => sum + (d.total_views || 0), 0),
+            total_reach: validDetails.reduce((sum, d) => sum + (d.total_reach || 0), 0),
+            products: validDetails.flatMap(d => d.products || []),
+            posts: validDetails.flatMap(d => d.posts || []),
+          };
+
+          setDetail(combinedDetail);
+        }
+      } else {
+        const data = await getBrandDetail(id);
+        setDetail(data);
+      }
       setError(null);
     } catch (err) {
       setError(err.message || 'Failed to fetch brand details');
@@ -184,7 +226,7 @@ export const BrandDetailPage = () => {
 
   useEffect(() => {
     fetchDetail();
-  }, [id]);
+  }, [id, searchParams.get('ids')]);
 
   const resetAllFilters = () => {
     setTimeFilter('all');
@@ -416,7 +458,7 @@ export const BrandDetailPage = () => {
           <ArrowLeft size={18} />
         </button>
         <div className="page-breadcrumb" style={{ margin: 0 }}>
-          <span style={{ cursor: 'pointer' }} onClick={handleBackToBrands}>Brands</span> / <span style={{ color: 'var(--text-main)', fontWeight: 500 }}>Detail</span>
+          <span style={{ cursor: 'pointer' }} onClick={handleBackToBrands}>Brands</span> / <span style={{ color: 'var(--text-main)', fontWeight: 500 }}>{id === 'combined' || (searchParams.get('ids') && searchParams.get('ids').includes(',')) ? 'Combined Detail' : 'Detail'}</span>
         </div>
       </div>
 
@@ -440,22 +482,45 @@ export const BrandDetailPage = () => {
 
               {/* Brand Info (Left) */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
-                <div style={{ padding: '8px', backgroundColor: 'white', borderRadius: '20px', boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0,0,0,0.02)' }}>
-                  <img
-                    src={detail.logo_url || detail.image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(detail.brand_name || 'Brand')}&background=e0e7ff&color=3730a3&bold=true&size=128`}
-                    alt={detail.brand_name}
-                    style={{ width: '84px', height: '84px', borderRadius: '14px', objectFit: 'cover' }}
-                  />
-                </div>
+                {detail.logos && detail.logos.length > 1 ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 14px', backgroundColor: 'white', borderRadius: '20px', boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0,0,0,0.02)' }}>
+                    {detail.logos.map((lg, idx) => (
+                      <React.Fragment key={idx}>
+                        {idx > 0 && (
+                          <div style={{ width: '1.5px', height: '32px', backgroundColor: '#cbd5e1', margin: '0 8px', borderRadius: '1px', flexShrink: 0 }} />
+                        )}
+                        <div style={{ width: '56px', height: '56px', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title={lg.name}>
+                          <img
+                            src={lg.url || `https://ui-avatars.com/api/?name=${encodeURIComponent(lg.name || 'Brand')}&background=e0e7ff&color=3730a3&bold=true&size=128`}
+                            alt={lg.name}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        </div>
+                      </React.Fragment>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ padding: '8px', backgroundColor: 'white', borderRadius: '20px', boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0,0,0,0.02)' }}>
+                    <img
+                      src={detail.logo_url || detail.image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(detail.brand_name || 'Brand')}&background=e0e7ff&color=3730a3&bold=true&size=128`}
+                      alt={detail.brand_name}
+                      style={{ width: '84px', height: '84px', borderRadius: '14px', objectFit: 'cover' }}
+                    />
+                  </div>
+                )}
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                     <h1 style={{ margin: 0, fontSize: '32px', fontWeight: '800', color: '#0f172a', letterSpacing: '-0.02em', lineHeight: 1 }}>
                       {detail.brand_name}
                     </h1>
-                    {detail.total_products > 0 && (
+                    {detail.logos && detail.logos.length > 1 ? (
+                      <span style={{ backgroundColor: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Combined ({detail.logos.length} Brands)
+                      </span>
+                    ) : detail.total_products > 0 ? (
                       <span style={{ backgroundColor: '#dcfce7', color: '#166534', padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active</span>
-                    )}
+                    ) : null}
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '20px', color: '#64748b', fontSize: '14px', fontWeight: '500', flexWrap: 'wrap', marginTop: '6px' }}>
@@ -982,6 +1047,7 @@ export const BrandDetailPage = () => {
         startMonth={exportDateRange.start}
         endMonth={exportDateRange.end}
         clientLogo={detail?.logo_url || detail?.image_url}
+        clientLogos={detail?.logos}
       />
       {/* Compare Modal */}
       {showCompareModal && selectedPosts.length === 2 && (() => {
