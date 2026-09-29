@@ -195,13 +195,24 @@ export const BrandDetailPage = () => {
             total_views: validDetails.reduce((sum, d) => sum + (d.total_views || 0), 0),
             total_reach: validDetails.reduce((sum, d) => sum + (d.total_reach || 0), 0),
             products: validDetails.flatMap(d => d.products || []),
-            posts: validDetails.flatMap(d => d.posts || []),
+            posts: validDetails.flatMap(d => (d.posts || []).map(p => ({
+              ...p,
+              brand_name: p.brand_name || d.brand_name,
+              brand_id: p.brand_id || d.brand_id
+            }))),
           };
 
           setDetail(combinedDetail);
         }
       } else {
         const data = await getBrandDetail(id);
+        if (data && data.posts) {
+          data.posts = data.posts.map(p => ({
+            ...p,
+            brand_name: p.brand_name || data.brand_name,
+            brand_id: p.brand_id || data.brand_id
+          }));
+        }
         setDetail(data);
       }
       setError(null);

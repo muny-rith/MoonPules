@@ -532,7 +532,7 @@ export const BrandStatsPage = () => {
               {selectedBrandIds.length}
             </span>
             <span style={{ fontSize: '14px', fontWeight: '600', whiteSpace: 'nowrap' }}>
-              {selectedBrandIds.length === 1 ? '1 Brand Selected' : `${selectedBrandIds.length} Brands Selected`}
+              {selectedBrandIds.length === 1 ? 'Brand Selected' : 'Brands Selected'}
             </span>
           </div>
 

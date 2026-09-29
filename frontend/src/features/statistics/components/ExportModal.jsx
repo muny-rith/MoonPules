@@ -10,14 +10,14 @@ import logo from "../../../assets/logo.png";
 const EXPORT_COLUMNS = [
     { key: 'media_type', label: 'Post Type' },
     { key: 'published_time', label: 'Date', format: 'date' },
-    { key: 'likes_count', label: 'Reaction' },
+    { key: 'likes_count', label: 'React' },
     { key: 'comments_count', label: 'Cmt' },
     { key: 'shares_count', label: 'Share' },
     { key: 'views_count', label: 'Views' },
     { key: 'reach_count', label: 'Reach' },
 ];
 
-const COLUMN_WIDTHS = ['18%', '18%', '12.8%', '12.8%', '12.8%', '12.8%', '12.8%'];
+const COLUMN_WIDTHS = ['28%', '17%', '9%', '8%', '8%', '15%', '15%'];
 
 const KHMER_MONTHS = ['មករា', 'កុម្ភៈ', 'មីនា', 'មេសា', 'ឧសភា', 'មិថុនា', 'កក្កដា', 'សីហា', 'កញ្ញា', 'តុលា', 'វិច្ឆិកា', 'ធ្នូ'];
 const formatDateKhmer = (dateString) => {
@@ -90,13 +90,20 @@ const getPeriodLabelForFilename = (startMonth, endMonth, dateRangeText, posts) =
     return `${SHORT_MONTHS[now.getMonth()]} ${now.getFullYear()}`;
 };
 
-const formatCell = (post, col) => {
+const formatCell = (post, col, isMultiBrand) => {
     if (col.key === 'media_type') {
         const m = (post.media_type || post.format || post.type || 'photo').toLowerCase();
-        if (m === 'video') return 'Video';
-        if (m === 'reel') return 'Reel';
-        if (m === 'live') return 'Live';
-        return 'Photo';
+        let typeStr = 'Photo';
+        if (m === 'video') typeStr = 'Video';
+        if (m === 'reel') typeStr = 'Reel';
+        if (m === 'live') typeStr = 'Live';
+        if (isMultiBrand) {
+            const bName = post.brand_name || post.product_name;
+            if (bName) {
+                return `${typeStr} (${bName})`;
+            }
+        }
+        return typeStr;
     }
     const raw = post[col.key];
     if (col.format === 'date') {
@@ -107,7 +114,7 @@ const formatCell = (post, col) => {
     return raw;
 };
 
-const prepareGroupData = (groupPosts) => {
+const prepareGroupData = (groupPosts, isMultiBrand) => {
     const sorted = [...groupPosts].sort((a, b) => {
         const isLiveA = (a.media_type || a.format || a.type || '').toLowerCase() === 'live' ? 1 : 0;
         const isLiveB = (b.media_type || b.format || b.type || '').toLowerCase() === 'live' ? 1 : 0;
@@ -142,7 +149,7 @@ const prepareGroupData = (groupPosts) => {
         total: calc(sorted)
     };
 
-    const rows = sorted.map((p) => EXPORT_COLUMNS.map((col) => formatCell(p, col)));
+    const rows = sorted.map((p) => EXPORT_COLUMNS.map((col) => formatCell(p, col, isMultiBrand)));
 
     const totalRow = EXPORT_COLUMNS.map((col) => {
         if (col.key === 'media_type' || col.key === 'product_name') return 'Total';
@@ -178,6 +185,13 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
             : (startMonth || endMonth || 'គ្រប់ពេលវេលា')
     );
 
+    const isMultiBrand = useMemo(() => {
+        if (clientLogos && clientLogos.length > 1) return true;
+        if (!posts || !Array.isArray(posts)) return false;
+        const brandNames = new Set(posts.map(p => p.brand_name).filter(Boolean));
+        return brandNames.size > 1;
+    }, [clientLogos, posts]);
+
     // Group posts by page: If filtered by All Pages, separate each Facebook page into its own group
     const pageGroups = useMemo(() => {
         if (!posts || !Array.isArray(posts) || posts.length === 0) return [];
@@ -203,9 +217,9 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
 
         return sortedGroups.map((grp) => ({
             ...grp,
-            ...prepareGroupData(grp.posts)
+            ...prepareGroupData(grp.posts, isMultiBrand)
         }));
-    }, [posts, pageName]);
+    }, [posts, pageName, isMultiBrand]);
 
     // Helper function to paginate long post lists cleanly into separate A4 sheets
     const splitGroupIntoPrintPages = (group) => {
@@ -282,8 +296,11 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
     const cleanBrandName = (brandName || 'Brand').replace(/[\\/:*?"<>|]/g, '').trim();
     const periodLabel = getPeriodLabelForFilename(startMonth, endMonth, dateRangeText, posts);
     const fileBaseName = `Report Digital_${cleanBrandName}_${periodLabel}`;
-    const headers = EXPORT_COLUMNS.map((c) => c.label);
-    const summaryHeaders = ['Post Type', 'Qty', 'Reaction', 'Cmt', 'Share', 'Views', 'Reach'];
+    const headers = EXPORT_COLUMNS.map((c) => {
+        if (c.key === 'media_type' && isMultiBrand) return 'Post Type / Brand';
+        return c.label;
+    });
+    const summaryHeaders = ['Post Type', 'Qty', 'React', 'Cmt', 'Share', 'Views', 'Reach'];
 
     const downloadCSV = () => {
         const escape = (v) => `"${String(v).replace(/"/g, '""')}"`;
@@ -372,6 +389,7 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
                 const canvas = await html2canvas(el, {
                     scale: 2,
                     useCORS: true,
+                    backgroundColor: '#ffffff',
                     logging: false,
                     scrollX: 0,
                     scrollY: 0,
@@ -383,7 +401,7 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
                     pdf.addPage();
                 }
 
-                pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, pageHeight);
+                pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, pageHeight, undefined, 'FAST');
             }
 
             pdf.save(`${fileBaseName}.pdf`);
@@ -510,7 +528,7 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
                                                             REPORT DIGITAL MARKETING
                                                         </h3>
                                                         <span>រយៈពេល ៖ {displayPeriod}</span>
-                                                        <span>ទិន្នន័យការផ្សាយនៅក្នុង page {group.name}</span>
+                                                        <span>ទិន្នន័យការផ្សាយនៅក្នុង page <strong style={{ fontWeight: 700, color: '#0f172a' }}>{group.name}</strong></span>
                                                     </div>
 
                                                     {/* Executive Summary - ONLY on First Page */}
@@ -585,7 +603,18 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
                                                     {subPage.rows.map((row, i) => (
                                                         <tr key={i}>
                                                             {row.map((cell, j) => (
-                                                                <td key={j}>{cell}</td>
+                                                                <td key={j} style={{ whiteSpace: 'nowrap' }}>
+                                                                    {j === 0 && typeof cell === 'string' && cell.includes(' (') && cell.endsWith(')') ? (
+                                                                        <span style={{ whiteSpace: 'nowrap' }}>
+                                                                            <span>{cell.split(' (')[0]}</span>{' '}
+                                                                            <strong style={{ fontWeight: 700, color: '#0f172a' }}>
+                                                                                ({cell.slice(cell.indexOf(' (') + 2, -1)})
+                                                                            </strong>
+                                                                        </span>
+                                                                    ) : (
+                                                                        cell
+                                                                    )}
+                                                                </td>
                                                             ))}
                                                         </tr>
                                                     ))}
@@ -656,180 +685,201 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
                 ref={pdfContainerRef}
                 style={{
                     position: 'fixed',
-                    left: '-99999px',
+                    left: '-9999px',
                     top: 0,
-                    opacity: 0,
                     pointerEvents: 'none',
                     zIndex: -9999,
                     width: '210mm',
                 }}
             >
-                    {pageGroups.map((group) => {
-                        const subPages = splitGroupIntoPrintPages(group);
-                        return subPages.map((subPage) => (
-                            <div
-                                key={`${group.id}_${subPage.subPageNumber}`}
-                                className="export-pdf-page-container"
-                                style={{
-                                    width: '210mm',
-                                    height: '297mm',
-                                    padding: '12mm 15mm',
-                                    backgroundColor: '#ffffff',
-                                    color: '#0f172a',
-                                    boxSizing: 'border-box',
-                                    marginBottom: '20px',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    justifyContent: 'flex-start',
-                                    overflow: 'hidden'
-                                }}
-                            >
-                                {subPage.isFirstPage && (
-                                    <>
-                                        <div className='logo' style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0px' }}>
-                                            {/* My Logo */}
-                                            <div style={{ width: '200px', display: 'flex', alignItems: 'center' }}>
-                                                <img src={logo} alt="My Logo" style={{ maxHeight: '85px', maxWidth: '100%', objectFit: 'contain' }} />
-                                            </div>
-
-                                            {/* Client Logo */}
-                                            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', minWidth: '240px', flex: 1 }}>
-                                                {clientLogos && clientLogos.length > 1 ? (
-                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'nowrap', gap: '8px' }}>
-                                                        {clientLogos.map((lg, idx) => (
-                                                            <React.Fragment key={lg.id || idx}>
-                                                                {idx > 0 && (
-                                                                    <div style={{
-                                                                        width: '1.5px',
-                                                                        height: '28px',
-                                                                        backgroundColor: '#cbd5e1',
-                                                                        margin: '0 14px',
-                                                                        borderRadius: '1px',
-                                                                        flexShrink: 0
-                                                                    }} />
-                                                                )}
-                                                                {lg.url ? (
-                                                                    <img
-                                                                        crossOrigin="anonymous"
-                                                                        src={lg.url}
-                                                                        alt={lg.name || 'Client Logo'}
-                                                                        style={{ maxHeight: '70px', maxWidth: '140px', objectFit: 'contain' }}
-                                                                    />
-                                                                ) : (
-                                                                    <span style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
-                                                                        {lg.name || 'Brand'}
-                                                                    </span>
-                                                                )}
-                                                            </React.Fragment>
-                                                        ))}
-                                                    </div>
-                                                ) : clientLogo ? (
-                                                    <img crossOrigin="anonymous" src={clientLogo} alt="Client Logo" style={{ maxHeight: '85px', maxWidth: '100%', objectFit: 'contain' }} />
-                                                ) : (
-                                                    <div style={{ border: '1px dashed #cbd5e1', padding: '6px 12px', color: '#94a3b8', fontSize: '12px', textAlign: 'center' }}>Client Logo</div>
-                                                )}
-                                            </div>
+                {pageGroups.map((group) => {
+                    const subPages = splitGroupIntoPrintPages(group);
+                    return subPages.map((subPage) => (
+                        <div
+                            key={`${group.id}_${subPage.subPageNumber}`}
+                            className="export-pdf-page-container"
+                            style={{
+                                width: '210mm',
+                                height: '297mm',
+                                padding: '12mm 15mm',
+                                backgroundColor: '#ffffff',
+                                color: '#0f172a',
+                                boxSizing: 'border-box',
+                                marginBottom: '20px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                justifyContent: 'flex-start',
+                                overflow: 'hidden'
+                            }}
+                        >
+                            {subPage.isFirstPage && (
+                                <>
+                                    <div className='logo' style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0px' }}>
+                                        {/* My Logo */}
+                                        <div style={{ width: '200px', display: 'flex', alignItems: 'center' }}>
+                                            <img src={logo} alt="My Logo" style={{ maxHeight: '85px', maxWidth: '100%', objectFit: 'contain' }} />
                                         </div>
 
-                                        <div className="export-preview-meta" style={{ textAlign: 'center', marginBottom: '20px' }}>
-                                            <h3 style={{ margin: '0 0 8px', fontSize: '28px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', textAlign: 'center' }}>
-                                                REPORT DIGITAL MARKETING
-                                            </h3>
-                                            <div style={{ marginBottom: '6px', fontSize: '13px', color: '#475569' }}>រយៈពេល ៖ {displayPeriod}</div>
-                                            <div style={{ fontSize: '13px', color: '#475569' }}>ទិន្នន័យការផ្សាយនៅក្នុង page {group.name}</div>
+                                        {/* Client Logo */}
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', minWidth: '240px', flex: 1 }}>
+                                            {clientLogos && clientLogos.length > 1 ? (
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'nowrap', gap: '8px' }}>
+                                                    {clientLogos.map((lg, idx) => (
+                                                        <React.Fragment key={lg.id || idx}>
+                                                            {idx > 0 && (
+                                                                <div style={{
+                                                                    width: '1.5px',
+                                                                    height: '28px',
+                                                                    backgroundColor: '#cbd5e1',
+                                                                    margin: '0 14px',
+                                                                    borderRadius: '1px',
+                                                                    flexShrink: 0
+                                                                }} />
+                                                            )}
+                                                            {lg.url ? (
+                                                                <img
+                                                                    crossOrigin="anonymous"
+                                                                    src={lg.url}
+                                                                    alt={lg.name || 'Client Logo'}
+                                                                    style={{ maxHeight: '70px', maxWidth: '140px', objectFit: 'contain' }}
+                                                                    onError={(e) => {
+                                                                        e.currentTarget.style.display = 'none';
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <span style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+                                                                    {lg.name || 'Brand'}
+                                                                </span>
+                                                            )}
+                                                        </React.Fragment>
+                                                    ))}
+                                                </div>
+                                            ) : clientLogo ? (
+                                                <img
+                                                    crossOrigin="anonymous"
+                                                    src={clientLogo}
+                                                    alt="Client Logo"
+                                                    style={{ maxHeight: '85px', maxWidth: '100%', objectFit: 'contain' }}
+                                                    onError={(e) => {
+                                                        e.currentTarget.style.display = 'none';
+                                                    }}
+                                                />
+                                            ) : (
+                                                <div style={{ border: '1px dashed #cbd5e1', padding: '6px 12px', color: '#94a3b8', fontSize: '12px', textAlign: 'center' }}>Client Logo</div>
+                                            )}
                                         </div>
+                                    </div>
 
-                                        {/* Executive Summary - ONLY on First Page */}
-                                        {subPage.showSummary && (
-                                            <div style={{ marginBottom: '24px' }}>
-                                                <h4 style={{ margin: '0 0 10px', fontSize: '14px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                    Executive Summary
-                                                </h4>
-                                                <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '11px', marginBottom: '8px' }}>
-                                                    <colgroup>
-                                                        {COLUMN_WIDTHS.map((w, idx) => (
-                                                            <col key={idx} style={{ width: w }} />
+                                    <div className="export-preview-meta" style={{ textAlign: 'center', marginBottom: '20px' }}>
+                                        <h3 style={{ margin: '0 0 8px', fontSize: '28px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', textAlign: 'center' }}>
+                                            REPORT DIGITAL MARKETING
+                                        </h3>
+                                        <div style={{ marginBottom: '6px', fontSize: '13px', color: '#475569' }}>រយៈពេល ៖ {displayPeriod}</div>
+                                        <div style={{ fontSize: '13px', color: '#475569' }}>ទិន្នន័យការផ្សាយនៅក្នុង page <strong style={{ fontWeight: 700, color: '#0f172a' }}>{group.name}</strong></div>
+                                    </div>
+
+                                    {/* Executive Summary - ONLY on First Page */}
+                                    {subPage.showSummary && (
+                                        <div style={{ marginBottom: '24px' }}>
+                                            <h4 style={{ margin: '0 0 10px', fontSize: '14px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                Executive Summary
+                                            </h4>
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '11px', marginBottom: '8px' }}>
+                                                <colgroup>
+                                                    {COLUMN_WIDTHS.map((w, idx) => (
+                                                        <col key={idx} style={{ width: w }} />
+                                                    ))}
+                                                </colgroup>
+                                                <thead>
+                                                    <tr>
+                                                        {summaryHeaders.map((h) => (
+                                                            <th key={h} style={{ backgroundColor: '#0f172a', color: 'white', padding: '6px 8px', textAlign: 'left', fontSize: '12px' }}>{h}</th>
                                                         ))}
-                                                    </colgroup>
-                                                    <thead>
-                                                        <tr>
-                                                            {summaryHeaders.map((h) => (
-                                                                <th key={h} style={{ backgroundColor: '#0f172a', color: 'white', padding: '6px 8px', textAlign: 'left', fontSize: '12px' }}>{h}</th>
-                                                            ))}
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                                                            <td style={{ padding: '5px 8px', color: '#2b384bff', fontWeight: 500 }}>Regular Posts</td>
-                                                            <td style={{ padding: '5px 8px', color: '#2b384bff', fontWeight: 600 }}>{group.regularPosts.length}</td>
-                                                            {group.summaryMetrics.regular.map((val, idx) => (
-                                                                <td key={idx} style={{ padding: '5px 8px', color: '#2b384bff' }}>{val}</td>
-                                                            ))}
-                                                        </tr>
-                                                        <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                                                            <td style={{ padding: '5px 8px', color: '#2b384bff', fontWeight: 500 }}>Live Stream</td>
-                                                            <td style={{ padding: '5px 8px', color: '#2b384bff', fontWeight: 600 }}>{group.livePosts.length}</td>
-                                                            {group.summaryMetrics.live.map((val, idx) => (
-                                                                <td key={idx} style={{ padding: '5px 8px', color: '#2b384bff' }}>{val}</td>
-                                                            ))}
-                                                        </tr>
-                                                    </tbody>
-                                                    <tfoot>
-                                                        <tr style={{ borderTop: '2px solid #0f172a', fontWeight: 'bold', backgroundColor: '#f8fafc' }}>
-                                                            <td style={{ padding: '6px 8px', color: '#0f172a' }}>Total</td>
-                                                            <td style={{ padding: '6px 8px', color: '#0f172a' }}>{group.sortedPosts.length}</td>
-                                                            {group.summaryMetrics.total.map((val, idx) => (
-                                                                <td key={idx} style={{ padding: '6px 8px', color: '#0f172a' }}>{val}</td>
-                                                            ))}
-                                                        </tr>
-                                                    </tfoot>
-                                                </table>
-                                            </div>
-                                        )}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                                        <td style={{ padding: '5px 8px', color: '#2b384bff', fontWeight: 500 }}>Regular Posts</td>
+                                                        <td style={{ padding: '5px 8px', color: '#2b384bff', fontWeight: 600 }}>{group.regularPosts.length}</td>
+                                                        {group.summaryMetrics.regular.map((val, idx) => (
+                                                            <td key={idx} style={{ padding: '5px 8px', color: '#2b384bff' }}>{val}</td>
+                                                        ))}
+                                                    </tr>
+                                                    <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                                        <td style={{ padding: '5px 8px', color: '#2b384bff', fontWeight: 500 }}>Live Stream</td>
+                                                        <td style={{ padding: '5px 8px', color: '#2b384bff', fontWeight: 600 }}>{group.livePosts.length}</td>
+                                                        {group.summaryMetrics.live.map((val, idx) => (
+                                                            <td key={idx} style={{ padding: '5px 8px', color: '#2b384bff' }}>{val}</td>
+                                                        ))}
+                                                    </tr>
+                                                </tbody>
+                                                <tfoot>
+                                                    <tr style={{ borderTop: '2px solid #0f172a', fontWeight: 'bold', backgroundColor: '#f8fafc' }}>
+                                                        <td style={{ padding: '6px 8px', color: '#0f172a' }}>Total</td>
+                                                        <td style={{ padding: '6px 8px', color: '#0f172a' }}>{group.sortedPosts.length}</td>
+                                                        {group.summaryMetrics.total.map((val, idx) => (
+                                                            <td key={idx} style={{ padding: '6px 8px', color: '#0f172a' }}>{val}</td>
+                                                        ))}
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    )}
 
-                                        {/* Detailed Posts Header */}
-                                        <h4 style={{ margin: '0 0 10px', fontSize: '14px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                            Detailed Posts
-                                        </h4>
-                                    </>
-                                )}
+                                    {/* Detailed Posts Header */}
+                                    <h4 style={{ margin: '0 0 10px', fontSize: '14px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                        Detailed Posts
+                                    </h4>
+                                </>
+                            )}
 
-                                <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '11px' }}>
-                                    <colgroup>
-                                        {COLUMN_WIDTHS.map((w, idx) => (
-                                            <col key={idx} style={{ width: w }} />
+                            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '11px' }}>
+                                <colgroup>
+                                    {COLUMN_WIDTHS.map((w, idx) => (
+                                        <col key={idx} style={{ width: w }} />
+                                    ))}
+                                </colgroup>
+                                <thead>
+                                    <tr>
+                                        {headers.map((h) => (
+                                            <th key={h} style={{ backgroundColor: '#0f172a', color: 'white', padding: '6px 8px', textAlign: 'left', fontSize: '12px', whiteSpace: 'nowrap' }}>{h}</th>
                                         ))}
-                                    </colgroup>
-                                    <thead>
-                                        <tr>
-                                            {headers.map((h) => (
-                                                <th key={h} style={{ backgroundColor: '#0f172a', color: 'white', padding: '6px 8px', textAlign: 'left', fontSize: '12px' }}>{h}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {subPage.rows.map((row, i) => (
+                                        <tr key={i} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                            {row.map((cell, j) => (
+                                                <td key={j} style={{ padding: '5.5px 8px', color: '#2b384bff', whiteSpace: 'nowrap' }}>
+                                                    {j === 0 && typeof cell === 'string' && cell.includes(' (') && cell.endsWith(')') ? (
+                                                        <span style={{ whiteSpace: 'nowrap' }}>
+                                                            <span>{cell.split(' (')[0]}</span>{' '}
+                                                            <strong style={{ fontWeight: 700, color: '#0f172a' }}>
+                                                                ({cell.slice(cell.indexOf(' (') + 2, -1)})
+                                                            </strong>
+                                                        </span>
+                                                    ) : (
+                                                        cell
+                                                    )}
+                                                </td>
                                             ))}
                                         </tr>
-                                    </thead>
-                                    <tbody>
-                                        {subPage.rows.map((row, i) => (
-                                            <tr key={i} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                                                {row.map((cell, j) => (
-                                                    <td key={j} style={{ padding: '5.5px 8px', color: '#2b384bff' }}>{cell}</td>
-                                                ))}
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                    {subPage.showTotal && (
-                                        <tfoot>
-                                            <tr style={{ borderTop: '2px solid #0f172a', fontWeight: 'bold', backgroundColor: '#f8fafc' }}>
-                                                {group.totalRow.map((cell, j) => (
-                                                    <td key={j} style={{ padding: '6px 8px', color: '#0f172a' }}>{cell}</td>
-                                                ))}
-                                            </tr>
-                                        </tfoot>
-                                    )}
-                                </table>
-                            </div>
-                        ));
-                    })}
-                </div>
+                                    ))}
+                                </tbody>
+                                {subPage.showTotal && (
+                                    <tfoot>
+                                        <tr style={{ borderTop: '2px solid #0f172a', fontWeight: 'bold', backgroundColor: '#f8fafc' }}>
+                                            {group.totalRow.map((cell, j) => (
+                                                <td key={j} style={{ padding: '6px 8px', color: '#0f172a' }}>{cell}</td>
+                                            ))}
+                                        </tr>
+                                    </tfoot>
+                                )}
+                            </table>
+                        </div>
+                    ));
+                })}
+            </div>
         </div>
     );
 };
