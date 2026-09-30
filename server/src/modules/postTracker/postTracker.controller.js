@@ -4,8 +4,40 @@ const { syncPostStatus } = require('../../jobs/syncPostStatus.job');
 
 const getPosts = async (req, res, next) => {
   try {
-    const posts = await service.listPosts();
+    const { range, startDate, endDate, timezone, status, platform, pageId, brandId, search, limit, offset } = req.query;
+    const posts = await service.listPosts({
+      range,
+      startDate,
+      endDate,
+      timezone,
+      status,
+      platform,
+      pageId,
+      brandId,
+      search,
+      limit,
+      offset
+    });
     res.json(posts);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getSummary = async (req, res, next) => {
+  try {
+    const { range, startDate, endDate, timezone, status, platform, pageId, brandId } = req.query;
+    const summary = await service.getPostsSummary({
+      range,
+      startDate,
+      endDate,
+      timezone,
+      status,
+      platform,
+      pageId,
+      brandId
+    });
+    res.json(summary);
   } catch (error) {
     next(error);
   }
@@ -127,6 +159,7 @@ const triggerSync = async (req, res, next) => {
 
 module.exports = {
   getPosts,
+  getSummary,
   getPostById,
   createPost,
   publishNow,

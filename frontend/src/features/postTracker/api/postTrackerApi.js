@@ -1,30 +1,50 @@
 import apiClient from '../../../shared/utils/apiClient';
 
-// In-memory cache for Post Tracker
-let postsCache = null;
-let postsCacheTimestamp = 0;
+// In-memory cache for Post Tracker keyed by filter parameters
+const postsCache = new Map();
 const POSTS_TTL = 2 * 60 * 1000; // 2 minutes
 
-export const getCachedPosts = () => {
-  if (postsCache && Date.now() - postsCacheTimestamp < POSTS_TTL) {
-    return postsCache;
+const getCacheKey = (params = {}) => {
+  return JSON.stringify(params);
+};
+
+export const getCachedPosts = (params = {}) => {
+  const key = getCacheKey(params);
+  const item = postsCache.get(key);
+  if (item && Date.now() - item.timestamp < POSTS_TTL) {
+    return item.data;
   }
   return null;
 };
 
 export const clearPostsCache = () => {
-  postsCache = null;
-  postsCacheTimestamp = 0;
+  postsCache.clear();
 };
 
-export const fetchPosts = async (forceRefresh = false) => {
-  if (!forceRefresh) {
-    const cached = getCachedPosts();
+export const fetchPosts = async (params = {}, forceRefresh = false) => {
+  // If first argument is a boolean, support legacy call fetchPosts(forceRefresh)
+  let actualParams = params;
+  let force = forceRefresh;
+  if (typeof params === 'boolean') {
+    force = params;
+    actualParams = {};
+  }
+
+  if (!force) {
+    const cached = getCachedPosts(actualParams);
     if (cached) return cached;
   }
-  const response = await apiClient.get('/post-tracker');
-  postsCache = response.data;
-  postsCacheTimestamp = Date.now();
+
+  const response = await apiClient.get('/post-tracker', { params: actualParams });
+  postsCache.set(getCacheKey(actualParams), {
+    data: response.data,
+    timestamp: Date.now()
+  });
+  return response.data;
+};
+
+export const fetchPostsSummary = async (params = {}) => {
+  const response = await apiClient.get('/post-tracker/summary', { params });
   return response.data;
 };
 

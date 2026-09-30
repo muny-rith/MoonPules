@@ -2,11 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Calendar, ChevronDown, Check, Clock, Sparkles, ArrowRight, X } from 'lucide-react';
 
 export const DATE_PRESETS = [
-  { id: 'all', label: 'All Time', icon: Sparkles, badge: 'All' },
-  { id: 'today', label: 'Today', icon: Clock, badge: '1D' },
-  { id: 'this_week', label: 'This Week', icon: Calendar, badge: 'Week' },
   { id: 'this_month', label: 'This Month', icon: Calendar, badge: 'Month' },
+  { id: 'this_week', label: 'This Week', icon: Calendar, badge: 'Week' },
+  { id: 'today', label: 'Today', icon: Clock, badge: '1D' },
   { id: 'last_month', label: 'Last Month', icon: Calendar, badge: 'Prev' },
+  { id: 'all', label: 'All Time', icon: Sparkles, badge: 'All' },
 ];
 
 /**
@@ -88,12 +88,13 @@ export const isPostInDateRange = (post, filterKey, customStart, customEnd) => {
 };
 
 export const DateRangeFilter = ({
-  value = 'all',
+  value = 'this_month',
   onChange,
   customRange = { start: '', end: '' },
   onCustomRangeChange,
   minWidth = '145px',
   align = 'auto', // 'auto' | 'left' | 'right'
+  defaultPreset = 'this_month',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [localStart, setLocalStart] = useState(customRange.start || '');
@@ -161,13 +162,13 @@ export const DateRangeFilter = ({
     if (onCustomRangeChange) {
       onCustomRangeChange({ start: '', end: '' });
     }
-    onChange('all');
+    onChange(defaultPreset);
     setIsOpen(false);
   };
 
   // Determine current display label
   const selectedPreset = DATE_PRESETS.find((p) => p.id === value);
-  let displayLabel = selectedPreset?.label || 'All Time';
+  let displayLabel = selectedPreset?.label || 'This Month';
   if (value === 'custom') {
     if (customRange.start && customRange.end) {
       displayLabel = `${customRange.start} → ${customRange.end}`;
@@ -180,7 +181,7 @@ export const DateRangeFilter = ({
     }
   }
 
-  const isFiltered = value !== 'all';
+  const isFiltered = value !== defaultPreset || !!(customRange.start || customRange.end);
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>

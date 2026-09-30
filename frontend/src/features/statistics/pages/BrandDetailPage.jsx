@@ -43,7 +43,7 @@ export const BrandDetailPage = () => {
 
   // Multi-Filter States
   const [openDropdown, setOpenDropdown] = useState(null); // 'platform' | 'page' | 'product' | 'format' | null
-  const [timeFilter, setTimeFilter] = useState(() => searchParams.get('range') || 'all');
+  const [timeFilter, setTimeFilter] = useState(() => searchParams.get('range') || 'this_month');
   const [customRange, setCustomRange] = useState(() => ({
     start: searchParams.get('start') || '',
     end: searchParams.get('end') || ''
@@ -56,7 +56,7 @@ export const BrandDetailPage = () => {
 
   // Keep state synced if URL searchParams change
   useEffect(() => {
-    const range = searchParams.get('range') || 'all';
+    const range = searchParams.get('range') || 'this_month';
     const start = searchParams.get('start') || '';
     const end = searchParams.get('end') || '';
     setTimeFilter(range);
@@ -66,7 +66,7 @@ export const BrandDetailPage = () => {
   const handleTimeFilterChange = (newVal) => {
     setTimeFilter(newVal);
     const params = new URLSearchParams(searchParams);
-    if (newVal === 'all') {
+    if (newVal === 'this_month') {
       params.delete('range');
       params.delete('start');
       params.delete('end');
@@ -171,11 +171,18 @@ export const BrandDetailPage = () => {
 
   const fetchDetail = async (force = false) => {
     try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Phnom_Penh';
+      const filterParams = {
+        range: timeFilter,
+        startDate: customRange.start || undefined,
+        endDate: customRange.end || undefined,
+        timezone: tz
+      };
       const idsParam = searchParams.get('ids');
       const currentCacheKey = (id === 'combined' || idsParam)
         ? `combined_${(idsParam ? idsParam.split(',').filter(Boolean) : [id]).sort().join(',')}`
         : id;
-      const currentCache = getCachedBrandDetail(currentCacheKey);
+      const currentCache = getCachedBrandDetail(currentCacheKey, filterParams);
 
       if (!currentCache || force) {
         setLoading(true);
@@ -184,14 +191,14 @@ export const BrandDetailPage = () => {
       if (id === 'combined' || idsParam) {
         const brandIds = idsParam ? idsParam.split(',').filter(Boolean) : [id];
         if (brandIds.length === 1 && brandIds[0] !== 'combined') {
-          const data = await getBrandDetail(brandIds[0], force);
+          const data = await getBrandDetail(brandIds[0], filterParams, force);
           setDetail(data);
         } else {
           const combinedData = await getCombinedBrandDetail(brandIds, force);
           setDetail(combinedData);
         }
       } else {
-        const data = await getBrandDetail(id, force);
+        const data = await getBrandDetail(id, filterParams, force);
         if (data && data.posts) {
           data.posts = data.posts.map(p => ({
             ...p,
@@ -203,11 +210,18 @@ export const BrandDetailPage = () => {
       }
       setError(null);
     } catch (err) {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Phnom_Penh';
+      const filterParams = {
+        range: timeFilter,
+        startDate: customRange.start || undefined,
+        endDate: customRange.end || undefined,
+        timezone: tz
+      };
       const idsParam = searchParams.get('ids');
       const currentCacheKey = (id === 'combined' || idsParam)
         ? `combined_${(idsParam ? idsParam.split(',').filter(Boolean) : [id]).sort().join(',')}`
         : id;
-      if (!getCachedBrandDetail(currentCacheKey)) {
+      if (!getCachedBrandDetail(currentCacheKey, filterParams)) {
         setError(err.message || 'Failed to fetch brand details');
       }
     } finally {
@@ -230,10 +244,10 @@ export const BrandDetailPage = () => {
 
   useEffect(() => {
     fetchDetail();
-  }, [id, searchParams.get('ids')]);
+  }, [id, searchParams.get('ids'), timeFilter, customRange.start, customRange.end]);
 
   const resetAllFilters = () => {
-    setTimeFilter('all');
+    setTimeFilter('this_month');
     setCustomRange({ start: '', end: '' });
     setPlatformFilter('all');
     setPageFilter('all');

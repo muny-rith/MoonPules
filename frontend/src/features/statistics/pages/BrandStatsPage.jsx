@@ -15,7 +15,7 @@ export const BrandStatsPage = () => {
   const [loading, setLoading] = useState(() => !initialCached);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [dateFilter, setDateFilter] = useState(() => searchParams.get('range') || 'all');
+  const [dateFilter, setDateFilter] = useState(() => searchParams.get('range') || 'this_month');
   const [customRange, setCustomRange] = useState(() => ({
     start: searchParams.get('start') || '',
     end: searchParams.get('end') || ''
@@ -24,7 +24,7 @@ export const BrandStatsPage = () => {
   const handleDateFilterChange = (newVal) => {
     setDateFilter(newVal);
     const params = new URLSearchParams(searchParams);
-    if (newVal === 'all') {
+    if (newVal === 'this_month') {
       params.delete('range');
       params.delete('start');
       params.delete('end');
@@ -49,7 +49,7 @@ export const BrandStatsPage = () => {
   };
 
   const handleResetFilters = () => {
-    setDateFilter('all');
+    setDateFilter('this_month');
     setCustomRange({ start: '', end: '' });
     setSearchTerm('');
     setSearchParams({}, { replace: true });
@@ -108,12 +108,19 @@ export const BrandStatsPage = () => {
   useEffect(() => {
     let isMounted = true;
     const fetchStats = async () => {
-      const hasCached = !!getCachedBrandStats();
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Phnom_Penh';
+      const params = {
+        range: dateFilter,
+        startDate: customRange.start || undefined,
+        endDate: customRange.end || undefined,
+        timezone: tz
+      };
+      const hasCached = !!getCachedBrandStats(params);
       if (!hasCached) {
         setLoading(true);
       }
       try {
-        const data = await getBrandStats();
+        const data = await getBrandStats(params);
         if (isMounted) {
           setBrands(data || []);
           setError(null);
@@ -133,7 +140,7 @@ export const BrandStatsPage = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [dateFilter, customRange.start, customRange.end]);
 
   // Dynamically compute social performance metrics per brand based on selected date range
   const brandsWithCalculatedMetrics = useMemo(() => {

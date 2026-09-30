@@ -4,11 +4,15 @@ import api from '../../../shared/utils/apiClient';
 const brandCache = new Map();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache lifetime
 
+const getCacheKey = (prefix, params = {}) => {
+  return `${prefix}_${JSON.stringify(params)}`;
+};
+
 /**
  * Retrieve cached brand stats if valid
  */
-export const getCachedBrandStats = () => {
-  const item = brandCache.get('brand_stats');
+export const getCachedBrandStats = (params = {}) => {
+  const item = brandCache.get(getCacheKey('brand_stats', params));
   if (item && Date.now() - item.timestamp < CACHE_TTL_MS) {
     return item.data;
   }
@@ -18,8 +22,8 @@ export const getCachedBrandStats = () => {
 /**
  * Retrieve cached brand detail by ID or combined key if valid
  */
-export const getCachedBrandDetail = (key) => {
-  const cacheKey = `brand_detail_${key}`;
+export const getCachedBrandDetail = (key, params = {}) => {
+  const cacheKey = getCacheKey(`brand_detail_${key}`, params);
   const item = brandCache.get(cacheKey);
   if (item && Date.now() - item.timestamp < CACHE_TTL_MS) {
     return item.data;
@@ -37,29 +41,48 @@ export const clearBrandCache = () => {
 /**
  * Fetch all brand statistics (served from memory cache if fresh, otherwise from API)
  */
-export const getBrandStats = async (forceRefresh = false) => {
-  if (!forceRefresh) {
-    const cached = getCachedBrandStats();
-    if (cached) return cached;
+export const getBrandStats = async (params = {}, forceRefresh = false) => {
+  let actualParams = params;
+  let force = forceRefresh;
+  if (typeof params === 'boolean') {
+    force = params;
+    actualParams = {};
   }
 
-  const response = await api.get('/statistics/brands');
+  const cacheKey = getCacheKey('brand_stats', actualParams);
+  if (!force) {
+    const cached = brandCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      return cached.data;
+    }
+  }
+
+  const response = await api.get('/statistics/brands', { params: actualParams });
   const data = response.data.data;
-  brandCache.set('brand_stats', { data, timestamp: Date.now() });
+  brandCache.set(cacheKey, { data, timestamp: Date.now() });
   return data;
 };
 
 /**
  * Fetch single brand detail with caching
  */
-export const getBrandDetail = async (id, forceRefresh = false) => {
-  const cacheKey = `brand_detail_${id}`;
-  if (!forceRefresh) {
-    const cached = getCachedBrandDetail(id);
-    if (cached) return cached;
+export const getBrandDetail = async (id, params = {}, forceRefresh = false) => {
+  let actualParams = params;
+  let force = forceRefresh;
+  if (typeof params === 'boolean') {
+    force = params;
+    actualParams = {};
   }
 
-  const response = await api.get(`/statistics/brands/${id}`);
+  const cacheKey = getCacheKey(`brand_detail_${id}`, actualParams);
+  if (!force) {
+    const cached = brandCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      return cached.data;
+    }
+  }
+
+  const response = await api.get(`/statistics/brands/${id}`, { params: actualParams });
   const data = response.data.data;
   brandCache.set(cacheKey, { data, timestamp: Date.now() });
   return data;

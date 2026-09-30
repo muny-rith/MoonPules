@@ -3,9 +3,44 @@ const facebookService = require('../facebook/facebook.service');
 const productsService = require('../products/products.service');
 const publishScheduler = require('./publishScheduler.service');
 const storageService = require('../storage/supabaseStorage.service');
+const { getDateRangeBounds } = require('../../utils/filterUtils');
 
-const listPosts = async () => {
-  const posts = await repository.getAllTrackedPosts();
+const listPosts = async (filters = {}) => {
+  const {
+    range,
+    startDate,
+    endDate,
+    timezone,
+    status,
+    platform,
+    pageId,
+    brandId,
+    search,
+    limit,
+    offset
+  } = filters;
+
+  let computedStart = startDate;
+  let computedEnd = endDate;
+
+  if (range && range !== 'all') {
+    const bounds = getDateRangeBounds(range, timezone, startDate, endDate);
+    if (bounds.start) computedStart = bounds.start.toISOString();
+    if (bounds.end) computedEnd = bounds.end.toISOString();
+  }
+
+  const posts = await repository.getAllTrackedPosts({
+    startDate: computedStart,
+    endDate: computedEnd,
+    status,
+    platform,
+    pageId,
+    brandId,
+    search,
+    limit,
+    offset
+  });
+
   const products = await productsService.listProducts();
   const brands = await productsService.listBrands();
 
@@ -37,6 +72,27 @@ const listPosts = async () => {
       brand_image: brandImage,
       tracking_type: isBrandTracking ? 'brand' : 'product',
     };
+  });
+};
+
+const getPostsSummary = async (filters = {}) => {
+  const { range, startDate, endDate, timezone, status, platform, pageId, brandId } = filters;
+  let computedStart = startDate;
+  let computedEnd = endDate;
+
+  if (range && range !== 'all') {
+    const bounds = getDateRangeBounds(range, timezone, startDate, endDate);
+    if (bounds.start) computedStart = bounds.start.toISOString();
+    if (bounds.end) computedEnd = bounds.end.toISOString();
+  }
+
+  return await repository.getTrackedPostsSummary({
+    startDate: computedStart,
+    endDate: computedEnd,
+    status,
+    platform,
+    pageId,
+    brandId
   });
 };
 
@@ -377,6 +433,7 @@ const updatePostCosts = async (id, contentCost, adSpend) => {
 
 module.exports = {
   listPosts,
+  getPostsSummary,
   getPostById,
   createAndSchedulePost,
   markPost,

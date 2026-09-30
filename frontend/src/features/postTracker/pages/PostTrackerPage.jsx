@@ -4,7 +4,7 @@ import { PostStatusBadge } from '../components/PostStatusBadge';
 import { InsightPanel } from '../components/InsightPanel';
 import { DeleteConfirmModal } from '../components/DeleteConfirmModal';
 import { PublishConfirmModal } from '../components/PublishConfirmModal';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { POST_STATUS } from '../constants';
 import { Search, Filter, Calendar, ExternalLink, RefreshCw, BarChart2, DollarSign, Image as ImageIcon, Heart, MessageCircle, Share2, Edit2, Trash2, ChevronLeft, ChevronRight, Users, ChevronDown, Eye, TrendingUp, Send, Award, RotateCcw, Check, Sparkles, X } from 'lucide-react';
 import { FaFacebook, FaTiktok, FaInstagram } from 'react-icons/fa';
@@ -162,7 +162,25 @@ const FilterDropdown = ({ icon: Icon, value, options, onChange, minWidth = '130p
 
 export const PostTrackerPage = () => {
   const navigate = useNavigate();
-  const { posts, loading, error, updatePost, deletePost, publishNow, reload, triggerSync } = usePostTracker();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlRange = searchParams.get('range') || 'this_month';
+  const urlStart = searchParams.get('start') || '';
+  const urlEnd = searchParams.get('end') || '';
+
+  const [dateFilter, setDateFilter] = useState(urlRange);
+  const [customDateRange, setCustomDateRange] = useState({ start: urlStart, end: urlEnd });
+
+  const queryParams = useMemo(() => {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Phnom_Penh';
+    return {
+      range: dateFilter,
+      startDate: customDateRange.start || undefined,
+      endDate: customDateRange.end || undefined,
+      timezone: tz
+    };
+  }, [dateFilter, customDateRange]);
+
+  const { posts, loading, error, updatePost, deletePost, publishNow, reload, triggerSync } = usePostTracker(queryParams);
   const [publishingId, setPublishingId] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [postToDelete, setPostToDelete] = useState(null);
@@ -170,11 +188,42 @@ export const PostTrackerPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [platformFilter, setPlatformFilter] = useState('all');
-  const [dateFilter, setDateFilter] = useState('all');
-  const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [postsProfit, setPostsProfit] = useState({});
+
+  useEffect(() => {
+    reload(queryParams);
+  }, [queryParams, reload]);
+
+  const handleDateFilterChange = (newVal) => {
+    setDateFilter(newVal);
+    setCurrentPage(1);
+    const params = new URLSearchParams(searchParams);
+    if (newVal === 'this_month') {
+      params.delete('range');
+      params.delete('start');
+      params.delete('end');
+    } else {
+      params.set('range', newVal);
+      if (newVal !== 'custom') {
+        params.delete('start');
+        params.delete('end');
+      }
+    }
+    setSearchParams(params, { replace: true });
+  };
+
+  const handleCustomRangeChange = (range) => {
+    setCustomDateRange(range);
+    setCurrentPage(1);
+    const params = new URLSearchParams(searchParams);
+    if (range.start) params.set('start', range.start);
+    else params.delete('start');
+    if (range.end) params.set('end', range.end);
+    else params.delete('end');
+    setSearchParams(params, { replace: true });
+  };
 
   const handlePostClick = (post) => {
     if (post.status === POST_STATUS.PUBLISHED) {
@@ -202,7 +251,8 @@ export const PostTrackerPage = () => {
   useEffect(() => {
     const fetchProfit = async () => {
       try {
-        const res = await api.get('/profit/dashboard?range=all');
+        const rangeParam = dateFilter === 'all' ? 'all' : dateFilter;
+        const res = await api.get(`/profit/dashboard?range=${rangeParam}`);
         if (res.data && res.data.data && res.data.data.all_posts_profit) {
           const profitMap = {};
           res.data.data.all_posts_profit.forEach(p => {
@@ -217,7 +267,7 @@ export const PostTrackerPage = () => {
     if (posts && posts.length > 0) {
       fetchProfit();
     }
-  }, [posts]);
+  }, [posts, dateFilter]);
 
   const filteredPosts = useMemo(() => {
     if (!posts) return [];
@@ -253,15 +303,16 @@ export const PostTrackerPage = () => {
     });
   }, [posts, searchTerm, statusFilter, platformFilter, dateFilter, customDateRange]);
 
-  const isAnyFilterActive = searchTerm !== '' || statusFilter !== 'all' || platformFilter !== 'all' || dateFilter !== 'all';
+  const isAnyFilterActive = searchTerm !== '' || statusFilter !== 'all' || platformFilter !== 'all' || dateFilter !== 'this_month' || customDateRange.start !== '' || customDateRange.end !== '';
 
   const resetAllFilters = () => {
     setSearchTerm('');
     setStatusFilter('all');
     setPlatformFilter('all');
-    setDateFilter('all');
+    setDateFilter('this_month');
     setCustomDateRange({ start: '', end: '' });
     setCurrentPage(1);
+    setSearchParams({}, { replace: true });
   };
 
   const customAccessors = useMemo(() => ({
@@ -400,9 +451,9 @@ export const PostTrackerPage = () => {
             />
             <DateRangeFilter
               value={dateFilter}
-              onChange={(val) => { setDateFilter(val); setCurrentPage(1); }}
+              onChange={handleDateFilterChange}
               customRange={customDateRange}
-              onCustomRangeChange={(range) => { setCustomDateRange(range); setCurrentPage(1); }}
+              onCustomRangeChange={handleCustomRangeChange}
               minWidth="150px"
             />
             <FilterDropdown

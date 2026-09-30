@@ -2,10 +2,10 @@ const productsService = require('../products/products.service');
 const postTrackerService = require('../postTracker/postTracker.service');
 const { getDateRangeBounds, isPostInPlatform, isPostInRange, calcTrend } = require('../../utils/filterUtils');
 
-const getBrandStats = async () => {
+const getBrandStats = async (filters = {}) => {
   const brands = await productsService.listBrands();
   const products = await productsService.listProducts();
-  const posts = await postTrackerService.listPosts();
+  const posts = await postTrackerService.listPosts(filters);
 
   const brandMap = {}; 
 
@@ -97,10 +97,10 @@ const getBrandStats = async () => {
   return Object.values(brandMap).sort((a, b) => (a.brand_name || '').localeCompare(b.brand_name || ''));
 };
 
-const getBrandDetail = async (brandId) => {
+const getBrandDetail = async (brandId, filters = {}) => {
   const brands = await productsService.listBrands();
   const products = await productsService.listProducts();
-  const posts = await postTrackerService.listPosts();
+  const posts = await postTrackerService.listPosts(filters);
 
   const brandProducts = products.filter(p => String(p.brand_id || 'unbranded') === String(brandId));
   

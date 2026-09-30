@@ -1,13 +1,137 @@
 const db = require('../../config/db');
 
-const getAllTrackedPosts = async () => {
-  const result = await db.query(`
+const getAllTrackedPosts = async (filters = {}) => {
+  const {
+    startDate,
+    endDate,
+    status,
+    platform,
+    pageId,
+    brandId,
+    search,
+    limit,
+    offset
+  } = filters;
+
+  const conditions = [];
+  const values = [];
+
+  if (startDate) {
+    values.push(startDate);
+    conditions.push(`COALESCE(pt.published_time, pt.scheduled_time, pt.created_at) >= $${values.length}`);
+  }
+
+  if (endDate) {
+    values.push(endDate);
+    conditions.push(`COALESCE(pt.published_time, pt.scheduled_time, pt.created_at) <= $${values.length}`);
+  }
+
+  if (status && status !== 'all') {
+    values.push(status);
+    conditions.push(`pt.status = $${values.length}`);
+  }
+
+  if (platform && platform !== 'all') {
+    const plat = (platform === 'facebook' || platform === 'fb') ? 'facebook' : platform;
+    values.push(plat);
+    conditions.push(`LOWER(COALESCE(pt.platform, 'facebook')) = $${values.length}`);
+  }
+
+  if (pageId && pageId !== 'all') {
+    values.push(pageId);
+    conditions.push(`pt.page_id = $${values.length}`);
+  }
+
+  if (brandId && brandId !== 'all') {
+    values.push(brandId);
+    conditions.push(`pt.brand_id = $${values.length}`);
+  }
+
+  if (search && search.trim()) {
+    values.push(`%${search.trim().toLowerCase()}%`);
+    conditions.push(`(
+      LOWER(COALESCE(pt.message, '')) LIKE $${values.length} OR
+      LOWER(COALESCE(fp.page_name, '')) LIKE $${values.length} OR
+      LOWER(COALESCE(pt.fb_post_id, '')) LIKE $${values.length} OR
+      CAST(pt.id AS TEXT) LIKE $${values.length}
+    )`);
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  let paginationClause = '';
+  if (limit) {
+    values.push(Number(limit));
+    paginationClause += ` LIMIT $${values.length}`;
+    if (offset) {
+      values.push(Number(offset));
+      paginationClause += ` OFFSET $${values.length}`;
+    }
+  }
+
+  const query = `
     SELECT pt.*, fp.page_name, fp.fb_page_id 
     FROM tb_post_tracker pt
     JOIN tb_fb_page fp ON pt.page_id = fp.id
-    ORDER BY pt.created_at DESC
-  `);
+    ${whereClause}
+    ORDER BY COALESCE(pt.published_time, pt.scheduled_time, pt.created_at) DESC, pt.id DESC
+    ${paginationClause}
+  `;
+
+  const result = await db.query(query, values);
   return result.rows;
+};
+
+const getTrackedPostsSummary = async (filters = {}) => {
+  const { startDate, endDate, status, platform, pageId, brandId } = filters;
+  const conditions = [];
+  const values = [];
+
+  if (startDate) {
+    values.push(startDate);
+    conditions.push(`COALESCE(pt.published_time, pt.scheduled_time, pt.created_at) >= $${values.length}`);
+  }
+  if (endDate) {
+    values.push(endDate);
+    conditions.push(`COALESCE(pt.published_time, pt.scheduled_time, pt.created_at) <= $${values.length}`);
+  }
+  if (status && status !== 'all') {
+    values.push(status);
+    conditions.push(`pt.status = $${values.length}`);
+  }
+  if (platform && platform !== 'all') {
+    const plat = (platform === 'facebook' || platform === 'fb') ? 'facebook' : platform;
+    values.push(plat);
+    conditions.push(`LOWER(COALESCE(pt.platform, 'facebook')) = $${values.length}`);
+  }
+  if (pageId && pageId !== 'all') {
+    values.push(pageId);
+    conditions.push(`pt.page_id = $${values.length}`);
+  }
+  if (brandId && brandId !== 'all') {
+    values.push(brandId);
+    conditions.push(`pt.brand_id = $${values.length}`);
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const query = `
+    SELECT 
+      COUNT(*)::int AS total,
+      COALESCE(SUM(pt.views_count), 0)::bigint AS views,
+      COALESCE(SUM(pt.reach_count), 0)::bigint AS reach,
+      COALESCE(SUM(COALESCE(pt.likes_count, 0) + COALESCE(pt.comments_count, 0) + COALESCE(pt.shares_count, 0)), 0)::bigint AS engagements
+    FROM tb_post_tracker pt
+    JOIN tb_fb_page fp ON pt.page_id = fp.id
+    ${whereClause}
+  `;
+  const result = await db.query(query, values);
+  const row = result.rows[0] || {};
+  return {
+    total: Number(row.total) || 0,
+    views: Number(row.views) || 0,
+    reach: Number(row.reach) || 0,
+    engagements: Number(row.engagements) || 0
+  };
 };
 
 const getTrackedPostsByStatus = async (status) => {
@@ -284,6 +408,7 @@ const deleteTrackedPost = async (id) => {
 
 module.exports = {
   getAllTrackedPosts,
+  getTrackedPostsSummary,
   getTrackedPostsByStatus,
   getTrackedPostById,
   getDueScheduledPosts,

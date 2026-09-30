@@ -49,7 +49,7 @@ const getZonedNowParts = (timeZone) => {
   }
 };
 
-const getDateRangeBounds = (range, clientTimezone) => {
+const getDateRangeBounds = (range, clientTimezone, customStart, customEnd) => {
   const tz = clientTimezone || process.env.TZ || 'Asia/Phnom_Penh';
   const parts = getZonedNowParts(tz);
 
@@ -58,7 +58,26 @@ const getDateRangeBounds = (range, clientTimezone) => {
   let prevStart = null;
   let prevEnd = null;
 
-  if (range === 'this_week') {
+  if (customStart || customEnd) {
+    if (customStart) {
+      const s = new Date(customStart);
+      start = isNaN(s.getTime()) ? null : new Date(s.setHours(0, 0, 0, 0));
+    }
+    if (customEnd) {
+      const e = new Date(customEnd);
+      end = isNaN(e.getTime()) ? null : new Date(e.setHours(23, 59, 59, 999));
+    }
+    return { start, end, prevStart: null, prevEnd: null };
+  }
+
+  if (range === 'today') {
+    start = zonedToUtc(parts.year, parts.month, parts.day, 0, 0, 0, 0, tz);
+    end = zonedToUtc(parts.year, parts.month, parts.day, 23, 59, 59, 999, tz);
+  } else if (range === 'yesterday') {
+    const yCal = new Date(parts.year, parts.month - 1, parts.day - 1);
+    start = zonedToUtc(yCal.getFullYear(), yCal.getMonth() + 1, yCal.getDate(), 0, 0, 0, 0, tz);
+    end = zonedToUtc(yCal.getFullYear(), yCal.getMonth() + 1, yCal.getDate(), 23, 59, 59, 999, tz);
+  } else if (range === 'this_week') {
     const day = parts.weekday; // 0 is Sunday, 1 is Monday
     const diffToMonday = day === 0 ? -6 : 1 - day;
     const startCal = new Date(parts.year, parts.month - 1, parts.day + diffToMonday);
@@ -72,6 +91,10 @@ const getDateRangeBounds = (range, clientTimezone) => {
 
     prevStart = zonedToUtc(prevStartCal.getFullYear(), prevStartCal.getMonth() + 1, prevStartCal.getDate(), 0, 0, 0, 0, tz);
     prevEnd = zonedToUtc(prevEndCal.getFullYear(), prevEndCal.getMonth() + 1, prevEndCal.getDate(), 23, 59, 59, 999, tz);
+  } else if (range === '7days') {
+    const sCal = new Date(parts.year, parts.month - 1, parts.day - 6);
+    start = zonedToUtc(sCal.getFullYear(), sCal.getMonth() + 1, sCal.getDate(), 0, 0, 0, 0, tz);
+    end = zonedToUtc(parts.year, parts.month, parts.day, 23, 59, 59, 999, tz);
   } else if (range === 'this_month') {
     const lastDayOfMonth = new Date(parts.year, parts.month, 0).getDate();
     start = zonedToUtc(parts.year, parts.month, 1, 0, 0, 0, 0, tz);
@@ -100,6 +123,10 @@ const getDateRangeBounds = (range, clientTimezone) => {
 
     prevStart = zonedToUtc(ptYear, ptMonth, 1, 0, 0, 0, 0, tz);
     prevEnd = zonedToUtc(ptYear, ptMonth, ptLastDay, 23, 59, 59, 999, tz);
+  } else if (range === '30days') {
+    const sCal = new Date(parts.year, parts.month - 1, parts.day - 29);
+    start = zonedToUtc(sCal.getFullYear(), sCal.getMonth() + 1, sCal.getDate(), 0, 0, 0, 0, tz);
+    end = zonedToUtc(parts.year, parts.month, parts.day, 23, 59, 59, 999, tz);
   } else if (range === 'three_months') {
     const start3m = new Date(parts.year, parts.month - 3, 1);
     const endMonth = new Date(parts.year, parts.month, 0);
