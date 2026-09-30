@@ -186,6 +186,32 @@
   border-bottom: none;
 }
 
+.post-tracker-row {
+  cursor: default;
+  transition: background-color 0.15s ease;
+}
+
+.post-tracker-row:hover {
+  background-color: #f8fafc !important;
+}
+
+.post-tracker-clickable-name {
+  cursor: pointer !important;
+  text-decoration: none !important;
+  transition: color 0.15s ease, transform 0.1s ease;
+  display: inline-block;
+}
+
+.post-tracker-clickable-name:hover {
+  color: #2563eb !important;
+  text-decoration: none !important;
+}
+
+.post-tracker-clickable-name:active {
+  color: #1d4ed8 !important;
+  transform: scale(0.98);
+}
+
 @media (max-width: 768px) {
 
   /* --- Page headers --- */

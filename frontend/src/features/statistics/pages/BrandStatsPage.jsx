@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { BarChart2, Eye, Tag, Search, Layers, TrendingUp, Heart, RotateCcw, Flame } from 'lucide-react';
+import { BarChart2, Eye, Tag, Search, Layers, TrendingUp, Heart, RotateCcw, Flame, ChevronRight } from 'lucide-react';
 import { BrandStatsTopBannerSkeleton, BrandStatsTableSkeleton, BrandStatsMobileSkeleton } from '../../../shared/components/skeletons';
 import { getBrandStats, getCachedBrandStats } from '../services/brandStatsService';
 import { SortableHeader } from '../../../shared/components/ui/SortableHeader';
@@ -338,7 +338,7 @@ export const BrandStatsPage = () => {
           <table className="custom-table">
             <thead>
               <tr>
-                <th style={{ width: '44px', textAlign: 'center' }}>
+                <th style={{ width: '48px', textAlign: 'center' }}>
                   <input
                     type="checkbox"
                     checked={sortedBrands.length > 0 && selectedBrandIds.length === sortedBrands.length}
@@ -348,11 +348,11 @@ export const BrandStatsPage = () => {
                   />
                 </th>
                 <SortableHeader label="Brand Name" sortKey="brand_name" currentSort={sortConfig} onSort={requestSort} />
-                <SortableHeader label="Posts" sortKey="posts_count" currentSort={sortConfig} onSort={requestSort} defaultDirection="desc" />
-                <SortableHeader label="Views" sortKey="views_count" currentSort={sortConfig} onSort={requestSort} align="right" defaultDirection="desc" />
-                <SortableHeader label="Reach" sortKey="reach_count" currentSort={sortConfig} onSort={requestSort} align="right" defaultDirection="desc" />
-                <SortableHeader label="Engagement" sortKey="engagement_count" currentSort={sortConfig} onSort={requestSort} align="right" defaultDirection="desc" />
-                <th style={{ textAlign: 'right' }}>Actions</th>
+                <SortableHeader label="Posts" sortKey="posts_count" currentSort={sortConfig} onSort={requestSort} defaultDirection="desc" thStyle={{ width: '140px' }} />
+                <SortableHeader label="Views" sortKey="views_count" currentSort={sortConfig} onSort={requestSort} align="right" defaultDirection="desc" thStyle={{ width: '130px' }} />
+                <SortableHeader label="Reach" sortKey="reach_count" currentSort={sortConfig} onSort={requestSort} align="right" defaultDirection="desc" thStyle={{ width: '130px' }} />
+                <SortableHeader label="Engagement" sortKey="engagement_count" currentSort={sortConfig} onSort={requestSort} align="right" defaultDirection="desc" thStyle={{ width: '150px' }} />
+                <th style={{ width: '120px', textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -364,27 +364,87 @@ export const BrandStatsPage = () => {
                 return (
                   <tr
                     key={bIdStr}
-                    style={{ backgroundColor: isSelected ? '#f8faff' : undefined, transition: 'background-color 0.15s ease' }}
+                    onClick={() => handleToggleBrand(brand.brand_id)}
+                    className={`brand-table-row ${isSelected ? 'is-selected' : ''}`}
+                    tabIndex={0}
+                    role="checkbox"
+                    aria-checked={isSelected}
+                    onKeyDown={(e) => {
+                      if (e.key === ' ') {
+                        e.preventDefault();
+                        handleToggleBrand(brand.brand_id);
+                      }
+                    }}
+                    title={`Click row to ${isSelected ? 'deselect' : 'select'} ${brand.brand_name}`}
                   >
-                    <td style={{ width: '44px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                    <td style={{ width: '48px', textAlign: 'center', cursor: 'pointer' }} onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => handleToggleBrand(brand.brand_id)}
                         style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#3b82f6' }}
+                        title={`Select ${brand.brand_name}`}
                       />
                     </td>
                     <td data-label="Brand Name">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ width: '48px', height: '48px', borderRadius: '6px', overflow: 'hidden', flexShrink: 0, border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '12px' }}>
+                        {/* Logo clickable only */}
+                        <div
+                          className="brand-logo-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleNavigateToBrand(brand.brand_id);
+                          }}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.stopPropagation();
+                              handleNavigateToBrand(brand.brand_id);
+                            }
+                          }}
+                          title={`View ${brand.brand_name} performance details`}
+                          style={{
+                            width: '44px',
+                            height: '44px',
+                            borderRadius: '8px',
+                            overflow: 'hidden',
+                            flexShrink: 0,
+                            border: '1px solid var(--border-color)',
+                            backgroundColor: 'var(--bg-card)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer'
+                          }}
+                        >
                           <img
                             src={brand.logo_url || brand.image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(brand.brand_name || 'Brand')}&background=e0e7ff&color=3730a3&bold=true&size=128`}
                             alt={brand.brand_name}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            draggable={false}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer', pointerEvents: 'none' }}
                           />
                         </div>
+
+                        {/* Name text clickable only */}
                         <div className="product-table-name-wrap">
-                          <span className="product-table-name">
+                          <span
+                            className="product-table-name brand-clickable-name"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleNavigateToBrand(brand.brand_id);
+                            }}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.stopPropagation();
+                                handleNavigateToBrand(brand.brand_id);
+                              }
+                            }}
+                            title={`View ${brand.brand_name} performance details`}
+                            style={{ cursor: 'pointer', textDecoration: 'none' }}
+                          >
                             {brand.brand_name}
                           </span>
                         </div>
@@ -423,13 +483,15 @@ export const BrandStatsPage = () => {
                         {(brand.engagement_count || 0).toLocaleString()}
                       </span>
                     </td>
-                    <td data-label="Actions" style={{ textAlign: 'right' }}>
+                    <td data-label="Actions" style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                       <button
-                        className="btn-primary-soft"
+                        className="btn-primary-soft brand-action-view-btn"
                         onClick={() => handleNavigateToBrand(brand.brand_id)}
+                        title={`View ${brand.brand_name} Performance`}
                       >
                         <Eye size={12} />
                         <span>View</span>
+                        <ChevronRight size={13} className="brand-action-chevron" />
                       </button>
                     </td>
                   </tr>
@@ -454,21 +516,55 @@ export const BrandStatsPage = () => {
             const bIdStr = String(brand.brand_id || 'unbranded');
             const isSelected = selectedBrandIds.includes(bIdStr);
             return (
-              <div key={`mob-${bIdStr}`} style={{ backgroundColor: 'white', border: isSelected ? '2px solid #3b82f6' : '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+              <div
+                key={`mob-${bIdStr}`}
+                onClick={() => handleToggleBrand(brand.brand_id)}
+                style={{
+                  backgroundColor: 'white',
+                  border: isSelected ? '2px solid #3b82f6' : '1px solid #e2e8f0',
+                  borderRadius: '12px',
+                  padding: '16px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                  cursor: 'pointer'
+                }}
+                title={`Tap card to ${isSelected ? 'deselect' : 'select'} ${brand.brand_name}`}
+              >
                 {/* Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                   <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => handleToggleBrand(brand.brand_id)}
-                      style={{ cursor: 'pointer', width: '18px', height: '18px', accentColor: '#3b82f6' }}
-                    />
-                    <div style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, border: '1px solid #e2e8f0' }}>
-                      <img src={brand.logo_url || brand.image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(brand.brand_name || 'Brand')}&background=e0e7ff&color=3730a3&bold=true&size=128`} alt={brand.brand_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleToggleBrand(brand.brand_id)}
+                        style={{ cursor: 'pointer', width: '18px', height: '18px', accentColor: '#3b82f6' }}
+                      />
                     </div>
+                    {/* Logo only */}
+                    <div
+                      className="brand-logo-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleNavigateToBrand(brand.brand_id);
+                      }}
+                      style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, border: '1px solid #e2e8f0', cursor: 'pointer' }}
+                      title={`View ${brand.brand_name} details`}
+                    >
+                      <img src={brand.logo_url || brand.image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(brand.brand_name || 'Brand')}&background=e0e7ff&color=3730a3&bold=true&size=128`} alt={brand.brand_name} draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer', pointerEvents: 'none' }} />
+                    </div>
+                    {/* Name only */}
                     <div>
-                      <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '16px' }}>{brand.brand_name}</div>
+                      <span
+                        className="brand-clickable-name"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleNavigateToBrand(brand.brand_id);
+                        }}
+                        style={{ fontWeight: 600, color: '#0f172a', fontSize: '16px', cursor: 'pointer', textDecoration: 'none' }}
+                        title={`View ${brand.brand_name} details`}
+                      >
+                        {brand.brand_name}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -494,7 +590,7 @@ export const BrandStatsPage = () => {
                 </div>
 
                 {/* Footer */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }} onClick={(e) => e.stopPropagation()}>
                   <button
                     className="btn-primary-soft"
                     style={{ width: '100%', justifyContent: 'center', padding: '10px' }}

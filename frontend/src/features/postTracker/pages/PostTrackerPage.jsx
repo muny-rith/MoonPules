@@ -3,6 +3,7 @@ import { usePostTracker } from '../hooks/usePostTracker';
 import { PostStatusBadge } from '../components/PostStatusBadge';
 import { InsightPanel } from '../components/InsightPanel';
 import { DeleteConfirmModal } from '../components/DeleteConfirmModal';
+import { PublishConfirmModal } from '../components/PublishConfirmModal';
 import { useNavigate } from 'react-router-dom';
 import { POST_STATUS } from '../constants';
 import { Search, Filter, Calendar, ExternalLink, RefreshCw, BarChart2, DollarSign, Image as ImageIcon, Heart, MessageCircle, Share2, Edit2, Trash2, ChevronLeft, ChevronRight, Users, ChevronDown, Eye, TrendingUp, Send, Award, RotateCcw, Check, Sparkles, X } from 'lucide-react';
@@ -165,6 +166,7 @@ export const PostTrackerPage = () => {
   const [publishingId, setPublishingId] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [postToDelete, setPostToDelete] = useState(null);
+  const [postToPublish, setPostToPublish] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [platformFilter, setPlatformFilter] = useState('all');
@@ -174,13 +176,24 @@ export const PostTrackerPage = () => {
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [postsProfit, setPostsProfit] = useState({});
 
-  const handlePublishNow = async (postId) => {
-    if (!window.confirm('Publish this scheduled post to Facebook immediately?')) return;
+  const handlePostClick = (post) => {
+    if (post.status === POST_STATUS.PUBLISHED) {
+      const url = post.post_url || (post.fb_post_id ? `https://facebook.com/${post.fb_post_id}` : null);
+      if (url) {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      } else {
+        alert('This post is marked as published, but no Facebook post link is available.');
+      }
+    } else {
+      // Not yet posted -> ask if you want to publish now!
+      setPostToPublish(post);
+    }
+  };
+
+  const handlePublishConfirm = async (postId) => {
     try {
       setPublishingId(postId);
       await publishNow(postId);
-    } catch (err) {
-      alert(err.response?.data?.error || err.message || 'Failed to publish post');
     } finally {
       setPublishingId(null);
     }
@@ -448,10 +461,27 @@ export const PostTrackerPage = () => {
                 <PostTrackerTableSkeleton rowCount={5} />
               ) : paginatedPosts.map((post, index) => (
                 <React.Fragment key={post.id}>
-                  <tr style={{ backgroundColor: index % 2 === 0 ? '#ffffff' : '#fafafa' }}>
+                  <tr
+                    className="post-tracker-row"
+                    style={{
+                      backgroundColor: index % 2 === 0 ? '#ffffff' : '#fafafa',
+                      transition: 'background-color 0.15s ease'
+                    }}
+                  >
                     <td style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ width: '48px', height: '48px', borderRadius: '8px', backgroundColor: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+                        <div style={{
+                          width: '48px',
+                          height: '48px',
+                          borderRadius: '8px',
+                          backgroundColor: '#e2e8f0',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          overflow: 'hidden',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
+                        }}>
                           <SafeImage
                             src={post.media_url || post.product_image || `https://ui-avatars.com/api/?name=${post.product_name || 'PR'}&background=c7d2fe&color=3730a3&rounded=false`}
                             alt={post.product_name || 'product'}
@@ -460,14 +490,60 @@ export const PostTrackerPage = () => {
                           />
                         </div>
                         <div>
-                          <div style={{ fontWeight: 600, color: "var(--text-main)", fontSize: '14px', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div
+                            style={{ fontWeight: 600, color: "var(--text-main)", fontSize: '14px', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                          >
                             {post.tracking_type === 'brand' || (!post.product_id && post.brand_id) ? (
                               <>
                                 <span style={{ color: '#16a34a' }}>Brand: </span>
-                                <span style={{ fontSize: "16px" }}>{post.brand_name || post.product_name || 'Brand Catalog'}</span>
+                                <span
+                                  className="post-tracker-clickable-name"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handlePostClick(post);
+                                  }}
+                                  role="button"
+                                  tabIndex={0}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.stopPropagation();
+                                      handlePostClick(post);
+                                    }
+                                  }}
+                                  title={
+                                    post.status === POST_STATUS.PUBLISHED
+                                      ? 'Click to open this post on Facebook'
+                                      : 'Click to publish this post to Facebook now'
+                                  }
+                                  style={{ fontSize: "16px" }}
+                                >
+                                  {post.brand_name || post.product_name || 'Brand Catalog'}
+                                </span>
                               </>
                             ) : (
-                              <span style={{ fontSize: "16px" }}>{post.product_name || `Target #${post.product_id || post.brand_id}`}</span>
+                              <span
+                                className="post-tracker-clickable-name"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePostClick(post);
+                                }}
+                                role="button"
+                                tabIndex={0}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.stopPropagation();
+                                    handlePostClick(post);
+                                  }
+                                }}
+                                title={
+                                  post.status === POST_STATUS.PUBLISHED
+                                    ? 'Click to open this post on Facebook'
+                                    : 'Click to publish this post to Facebook now'
+                                }
+                                style={{ fontSize: "16px" }}
+                              >
+                                {post.product_name || `Target #${post.product_id || post.brand_id}`}
+                              </span>
                             )}
                           </div>
                           <div style={{ fontSize: '12px', color: '#64748b' }}>{post.page_name || post.page_id}</div>
@@ -563,12 +639,15 @@ export const PostTrackerPage = () => {
                         );
                       })()}
                     </td>
-                    <td style={{ textAlign: 'center', padding: '16px 24px', borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={{ textAlign: 'center', padding: '16px 24px', borderBottom: '1px solid #f1f5f9' }} onClick={(e) => e.stopPropagation()}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                         {post.status !== POST_STATUS.PUBLISHED && (
                           <button
                             title={post.status === 'failed' ? 'Retry Publishing to Facebook' : 'Publish to Facebook Now'}
-                            onClick={() => handlePublishNow(post.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPostToPublish(post);
+                            }}
                             disabled={publishingId === post.id}
                             style={{
                               display: 'flex',
@@ -587,12 +666,13 @@ export const PostTrackerPage = () => {
                             <Send size={13} className={publishingId === post.id ? 'spin-animation' : ''} />
                           </button>
                         )}
-                        {post.status === POST_STATUS.PUBLISHED && post.fb_post_id && (
+                        {post.status === POST_STATUS.PUBLISHED && (post.fb_post_id || post.post_url) && (
                           <a
-                            href={`https://facebook.com/${post.fb_post_id}`}
+                            href={post.post_url || `https://facebook.com/${post.fb_post_id}`}
                             target="_blank"
                             rel="noreferrer"
                             title="Visit Facebook Post"
+                            onClick={(e) => e.stopPropagation()}
                             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', color: '#3b82f6', backgroundColor: '#eff6ff', transition: 'all 0.2s' }}
                           >
                             <ExternalLink size={14} />
@@ -600,14 +680,20 @@ export const PostTrackerPage = () => {
                         )}
                         <button
                           title="Edit Post"
-                          onClick={() => navigate(`/tasks/edit/${post.id}`)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/tasks/edit/${post.id}`);
+                          }}
                           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', color: '#64748b', border: '1px solid #e2e8f0', backgroundColor: '#ffffff', cursor: 'pointer', transition: 'all 0.2s' }}
                         >
                           <Edit2 size={14} />
                         </button>
                         <button
                           title="Delete Post"
-                          onClick={() => setPostToDelete(post)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPostToDelete(post);
+                          }}
                           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', color: '#ef4444', backgroundColor: '#fef2f2', border: 'none', cursor: 'pointer', transition: 'all 0.2s' }}
                         >
                           <Trash2 size={14} />
@@ -666,7 +752,10 @@ export const PostTrackerPage = () => {
               : (totalCost > 0 ? ((revenue - totalCost) / totalCost * 100) : 0);
 
             return (
-              <div key={`mob-${post.id}`} className="task-mobile-card">
+              <div
+                key={`mob-${post.id}`}
+                className="task-mobile-card"
+              >
                 {/* Header */}
                 <div className="task-mob-header">
                   <div className="task-mob-product-wrap">
@@ -683,10 +772,52 @@ export const PostTrackerPage = () => {
                         {post.tracking_type === 'brand' || (!post.product_id && post.brand_id) ? (
                           <>
                             <span style={{ color: '#16a34a' }}>Brand: </span>
-                            <span>{post.brand_name || post.product_name || 'Brand Catalog'}</span>
+                            <span
+                              className="post-tracker-clickable-name"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handlePostClick(post);
+                              }}
+                              role="button"
+                              tabIndex={0}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.stopPropagation();
+                                  handlePostClick(post);
+                                }
+                              }}
+                              title={
+                                post.status === POST_STATUS.PUBLISHED
+                                  ? 'Tap to view this post on Facebook'
+                                  : 'Tap to publish this post to Facebook now'
+                              }
+                            >
+                              {post.brand_name || post.product_name || 'Brand Catalog'}
+                            </span>
                           </>
                         ) : (
-                          <span>{post.product_name || `Target #${post.product_id || post.brand_id}`}</span>
+                          <span
+                            className="post-tracker-clickable-name"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePostClick(post);
+                            }}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.stopPropagation();
+                                handlePostClick(post);
+                              }
+                            }}
+                            title={
+                              post.status === POST_STATUS.PUBLISHED
+                                ? 'Tap to view this post on Facebook'
+                                : 'Tap to publish this post to Facebook now'
+                            }
+                          >
+                            {post.product_name || `Target #${post.product_id || post.brand_id}`}
+                          </span>
                         )}
                       </div>
                       <div className="task-mob-sub">
@@ -757,16 +888,29 @@ export const PostTrackerPage = () => {
                         ? `⏰ ${new Date(post.scheduled_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
                         : 'Pending'}
                   </div>
-                  <div className="task-mob-actions">
-                    {post.post_url && (
-                      <a href={post.post_url} target="_blank" rel="noopener noreferrer" className="btn-icon-action" title="View on FB">
+                  <div className="task-mob-actions" onClick={(e) => e.stopPropagation()}>
+                    {post.status !== POST_STATUS.PUBLISHED && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPostToPublish(post);
+                        }}
+                        className="btn-icon-action"
+                        title="Publish to Facebook Now"
+                        style={{ color: '#16a34a' }}
+                      >
+                        <Send size={14} />
+                      </button>
+                    )}
+                    {(post.post_url || post.fb_post_id) && post.status === POST_STATUS.PUBLISHED && (
+                      <a href={post.post_url || `https://facebook.com/${post.fb_post_id}`} target="_blank" rel="noopener noreferrer" className="btn-icon-action" title="View on FB" onClick={(e) => e.stopPropagation()}>
                         <ExternalLink size={14} />
                       </a>
                     )}
-                    <button onClick={() => navigate(`/tasks/edit/${post.id}`)} className="btn-icon-action" title="Edit Post">
+                    <button onClick={(e) => { e.stopPropagation(); navigate(`/tasks/edit/${post.id}`); }} className="btn-icon-action" title="Edit Post">
                       <Edit2 size={14} />
                     </button>
-                    <button onClick={() => setPostToDelete(post)} className="btn-icon-action delete" title="Delete">
+                    <button onClick={(e) => { e.stopPropagation(); setPostToDelete(post); }} className="btn-icon-action delete" title="Delete">
                       <Trash2 size={14} />
                     </button>
                   </div>
@@ -830,6 +974,13 @@ export const PostTrackerPage = () => {
         onClose={() => setPostToDelete(null)}
         post={postToDelete}
         onConfirm={handleDeletePost}
+      />
+
+      <PublishConfirmModal
+        isOpen={!!postToPublish}
+        onClose={() => setPostToPublish(null)}
+        post={postToPublish}
+        onConfirm={handlePublishConfirm}
       />
     </div>
   );

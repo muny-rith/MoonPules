@@ -35,6 +35,11 @@ export const BrandStatsTableSkeleton = ({ rowCount = 8 }) => {
         const s = BRAND_STAGGER[i % BRAND_STAGGER.length];
         return (
           <tr key={`brand-skel-row-${i}`} style={{ backgroundColor: i % 2 === 0 ? '#ffffff' : '#fafafa' }}>
+            {/* Checkbox */}
+            <td style={{ width: '48px', textAlign: 'center', padding: '14px', borderBottom: '1px solid #f1f5f9' }}>
+              <Skeleton width={16} height={16} borderRadius={4} style={{ margin: '0 auto' }} />
+            </td>
+
             {/* Brand Logo & Name */}
             <td data-label="Brand Name" style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
