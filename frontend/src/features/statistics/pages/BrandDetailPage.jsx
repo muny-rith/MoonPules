@@ -92,7 +92,7 @@ export const BrandDetailPage = () => {
 
   const handleBackToBrands = () => {
     const params = new URLSearchParams();
-    if (timeFilter !== 'all') {
+    if (timeFilter !== 'this_month') {
       params.set('range', timeFilter);
       if (timeFilter === 'custom') {
         if (customRange.start) params.set('start', customRange.start);
@@ -257,7 +257,7 @@ export const BrandDetailPage = () => {
     setSearchParams({}, { replace: true });
   };
 
-  const hasActiveFilters = timeFilter !== 'all' || platformFilter !== 'all' || pageFilter !== 'all' || productFilter !== 'all' || formatFilter !== 'all' || searchTerm !== '';
+  const hasActiveFilters = (timeFilter !== 'this_month' || customRange.start !== '' || customRange.end !== '') || platformFilter !== 'all' || pageFilter !== 'all' || productFilter !== 'all' || formatFilter !== 'all' || searchTerm !== '';
 
   const filteredPosts = useMemo(() => {
     if (!detail || !detail.posts) return [];
@@ -747,10 +747,10 @@ export const BrandDetailPage = () => {
               {hasActiveFilters && (
                 <div className="active-filters-row">
                   <span className="active-filter-label">Active:</span>
-                  {timeFilter !== 'all' && (
+                  {(timeFilter !== 'this_month' || customRange.start !== '' || customRange.end !== '') && (
                     <span className="active-filter-tag">
                       <span>Date: {timeFilter === 'custom' ? `${customRange.start || 'Start'} to ${customRange.end || 'End'}` : (DATE_PRESETS.find(p => p.id === timeFilter)?.label || timeFilter)}</span>
-                      <button type="button" onClick={() => handleTimeFilterChange('all')}><X size={12} /></button>
+                      <button type="button" onClick={() => { handleCustomRangeChange({ start: '', end: '' }); handleTimeFilterChange('this_month'); }}><X size={12} /></button>
                     </span>
                   )}
                   {platformFilter !== 'all' && (

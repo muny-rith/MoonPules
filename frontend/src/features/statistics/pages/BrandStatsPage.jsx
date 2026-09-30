@@ -75,7 +75,7 @@ export const BrandStatsPage = () => {
   const handleViewCombined = () => {
     if (selectedBrandIds.length === 0) return;
     const params = new URLSearchParams();
-    if (dateFilter !== 'all') {
+    if (dateFilter !== 'this_month') {
       params.set('range', dateFilter);
       if (dateFilter === 'custom') {
         if (customRange.start) params.set('start', customRange.start);
@@ -94,7 +94,7 @@ export const BrandStatsPage = () => {
 
   const handleNavigateToBrand = (brandId) => {
     const params = new URLSearchParams();
-    if (dateFilter !== 'all') {
+    if (dateFilter !== 'this_month') {
       params.set('range', dateFilter);
       if (dateFilter === 'custom') {
         if (customRange.start) params.set('start', customRange.start);
@@ -208,7 +208,7 @@ export const BrandStatsPage = () => {
     }
   );
 
-  const hasActiveFilters = dateFilter !== 'all' || searchTerm.trim() !== '';
+  const hasActiveFilters = (dateFilter !== 'this_month' || customRange.start !== '' || customRange.end !== '') || searchTerm.trim() !== '';
 
   return (
     <div className="product-page-container">
