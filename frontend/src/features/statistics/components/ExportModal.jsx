@@ -1,23 +1,57 @@
 // frontend/src/features/statistics/components/ExportModal.jsx
-import React, { useState, useRef, useMemo } from 'react';
-import { X, FileText, FileSpreadsheet, FileType } from 'lucide-react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
+import {
+    X, FileText, FileSpreadsheet, FileType, CheckSquare, Square,
+    DollarSign, Link2, Percent, SlidersHorizontal, ExternalLink, RotateCcw, Check, Building2
+} from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import './ExportModal.css';
 import logo from "../../../assets/logo.png";
+import { getFacebookPostUrl } from '../../../shared/utils/facebookUrl';
 
-const EXPORT_COLUMNS = [
-    { key: 'media_type', label: 'Post Type' },
-    { key: 'published_time', label: 'Date', format: 'date' },
-    { key: 'likes_count', label: 'React' },
-    { key: 'comments_count', label: 'Cmt' },
-    { key: 'shares_count', label: 'Share' },
-    { key: 'views_count', label: 'Views' },
-    { key: 'reach_count', label: 'Reach' },
+// Optional configurable columns
+const OPTIONAL_COLUMNS_CONFIG = [
+    {
+        id: 'brand_name',
+        key: 'brand_name',
+        label: 'Brand',
+        name: 'Brand Name',
+        icon: Building2,
+        weight: 14,
+        desc: 'Show brand name as second column'
+    },
+    {
+        id: 'spend',
+        key: 'spend',
+        label: 'Spend ($)',
+        name: 'Spend per Live / Post',
+        icon: DollarSign,
+        weight: 12,
+        desc: 'Ad spend / Spend per live ($)'
+    },
+    {
+        id: 'post_url',
+        key: 'post_url',
+        label: 'Post Link',
+        name: 'Post Link (Clickable)',
+        icon: Link2,
+        weight: 12,
+        desc: 'Direct link to view post'
+    },
+    {
+        id: 'engagement_rate',
+        key: 'engagement_rate',
+        label: 'Engage %',
+        name: 'Engagement Rate %',
+        icon: Percent,
+        weight: 9,
+        desc: 'Rate of reactions, cmts & shares per reach'
+    }
 ];
 
-const COLUMN_WIDTHS = ['28%', '17%', '9%', '8%', '8%', '15%', '15%'];
+const SUMMARY_COLUMN_WIDTHS = ['28%', '12%', '12%', '12%', '12%', '12%', '12%'];
 
 const KHMER_MONTHS = ['មករា', 'កុម្ភៈ', 'មីនា', 'មេសា', 'ឧសភា', 'មិថុនា', 'កក្កដា', 'សីហា', 'កញ្ញា', 'តុលា', 'វិច្ឆិកា', 'ធ្នូ'];
 const formatDateKhmer = (dateString) => {
@@ -90,20 +124,33 @@ const getPeriodLabelForFilename = (startMonth, endMonth, dateRangeText, posts) =
     return `${SHORT_MONTHS[now.getMonth()]} ${now.getFullYear()}`;
 };
 
-const formatCell = (post, col, isMultiBrand) => {
+const formatCell = (post, col) => {
+    // 1-Post Type clean (no brand name appended)
     if (col.key === 'media_type') {
         const m = (post.media_type || post.format || post.type || 'photo').toLowerCase();
         let typeStr = 'Photo';
         if (m === 'video') typeStr = 'Video';
         if (m === 'reel') typeStr = 'Reel';
         if (m === 'live') typeStr = 'Live';
-        if (isMultiBrand) {
-            const bName = post.brand_name || post.product_name;
-            if (bName) {
-                return `${typeStr} (${bName})`;
-            }
-        }
         return typeStr;
+    }
+    // 2-Brand column
+    if (col.key === 'brand_name') {
+        return post.brand_name || '—';
+    }
+    if (col.key === 'spend') {
+        const val = (Number(post.ad_spend) || 0) + (Number(post.content_cost) || 0);
+        return val > 0 ? `$${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$0.00';
+    }
+    if (col.key === 'post_url') {
+        return getFacebookPostUrl(post.fb_post_id, post.post_url, post.page_id || post.fb_page_id);
+    }
+    if (col.key === 'engagement_rate') {
+        const likes = Number(post.likes_count) || 0;
+        const comments = Number(post.comments_count) || 0;
+        const shares = Number(post.shares_count) || 0;
+        const reach = Number(post.reach_count) || 0;
+        return reach > 0 ? (((likes + comments + shares) / reach) * 100).toFixed(1) + '%' : '0.0%';
     }
     const raw = post[col.key];
     if (col.format === 'date') {
@@ -114,7 +161,7 @@ const formatCell = (post, col, isMultiBrand) => {
     return raw;
 };
 
-const prepareGroupData = (groupPosts, isMultiBrand) => {
+const prepareGroupData = (groupPosts, activeColumns) => {
     const sorted = [...groupPosts].sort((a, b) => {
         const isLiveA = (a.media_type || a.format || a.type || '').toLowerCase() === 'live' ? 1 : 0;
         const isLiveB = (b.media_type || b.format || b.type || '').toLowerCase() === 'live' ? 1 : 0;
@@ -149,12 +196,25 @@ const prepareGroupData = (groupPosts, isMultiBrand) => {
         total: calc(sorted)
     };
 
-    const rows = sorted.map((p) => EXPORT_COLUMNS.map((col) => formatCell(p, col, isMultiBrand)));
+    const rows = sorted.map((p) => activeColumns.map((col) => formatCell(p, col)));
 
-    const totalRow = EXPORT_COLUMNS.map((col) => {
-        if (col.key === 'media_type' || col.key === 'product_name') return 'Total';
-        if (col.key === 'published_time') return '';
-        return sorted.reduce((sum, post) => sum + (Number(post[col.key]) || 0), 0);
+    const totalRow = activeColumns.map((col, idx) => {
+        if (idx === 0) return 'Total';
+        if (col.key === 'spend') {
+            const total = sorted.reduce((sum, post) => sum + ((Number(post.ad_spend) || 0) + (Number(post.content_cost) || 0)), 0);
+            return `$${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        }
+        if (col.key === 'engagement_rate') {
+            const totalLikes = sorted.reduce((sum, p) => sum + (Number(p.likes_count) || 0), 0);
+            const totalCmts = sorted.reduce((sum, p) => sum + (Number(p.comments_count) || 0), 0);
+            const totalShares = sorted.reduce((sum, p) => sum + (Number(p.shares_count) || 0), 0);
+            const totalReach = sorted.reduce((sum, p) => sum + (Number(p.reach_count) || 0), 0);
+            return totalReach > 0 ? (((totalLikes + totalCmts + totalShares) / totalReach) * 100).toFixed(1) + '%' : '0.0%';
+        }
+        if (col.format === 'number') {
+            return sorted.reduce((sum, post) => sum + (Number(post[col.key]) || 0), 0);
+        }
+        return '';
     });
 
     const summaryRows = [
@@ -179,18 +239,125 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
     const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
     const pdfContainerRef = useRef(null);
 
-    const displayPeriod = dateRangeText || (
-        startMonth && endMonth
-            ? (startMonth === endMonth ? startMonth : `${startMonth} រហូតដល់ ${endMonth}`)
-            : (startMonth || endMonth || 'គ្រប់ពេលវេលា')
-    );
-
+    // Multi-brand detection (2 or more brands)
     const isMultiBrand = useMemo(() => {
         if (clientLogos && clientLogos.length > 1) return true;
         if (!posts || !Array.isArray(posts)) return false;
         const brandNames = new Set(posts.map(p => p.brand_name).filter(Boolean));
         return brandNames.size > 1;
     }, [clientLogos, posts]);
+
+    // Dynamic optional columns state with localStorage memory per brand
+    const storageKey = `moonpulse_export_cols_${(brandName || 'default').replace(/[\\/:*?"<>|\s]/g, '_').toLowerCase()}`;
+
+    const [selectedOptionalCols, setSelectedOptionalCols] = useState(() => {
+        try {
+            const saved = localStorage.getItem(storageKey);
+            let initialCols = [];
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) initialCols = parsed;
+            }
+            // Auto check brand_name if 2 or more brands
+            if (isMultiBrand && !initialCols.includes('brand_name')) {
+                initialCols = ['brand_name', ...initialCols];
+            }
+            return initialCols;
+        } catch {
+            return isMultiBrand ? ['brand_name'] : [];
+        }
+    });
+
+    // Update if brand changes or multi-brand state detected
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem(storageKey);
+            let cols = [];
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) cols = parsed;
+            }
+            // Auto check brand_name if 2 or more brands
+            if (isMultiBrand && !cols.includes('brand_name')) {
+                cols = ['brand_name', ...cols];
+            }
+            setSelectedOptionalCols(cols);
+        } catch {
+            setSelectedOptionalCols(isMultiBrand ? ['brand_name'] : []);
+        }
+    }, [storageKey, isMultiBrand]);
+
+    const toggleOptionalColumn = (colId) => {
+        setSelectedOptionalCols((prev) => {
+            const next = prev.includes(colId) ? prev.filter((id) => id !== colId) : [...prev, colId];
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(next));
+            } catch {
+                // ignore
+            }
+            return next;
+        });
+    };
+
+    const setPreset = (cols) => {
+        setSelectedOptionalCols(cols);
+        try {
+            localStorage.setItem(storageKey, JSON.stringify(cols));
+        } catch {
+            // ignore
+        }
+    };
+
+    // Calculate active columns with Brand Name positioned as 2nd column right after Post Type!
+    const activeColumns = useMemo(() => {
+        const isBrandActive = selectedOptionalCols.includes('brand_name');
+
+        const cols = [
+            // 1. Type (compact optimized width)
+            { key: 'media_type', label: 'Type', weight: 10 }
+        ];
+
+        // 2. Brand Name (placed second after type when enabled!)
+        if (isBrandActive) {
+            cols.push({
+                id: 'brand_name',
+                key: 'brand_name',
+                label: 'Brand',
+                weight: 14
+            });
+        }
+
+        // 3. Date
+        cols.push({ key: 'published_time', label: 'Date', format: 'date', weight: 15 });
+
+        // 4-8. Standard Metrics
+        cols.push(
+            { key: 'likes_count', label: 'React', format: 'number', weight: 8 },
+            { key: 'comments_count', label: 'Cmt', format: 'number', weight: 7 },
+            { key: 'shares_count', label: 'Share', format: 'number', weight: 7 },
+            { key: 'views_count', label: 'Views', format: 'number', weight: 13 },
+            { key: 'reach_count', label: 'Reach', format: 'number', weight: 13 }
+        );
+
+        // 9+. Remaining optional columns (spend, post_url, engagement_rate, product_name)
+        const otherOptional = OPTIONAL_COLUMNS_CONFIG.filter(
+            (c) => c.id !== 'brand_name' && selectedOptionalCols.includes(c.id)
+        );
+        cols.push(...otherOptional);
+
+        return cols;
+    }, [selectedOptionalCols]);
+
+    const detailedColumnWidths = useMemo(() => {
+        const totalWeight = activeColumns.reduce((sum, c) => sum + (c.weight || 10), 0);
+        return activeColumns.map((c) => `${((c.weight / totalWeight) * 100).toFixed(1)}%`);
+    }, [activeColumns]);
+
+    const displayPeriod = dateRangeText || (
+        startMonth && endMonth
+            ? (startMonth === endMonth ? startMonth : `${startMonth} រហូតដល់ ${endMonth}`)
+            : (startMonth || endMonth || 'គ្រប់ពេលវេលា')
+    );
 
     // Group posts by page: If filtered by All Pages, separate each Facebook page into its own group
     const pageGroups = useMemo(() => {
@@ -217,9 +384,9 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
 
         return sortedGroups.map((grp) => ({
             ...grp,
-            ...prepareGroupData(grp.posts, isMultiBrand)
+            ...prepareGroupData(grp.posts, activeColumns)
         }));
-    }, [posts, pageName, isMultiBrand]);
+    }, [posts, pageName, activeColumns]);
 
     // Helper function to paginate long post lists cleanly into separate A4 sheets
     const splitGroupIntoPrintPages = (group) => {
@@ -296,14 +463,14 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
     const cleanBrandName = (brandName || 'Brand').replace(/[\\/:*?"<>|]/g, '').trim();
     const periodLabel = getPeriodLabelForFilename(startMonth, endMonth, dateRangeText, posts);
     const fileBaseName = `Report Digital_${cleanBrandName}_${periodLabel}`;
-    const headers = EXPORT_COLUMNS.map((c) => {
-        if (c.key === 'media_type' && isMultiBrand) return 'Post Type / Brand';
-        return c.label;
-    });
-    const summaryHeaders = ['Post Type', 'Qty', 'React', 'Cmt', 'Share', 'Views', 'Reach'];
+    const headers = activeColumns.map((c) => c.label);
+    const summaryHeaders = ['Type', 'Qty', 'React', 'Cmt', 'Share', 'Views', 'Reach'];
 
     const downloadCSV = () => {
-        const escape = (v) => `"${String(v).replace(/"/g, '""')}"`;
+        const escape = (v) => {
+            if (v === null || v === undefined) return '""';
+            return `"${String(v).replace(/"/g, '""')}"`;
+        };
         let allSections = [];
 
         pageGroups.forEach((group, idx) => {
@@ -338,6 +505,32 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
         const usedSheetNames = new Set();
 
         pageGroups.forEach((group, idx) => {
+            const excelRows = group.rows.map((row, rIdx) => {
+                const post = group.sortedPosts[rIdx];
+                return row.map((cell, cIdx) => {
+                    const col = activeColumns[cIdx];
+                    if (col.key === 'post_url') {
+                        const url = cell;
+                        if (url && typeof url === 'string' && url.startsWith('http')) {
+                            return { t: 's', v: 'View Post', f: `HYPERLINK("${url}","View Post")` };
+                        }
+                        return '—';
+                    }
+                    if (col.key === 'spend') {
+                        return (Number(post.ad_spend) || 0) + (Number(post.content_cost) || 0);
+                    }
+                    return cell;
+                });
+            });
+
+            const excelTotalRow = group.totalRow.map((cell, cIdx) => {
+                const col = activeColumns[cIdx];
+                if (col.key === 'spend') {
+                    return group.sortedPosts.reduce((sum, p) => sum + ((Number(p.ad_spend) || 0) + (Number(p.content_cost) || 0)), 0);
+                }
+                return cell;
+            });
+
             const sheetData = [
                 [`PAGE: ${group.name}`],
                 [`Period: ${displayPeriod}`],
@@ -348,12 +541,18 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
                 [],
                 ['DETAILED POSTS'],
                 headers,
-                ...group.rows,
-                group.totalRow
+                ...excelRows,
+                excelTotalRow
             ];
 
             const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
-            worksheet['!cols'] = headers.map(() => ({ wch: 18 }));
+            worksheet['!cols'] = activeColumns.map((col) => {
+                if (col.key === 'post_url') return { wch: 14 };
+                if (col.key === 'published_time') return { wch: 18 };
+                if (col.key === 'media_type') return { wch: 10 };
+                if (col.key === 'brand_name') return { wch: 16 };
+                return { wch: 12 };
+            });
 
             let rawName = (group.name || `Page ${idx + 1}`).replace(/[\\/?*:[\]]/g, '').trim().slice(0, 28) || `Sheet${idx + 1}`;
             let sheetName = rawName;
@@ -402,6 +601,42 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
                 }
 
                 pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, pageHeight, undefined, 'FAST');
+
+                // Map clickable links directly into interactive PDF link annotations
+                const elRect = el.getBoundingClientRect();
+                const linkElements = el.querySelectorAll('[data-pdf-link]');
+                linkElements.forEach((linkEl) => {
+                    const targetUrl = linkEl.getAttribute('data-pdf-link');
+                    if (!targetUrl || targetUrl === '#' || !targetUrl.startsWith('http')) return;
+
+                    let rect = linkEl.getBoundingClientRect();
+                    if (!rect || rect.width <= 0) {
+                        const parentTd = linkEl.closest('td');
+                        if (parentTd) rect = parentTd.getBoundingClientRect();
+                    }
+
+                    if (rect && elRect.width > 0 && elRect.height > 0) {
+                        const relX = rect.left - elRect.left;
+                        const relY = rect.top - elRect.top;
+                        const relW = rect.width;
+                        const relH = rect.height;
+
+                        const mmX = (relX / elRect.width) * pageWidth;
+                        const mmY = (relY / elRect.height) * pageHeight;
+                        const mmW = (relW / elRect.width) * pageWidth;
+                        const mmH = (relH / elRect.height) * pageHeight;
+
+                        // Add tap padding (1.5mm horizontal, 1mm vertical) for easy clicking/tapping
+                        const padX = 1.5;
+                        const padY = 1.0;
+                        const tapX = Math.max(0, mmX - padX);
+                        const tapY = Math.max(0, mmY - padY);
+                        const tapW = mmW + (padX * 2);
+                        const tapH = mmH + (padY * 2);
+
+                        pdf.link(tapX, tapY, tapW, tapH, { url: targetUrl });
+                    }
+                });
             }
 
             pdf.save(`${fileBaseName}.pdf`);
@@ -440,8 +675,8 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
 
     const formatOptions = [
         { value: 'csv', label: 'CSV', icon: FileText, desc: 'Plain spreadsheet data, opens anywhere' },
-        { value: 'excel', label: 'Excel', icon: FileSpreadsheet, desc: 'Formatted .xlsx workbook' },
-        { value: 'pdf', label: 'PDF', icon: FileType, desc: 'Printable report with a title' },
+        { value: 'excel', label: 'Excel', icon: FileSpreadsheet, desc: 'Formatted .xlsx workbook with clickable links' },
+        { value: 'pdf', label: 'PDF', icon: FileType, desc: 'Printable executive report with styled links' },
     ];
 
     const totalPostsCount = posts?.length || 0;
@@ -454,11 +689,82 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
                 </button>
 
                 <div className="export-modal-content">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                         <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 600 }}>Report Digital Marketing</h2>
                     </div>
-                    <div className="post-count">
+                    <div className="post-count" style={{ marginBottom: '16px' }}>
                         {totalPostsCount} post{totalPostsCount !== 1 ? 's' : ''} {pageGroups.length > 1 ? `across ${pageGroups.length} pages` : ''} in the current filter will be included.
+                    </div>
+
+                    {/* Checkbox Column Customizer */}
+                    <div className="export-columns-customizer">
+                        <div className="export-customizer-header">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <SlidersHorizontal size={15} color="#0284c7" />
+                                <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
+                                    Customize Report Columns
+                                </span>
+                                <span style={{ fontSize: '12px', color: '#64748b' }}>
+                                    (Saved for {cleanBrandName})
+                                </span>
+                            </div>
+                            <div className="export-presets-group">
+                                <button
+                                    type="button"
+                                    className={`export-preset-btn ${selectedOptionalCols.length === (isMultiBrand ? 1 : 0) ? 'active' : ''}`}
+                                    onClick={() => setPreset(isMultiBrand ? ['brand_name'] : [])}
+                                    title="Standard metrics only"
+                                >
+                                    Standard
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`export-preset-btn ${selectedOptionalCols.includes('spend') && selectedOptionalCols.includes('post_url') ? 'active' : ''}`}
+                                    onClick={() => setPreset(isMultiBrand ? ['brand_name', 'spend', 'post_url'] : ['spend', 'post_url'])}
+                                    title="Include Spend & Clickable Post Links"
+                                >
+                                    Spend & Links
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`export-preset-btn ${selectedOptionalCols.length === OPTIONAL_COLUMNS_CONFIG.length ? 'active' : ''}`}
+                                    onClick={() => setPreset(OPTIONAL_COLUMNS_CONFIG.map((c) => c.id))}
+                                    title="All available metrics"
+                                >
+                                    All Columns
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="export-columns-grid">
+                            {OPTIONAL_COLUMNS_CONFIG.map((col) => {
+                                const isChecked = selectedOptionalCols.includes(col.id);
+                                const Icon = col.icon;
+                                return (
+                                    <label
+                                        key={col.id}
+                                        className={`export-col-checkbox-label ${isChecked ? 'checked' : ''}`}
+                                        title={col.desc}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={isChecked}
+                                            onChange={() => toggleOptionalColumn(col.id)}
+                                            style={{ display: 'none' }}
+                                        />
+                                        <div className="export-col-checkbox-indicator">
+                                            {isChecked ? <CheckSquare size={16} color="#0284c7" /> : <Square size={16} color="#94a3b8" />}
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                                            <Icon size={14} color={isChecked ? '#0284c7' : '#64748b'} />
+                                            <span style={{ fontSize: '13px', fontWeight: isChecked ? 600 : 500, color: isChecked ? '#0f172a' : '#334155' }}>
+                                                {col.name}
+                                            </span>
+                                        </div>
+                                    </label>
+                                );
+                            })}
+                        </div>
                     </div>
 
                     {/* Report Preview */}
@@ -539,7 +845,7 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
                                                             </h4>
                                                             <table className="export-preview-table" style={{ marginBottom: '8px' }}>
                                                                 <colgroup>
-                                                                    {COLUMN_WIDTHS.map((w, idx) => (
+                                                                    {SUMMARY_COLUMN_WIDTHS.map((w, idx) => (
                                                                         <col key={idx} style={{ width: w }} />
                                                                     ))}
                                                                 </colgroup>
@@ -588,7 +894,7 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
 
                                             <table className="export-preview-table">
                                                 <colgroup>
-                                                    {COLUMN_WIDTHS.map((w, idx) => (
+                                                    {detailedColumnWidths.map((w, idx) => (
                                                         <col key={idx} style={{ width: w }} />
                                                     ))}
                                                 </colgroup>
@@ -602,20 +908,56 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
                                                 <tbody>
                                                     {subPage.rows.map((row, i) => (
                                                         <tr key={i}>
-                                                            {row.map((cell, j) => (
-                                                                <td key={j} style={{ whiteSpace: 'nowrap' }}>
-                                                                    {j === 0 && typeof cell === 'string' && cell.includes(' (') && cell.endsWith(')') ? (
-                                                                        <span style={{ whiteSpace: 'nowrap' }}>
-                                                                            <span>{cell.split(' (')[0]}</span>{' '}
-                                                                            <strong style={{ fontWeight: 700, color: '#0f172a' }}>
-                                                                                ({cell.slice(cell.indexOf(' (') + 2, -1)})
-                                                                            </strong>
-                                                                        </span>
-                                                                    ) : (
-                                                                        cell
-                                                                    )}
-                                                                </td>
-                                                            ))}
+                                                            {row.map((cell, j) => {
+                                                                const col = activeColumns[j];
+                                                                if (col.key === 'post_url') {
+                                                                    return (
+                                                                        <td key={j} style={{ whiteSpace: 'nowrap' }}>
+                                                                            {cell && cell !== '#' ? (
+                                                                                <a
+                                                                                    href={cell}
+                                                                                    target="_blank"
+                                                                                    rel="noopener noreferrer"
+                                                                                    style={{
+                                                                                        color: '#0284c7',
+                                                                                        textDecoration: 'none',
+                                                                                        fontWeight: 600,
+                                                                                        display: 'inline-flex',
+                                                                                        alignItems: 'center',
+                                                                                        gap: '3px',
+                                                                                        fontSize: '11px'
+                                                                                    }}
+                                                                                    onClick={(e) => e.stopPropagation()}
+                                                                                >
+                                                                                    <span>View Post</span>
+                                                                                    <ExternalLink size={11} />
+                                                                                </a>
+                                                                            ) : (
+                                                                                <span style={{ color: '#94a3b8' }}>—</span>
+                                                                            )}
+                                                                        </td>
+                                                                    );
+                                                                }
+                                                                if (col.key === 'spend') {
+                                                                    return (
+                                                                        <td key={j} style={{ whiteSpace: 'nowrap', fontWeight: 600, color: cell !== '$0.00' ? '#0f766e' : '#64748b' }}>
+                                                                            {cell}
+                                                                        </td>
+                                                                    );
+                                                                }
+                                                                if (col.key === 'brand_name') {
+                                                                    return (
+                                                                        <td key={j} style={{ whiteSpace: 'nowrap', fontWeight: 600, color: '#0f172a' }}>
+                                                                            {cell}
+                                                                        </td>
+                                                                    );
+                                                                }
+                                                                return (
+                                                                    <td key={j} style={{ whiteSpace: 'nowrap' }}>
+                                                                        {cell}
+                                                                    </td>
+                                                                );
+                                                            })}
                                                         </tr>
                                                     ))}
                                                 </tbody>
@@ -786,7 +1128,7 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
                                             </h4>
                                             <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '11px', marginBottom: '8px' }}>
                                                 <colgroup>
-                                                    {COLUMN_WIDTHS.map((w, idx) => (
+                                                    {SUMMARY_COLUMN_WIDTHS.map((w, idx) => (
                                                         <col key={idx} style={{ width: w }} />
                                                     ))}
                                                 </colgroup>
@@ -835,34 +1177,65 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
 
                             <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '11px' }}>
                                 <colgroup>
-                                    {COLUMN_WIDTHS.map((w, idx) => (
+                                    {detailedColumnWidths.map((w, idx) => (
                                         <col key={idx} style={{ width: w }} />
                                     ))}
                                 </colgroup>
                                 <thead>
                                     <tr>
                                         {headers.map((h) => (
-                                            <th key={h} style={{ backgroundColor: '#0f172a', color: 'white', padding: '6px 8px', textAlign: 'left', fontSize: '12px', whiteSpace: 'nowrap' }}>{h}</th>
+                                            <th key={h} style={{ backgroundColor: '#0f172a', color: 'white', padding: '6px 8px', textAlign: 'left', fontSize: '11px', whiteSpace: 'nowrap' }}>{h}</th>
                                         ))}
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {subPage.rows.map((row, i) => (
                                         <tr key={i} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                                            {row.map((cell, j) => (
-                                                <td key={j} style={{ padding: '5.5px 8px', color: '#2b384bff', whiteSpace: 'nowrap' }}>
-                                                    {j === 0 && typeof cell === 'string' && cell.includes(' (') && cell.endsWith(')') ? (
-                                                        <span style={{ whiteSpace: 'nowrap' }}>
-                                                            <span>{cell.split(' (')[0]}</span>{' '}
-                                                            <strong style={{ fontWeight: 700, color: '#0f172a' }}>
-                                                                ({cell.slice(cell.indexOf(' (') + 2, -1)})
-                                                            </strong>
-                                                        </span>
-                                                    ) : (
-                                                        cell
-                                                    )}
-                                                </td>
-                                            ))}
+                                            {row.map((cell, j) => {
+                                                const col = activeColumns[j];
+                                                if (col.key === 'post_url') {
+                                                    return (
+                                                        <td key={j} style={{ padding: '5.5px 8px', whiteSpace: 'nowrap' }}>
+                                                            {cell && cell !== '#' ? (
+                                                                <a
+                                                                    href={cell}
+                                                                    data-pdf-link={cell}
+                                                                    style={{
+                                                                        color: '#0284c7',
+                                                                        fontWeight: 600,
+                                                                        fontSize: '10px',
+                                                                        textDecoration: 'underline',
+                                                                        display: 'inline-block'
+                                                                    }}
+                                                                >
+                                                                    View Post ↗
+                                                                </a>
+                                                            ) : (
+                                                                <span style={{ color: '#94a3b8' }}>—</span>
+                                                            )}
+                                                        </td>
+                                                    );
+                                                }
+                                                if (col.key === 'spend') {
+                                                    return (
+                                                        <td key={j} style={{ padding: '5.5px 8px', whiteSpace: 'nowrap', fontWeight: 600, color: cell !== '$0.00' ? '#0f766e' : '#64748b' }}>
+                                                            {cell}
+                                                        </td>
+                                                    );
+                                                }
+                                                if (col.key === 'brand_name') {
+                                                    return (
+                                                        <td key={j} style={{ padding: '5.5px 8px', color: '#0f172a', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                                            {cell}
+                                                        </td>
+                                                    );
+                                                }
+                                                return (
+                                                    <td key={j} style={{ padding: '5.5px 8px', color: '#2b384bff', whiteSpace: 'nowrap' }}>
+                                                        {cell}
+                                                    </td>
+                                                );
+                                            })}
                                         </tr>
                                     ))}
                                 </tbody>
