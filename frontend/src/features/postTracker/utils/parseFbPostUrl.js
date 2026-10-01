@@ -54,3 +54,5 @@ export const parseFbPostUrl = (rawUrl) => {
 
     return null;
 };
+
+export { getFacebookPostUrl } from '../../../shared/utils/facebookUrl';

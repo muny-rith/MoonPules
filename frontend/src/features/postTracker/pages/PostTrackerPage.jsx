@@ -17,6 +17,7 @@ import { useSortableTable } from '../../../shared/hooks/useSortableTable';
 import { DateRangeFilter, isPostInDateRange } from '../../../shared/components/ui/DateRangeFilter';
 import axios from 'axios';
 import api from '../../../shared/utils/apiClient';
+import { getFacebookPostUrl } from '../../../shared/utils/facebookUrl';
 
 const FacebookIcon = ({ size = 24 }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="#1877F2">
@@ -227,8 +228,8 @@ export const PostTrackerPage = () => {
 
   const handlePostClick = (post) => {
     if (post.status === POST_STATUS.PUBLISHED) {
-      const url = post.post_url || (post.fb_post_id ? `https://facebook.com/${post.fb_post_id}` : null);
-      if (url) {
+      const url = getFacebookPostUrl(post.fb_post_id, post.post_url, post.page_id || post.fb_page_id);
+      if (url && url !== '#') {
         window.open(url, '_blank', 'noopener,noreferrer');
       } else {
         alert('This post is marked as published, but no Facebook post link is available.');
@@ -719,7 +720,7 @@ export const PostTrackerPage = () => {
                         )}
                         {post.status === POST_STATUS.PUBLISHED && (post.fb_post_id || post.post_url) && (
                           <a
-                            href={post.post_url || `https://facebook.com/${post.fb_post_id}`}
+                            href={getFacebookPostUrl(post.fb_post_id, post.post_url, post.page_id || post.fb_page_id)}
                             target="_blank"
                             rel="noreferrer"
                             title="Visit Facebook Post"
@@ -954,7 +955,7 @@ export const PostTrackerPage = () => {
                       </button>
                     )}
                     {(post.post_url || post.fb_post_id) && post.status === POST_STATUS.PUBLISHED && (
-                      <a href={post.post_url || `https://facebook.com/${post.fb_post_id}`} target="_blank" rel="noopener noreferrer" className="btn-icon-action" title="View on FB" onClick={(e) => e.stopPropagation()}>
+                      <a href={getFacebookPostUrl(post.fb_post_id, post.post_url, post.page_id || post.fb_page_id)} target="_blank" rel="noopener noreferrer" className="btn-icon-action" title="View on FB" onClick={(e) => e.stopPropagation()}>
                         <ExternalLink size={14} />
                       </a>
                     )}

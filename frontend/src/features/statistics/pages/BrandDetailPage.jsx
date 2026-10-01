@@ -19,6 +19,7 @@ import { ExportModal } from '../components/ExportModal';
 import { SortableHeader } from '../../../shared/components/ui/SortableHeader';
 import { useSortableTable } from '../../../shared/hooks/useSortableTable';
 import { DateRangeFilter, isPostInDateRange, DATE_PRESETS } from '../../../shared/components/ui/DateRangeFilter';
+import { getFacebookPostUrl } from '../../../shared/utils/facebookUrl';
 
 export const BrandDetailPage = () => {
   const { id } = useParams();
@@ -815,7 +816,7 @@ export const BrandDetailPage = () => {
                       </div>
                     </div>
                     <a
-                      href={`https://facebook.com/${topPost.fb_post_id}`}
+                      href={getFacebookPostUrl(topPost.fb_post_id, topPost.post_url, topPost.page_id || topPost.fb_page_id)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="btn-primary"
@@ -914,7 +915,7 @@ export const BrandDetailPage = () => {
                             </td>
                             <td data-label="Actions" style={{ textAlign: 'right' }}>
                               <a
-                                href={`https://facebook.com/${post.fb_post_id}`}
+                                href={getFacebookPostUrl(post.fb_post_id, post.post_url, post.page_id || post.fb_page_id)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="btn-secondary"
@@ -1008,7 +1009,7 @@ export const BrandDetailPage = () => {
                         {/* Footer */}
                         <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
                           <a
-                            href={`https://facebook.com/${post.fb_post_id}`}
+                            href={getFacebookPostUrl(post.fb_post_id, post.post_url, post.page_id || post.fb_page_id)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="btn-primary-soft"
@@ -1111,7 +1112,7 @@ export const BrandDetailPage = () => {
                       <strong style={{ fontSize: '16px', color: '#d97706' }}>{getEngagementRate(p1)}%</strong>
                     </div>
                   </div>
-                  <a href={`https://facebook.com/${p1.fb_post_id}`} target="_blank" rel="noopener noreferrer" className="btn-secondary" style={{ width: '100%', marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
+                  <a href={getFacebookPostUrl(p1.fb_post_id, p1.post_url, p1.page_id || p1.fb_page_id)} target="_blank" rel="noopener noreferrer" className="btn-secondary" style={{ width: '100%', marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
                     View Post 1
                   </a>
                 </div>
@@ -1141,7 +1142,7 @@ export const BrandDetailPage = () => {
                       <strong style={{ fontSize: '16px', color: '#d97706' }}>{getEngagementRate(p2)}%</strong>
                     </div>
                   </div>
-                  <a href={`https://facebook.com/${p2.fb_post_id}`} target="_blank" rel="noopener noreferrer" className="btn-secondary" style={{ width: '100%', marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
+                  <a href={getFacebookPostUrl(p2.fb_post_id, p2.post_url, p2.page_id || p2.fb_page_id)} target="_blank" rel="noopener noreferrer" className="btn-secondary" style={{ width: '100%', marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
                     View Post 2
                   </a>
                 </div>
