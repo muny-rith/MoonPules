@@ -27,6 +27,7 @@ export const MetaSchedulePicker = ({
   value,
   onChange,
   disabled = false,
+  placement = 'bottom', // 'bottom' | 'top'
 }) => {
   // Parse date and time from YYYY-MM-DDTHH:mm
   const todayStr = formatDateIso(new Date());
@@ -567,7 +568,10 @@ export const MetaSchedulePicker = ({
 
             {/* Floating Luxury Calendar Popover */}
             {showCalendar && (
-              <div className="meta-calendar-popover" onClick={(e) => e.stopPropagation()}>
+              <div
+                className={`meta-calendar-popover ${placement === 'top' ? 'open-top' : ''}`}
+                onClick={(e) => e.stopPropagation()}
+              >
                 {/* Header: Month/Year & Navigation Arrows */}
                 <div className="meta-calendar-header">
                   <span className="meta-calendar-title">
@@ -669,7 +673,11 @@ export const MetaSchedulePicker = ({
 
             {/* Floating Luxury 24h Smooth Scroll Wheel Popover */}
             {showTimePicker && (
-              <div className="meta-time-card-24h" ref={timeCardRef} onClick={(e) => e.stopPropagation()}>
+              <div
+                className={`meta-time-card-24h ${placement === 'top' ? 'open-top' : ''}`}
+                ref={timeCardRef}
+                onClick={(e) => e.stopPropagation()}
+              >
 
                 {/* Dual Scroll Wheels (Hour 00-23 & Minute 00-59) */}
                 <div className="meta-wheel-picker-wrap">
@@ -766,12 +774,6 @@ export const MetaSchedulePicker = ({
             )}
           </div>
         </div>
-
-        {/* 3. Timezone Badge */}
-        <div className="meta-schedule-tz-badge" title="Detected local timezone">
-          <Globe size={13} />
-          <span>{getTzInfo()}</span>
-        </div>
       </div>
 
       {/* ── Quick Suggestions (6, 11, 15, 17, 19 - minute 00) ── */}
@@ -817,11 +819,6 @@ export const MetaSchedulePicker = ({
           </div>
         </div>
       )}
-
-      <div className="meta-schedule-footnote">
-        <Clock size={12} />
-        <span>Server precision scheduler will publish to Facebook automatically at this scheduled time.</span>
-      </div>
     </div>
   );
 };

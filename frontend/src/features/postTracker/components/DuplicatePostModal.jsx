@@ -17,6 +17,7 @@ import { FaFacebook } from 'react-icons/fa';
 import * as api from '../api/postTrackerApi';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
 import { resolveMediaUrl } from '../../../shared/utils/mediaUrl';
+import { MetaSchedulePicker } from './MetaSchedulePicker';
 
 export const DuplicatePostModal = ({
   isOpen,
@@ -143,6 +144,8 @@ export const DuplicatePostModal = ({
         backgroundColor: 'rgba(0, 0, 0, 0.55)',
         backdropFilter: 'blur(4px)',
         animation: 'fadeIn 0.2s ease-out',
+        overflowY: 'auto',
+        padding: '24px 16px',
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget && !submitting) onClose();
@@ -153,14 +156,14 @@ export const DuplicatePostModal = ({
           backgroundColor: '#ffffff',
           borderRadius: '16px',
           width: '100%',
-          maxWidth: '520px',
-          margin: '0 16px',
+          maxWidth: '560px',
+          margin: 'auto',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
           animation: 'slideUp 0.25s ease-out',
-          overflow: 'hidden',
+          overflow: 'visible',
           display: 'flex',
           flexDirection: 'column',
-          maxHeight: '90vh',
+          position: 'relative',
         }}
       >
         {/* Header */}
@@ -168,6 +171,8 @@ export const DuplicatePostModal = ({
           style={{
             background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
             borderBottom: '1px solid #bfdbfe',
+            borderTopLeftRadius: '16px',
+            borderTopRightRadius: '16px',
             padding: '20px 24px',
             display: 'flex',
             justifyContent: 'space-between',
@@ -219,7 +224,7 @@ export const DuplicatePostModal = ({
         </div>
 
         {/* Modal Scrollable Body */}
-        <div style={{ padding: '20px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        <div style={{ padding: '20px 24px 30px', overflow: 'visible', display: 'flex', flexDirection: 'column', gap: '18px', position: 'relative' }}>
           
           {/* Post Summary Preview Box */}
           <div
@@ -398,20 +403,11 @@ export const DuplicatePostModal = ({
             </div>
 
             {publishMode === 'schedule' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <input
-                  type="datetime-local"
+              <div style={{ marginTop: '8px' }}>
+                <MetaSchedulePicker
                   value={scheduledDateTime}
-                  onChange={(e) => setScheduledDateTime(e.target.value)}
-                  style={{
-                    flex: 1,
-                    padding: '9px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '13.5px',
-                    color: '#0f172a',
-                    backgroundColor: '#ffffff',
-                  }}
+                  onChange={(newIso) => setScheduledDateTime(newIso)}
+                  placement="top"
                 />
               </div>
             )}
@@ -444,10 +440,14 @@ export const DuplicatePostModal = ({
             padding: '16px 24px',
             backgroundColor: '#f8fafc',
             borderTop: '1px solid #e2e8f0',
+            borderBottomLeftRadius: '16px',
+            borderBottomRightRadius: '16px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: '12px',
+            position: 'relative',
+            zIndex: 10,
           }}
         >
           {/* Option: Customize in Full Editor */}

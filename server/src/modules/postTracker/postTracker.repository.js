@@ -160,6 +160,7 @@ const createTrackedPost = async (postData) => {
     attribution_window_days,
     media_type,
     message,
+    media_url,
     thumbnail_url,
   } = postData;
 

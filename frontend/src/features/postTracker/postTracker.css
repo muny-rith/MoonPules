@@ -1753,7 +1753,7 @@
   border-radius: 14px;
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.08);
   padding: 14px 14px 10px;
-  z-index: 1300;
+  z-index: 9999;
   display: flex;
   flex-direction: column;
   animation: metaCalendarPop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
@@ -1767,6 +1767,25 @@
     transform: translateY(-6px) scale(0.96);
   }
 
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Open upward when placement="top" */
+.meta-calendar-popover.open-top,
+.meta-time-card-24h.open-top {
+  top: auto;
+  bottom: calc(100% + 8px);
+  animation: metaCalendarPopTop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes metaCalendarPopTop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -1914,7 +1933,7 @@
   border-radius: 14px;
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.08);
   padding: 12px 14px 12px;
-  z-index: 1300;
+  z-index: 9999;
   display: flex;
   flex-direction: column;
   animation: metaCalendarPop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
@@ -2154,22 +2173,6 @@
   border-color: #166fe5;
 }
 
-.meta-schedule-tz-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  background: #f0f2f5;
-  border-radius: 8px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: #4b5563;
-  margin-bottom: 1px;
-  border: 1px solid #e4e6eb;
-  height: 38px;
-  box-sizing: border-box;
-}
-
 /* Quick Presets Row */
 .meta-schedule-presets-row {
   display: flex;
@@ -2275,14 +2278,6 @@
 .meta-schedule-summary-past {
   color: #b91c1c;
   font-weight: 600;
-}
-
-.meta-schedule-footnote {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #65676b;
 }
 
 /* Costs Grid */
@@ -2883,7 +2878,7 @@
     gap: 10px;
   }
 
-  .meta-costs-grid > .meta-cost-field:last-child {
+  .meta-costs-grid>.meta-cost-field:last-child {
     grid-column: span 2;
   }
 }
