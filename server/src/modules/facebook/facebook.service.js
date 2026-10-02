@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const FormData = require('form-data');
+const axios = require('axios');
 const fbClient = require('./facebook.client');
 const db = require('../../config/db');
 const repository = require('./facebook.repository');
@@ -357,7 +358,7 @@ const resolveLocalUploadPath = (mediaUrl) => {
   return null;
 };
 
-const publishPostToPage = async (pageId, { message, mediaUrl, scheduledTime }) => {
+const publishPostToPage = async (pageId, { message, mediaUrl, scheduledTime, thumbnailUrl }) => {
   const { access_token, fb_page_id } = await getPageCredentials(pageId);
 
   // Check if native Facebook scheduling is requested (FB requires scheduled_publish_time >= 10m in the future)
@@ -400,6 +401,7 @@ const publishPostToPage = async (pageId, { message, mediaUrl, scheduledTime }) =
       const localPath = !isRemoteUrl ? resolveLocalUploadPath(videoUrlItem) : null;
 
       try {
+        let videoRes = null;
         if (localPath && fs.existsSync(localPath)) {
           const formData = new FormData();
           formData.append('source', fs.createReadStream(localPath));
@@ -410,8 +412,7 @@ const publishPostToPage = async (pageId, { message, mediaUrl, scheduledTime }) =
           } else {
             formData.append('published', 'true');
           }
-          const videoRes = await fbClient.postFbData(`/${fb_page_id}/videos`, access_token, formData, formData.getHeaders());
-          return { fb_post_id: videoRes.id, is_scheduled: isScheduled, media_type: 'video' };
+          videoRes = await fbClient.postFbData(`/${fb_page_id}/videos`, access_token, formData, formData.getHeaders());
         } else if (isRemoteUrl) {
           const videoPayload = {
             file_url: videoUrlItem,
@@ -421,7 +422,37 @@ const publishPostToPage = async (pageId, { message, mediaUrl, scheduledTime }) =
           if (isScheduled) {
             videoPayload.scheduled_publish_time = scheduledPublishTime;
           }
-          const videoRes = await fbClient.postFbData(`/${fb_page_id}/videos`, access_token, videoPayload);
+          videoRes = await fbClient.postFbData(`/${fb_page_id}/videos`, access_token, videoPayload);
+        }
+
+        if (videoRes && videoRes.id) {
+          // If a custom thumbnail was chosen, upload to Facebook Video Thumbnails edge
+          if (thumbnailUrl) {
+            try {
+              console.log(`[FB Video] Uploading preferred thumbnail for video ${videoRes.id}...`);
+              let thumbBuffer = null;
+              if (thumbnailUrl.startsWith('http://') || thumbnailUrl.startsWith('https://')) {
+                const imgRes = await axios.get(thumbnailUrl, { responseType: 'arraybuffer' });
+                thumbBuffer = Buffer.from(imgRes.data);
+              } else {
+                const localThumbPath = resolveLocalUploadPath(thumbnailUrl);
+                if (localThumbPath && fs.existsSync(localThumbPath)) {
+                  thumbBuffer = fs.readFileSync(localThumbPath);
+                }
+              }
+
+              if (thumbBuffer) {
+                const thumbFormData = new FormData();
+                thumbFormData.append('source', thumbBuffer, { filename: 'thumbnail.jpg', contentType: 'image/jpeg' });
+                thumbFormData.append('is_preferred', 'true');
+                await fbClient.postFbData(`/${videoRes.id}/thumbnails`, access_token, thumbFormData, thumbFormData.getHeaders());
+                console.log(`[FB Video] ✅ Custom thumbnail successfully attached to video ${videoRes.id}!`);
+              }
+            } catch (thumbErr) {
+              console.warn(`[FB Video] Could not attach thumbnail to video ${videoRes.id}:`, thumbErr.message);
+            }
+          }
+
           return { fb_post_id: videoRes.id, is_scheduled: isScheduled, media_type: 'video' };
         }
       } catch (videoErr) {
@@ -442,16 +473,18 @@ const publishPostToPage = async (pageId, { message, mediaUrl, scheduledTime }) =
           const formData = new FormData();
           formData.append('source', fs.createReadStream(localPath));
           formData.append('published', 'false');
+          formData.append('temporary', 'true');
 
-          const photoRes = await fbClient.postFbData(`/${fb_page_id}/photos`, access_token, formData, formData.getHeaders());
+          const photoRes = await fbClient.postFbData(`/${fb_page_id}/photos?published=false&temporary=true`, access_token, formData, formData.getHeaders());
           if (photoRes?.id) photoIds.push(photoRes.id);
         } else if (isRemoteUrl) {
           const photoPayload = {
             url: urlItem,
             published: false,
+            temporary: true,
           };
 
-          const photoRes = await fbClient.postFbData(`/${fb_page_id}/photos`, access_token, photoPayload);
+          const photoRes = await fbClient.postFbData(`/${fb_page_id}/photos?published=false&temporary=true`, access_token, photoPayload);
           if (photoRes?.id) photoIds.push(photoRes.id);
         }
       } catch (uploadErr) {
@@ -496,6 +529,35 @@ const publishPostToPage = async (pageId, { message, mediaUrl, scheduledTime }) =
   return { fb_post_id: res.id, is_scheduled: isScheduled };
 };
 
+const deletePostFromPage = async (pageId, fbPostId) => {
+  if (!fbPostId) return { success: false, reason: 'No fbPostId provided' };
+  try {
+    const { access_token } = await getPageCredentials(pageId);
+    const postIdStr = String(fbPostId).trim();
+    try {
+      const res = await fbClient.deleteFbData(`/${postIdStr}`, access_token);
+      return { success: res?.success ?? true };
+    } catch (err) {
+      if (postIdStr.includes('_')) {
+        const singleId = postIdStr.split('_')[1];
+        try {
+          const res = await fbClient.deleteFbData(`/${singleId}`, access_token);
+          return { success: res?.success ?? true };
+        } catch (innerErr) {
+          throw err;
+        }
+      }
+      throw err;
+    }
+  } catch (err) {
+    if (err.isPostDeleted) {
+      return { success: true, alreadyDeleted: true };
+    }
+    console.warn(`[deletePostFromPage] Failed to delete FB post ${fbPostId} on page ${pageId}:`, err.message);
+    return { success: false, error: err.message };
+  }
+};
+
 module.exports = {
   getPageCredentials,
   getScheduledPosts,
@@ -507,4 +569,5 @@ module.exports = {
   getPostMetrics,
   getPages,
   publishPostToPage,
+  deletePostFromPage,
 };

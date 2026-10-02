@@ -4,9 +4,10 @@ import { PostStatusBadge } from '../components/PostStatusBadge';
 import { InsightPanel } from '../components/InsightPanel';
 import { DeleteConfirmModal } from '../components/DeleteConfirmModal';
 import { PublishConfirmModal } from '../components/PublishConfirmModal';
+import { DuplicatePostModal } from '../components/DuplicatePostModal';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { POST_STATUS } from '../constants';
-import { Search, Filter, Calendar, ExternalLink, RefreshCw, BarChart2, DollarSign, Image as ImageIcon, Heart, MessageCircle, Share2, Edit2, Trash2, ChevronLeft, ChevronRight, Users, ChevronDown, Eye, TrendingUp, Send, Award, RotateCcw, Check, Sparkles, X } from 'lucide-react';
+import { Search, Filter, Calendar, ExternalLink, RefreshCw, BarChart2, DollarSign, Image as ImageIcon, Heart, MessageCircle, Share2, Edit2, Trash2, ChevronLeft, ChevronRight, Users, ChevronDown, Eye, TrendingUp, Send, Award, RotateCcw, Check, Sparkles, X, Copy } from 'lucide-react';
 import { FaFacebook, FaTiktok, FaInstagram } from 'react-icons/fa';
 
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
@@ -186,6 +187,7 @@ export const PostTrackerPage = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [postToDelete, setPostToDelete] = useState(null);
   const [postToPublish, setPostToPublish] = useState(null);
+  const [postToDuplicate, setPostToDuplicate] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [platformFilter, setPlatformFilter] = useState('all');
@@ -741,6 +743,16 @@ export const PostTrackerPage = () => {
                           <Edit2 size={14} />
                         </button>
                         <button
+                          title="Duplicate / Repost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPostToDuplicate(post);
+                          }}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', color: '#2563eb', border: '1px solid #bfdbfe', backgroundColor: '#eff6ff', cursor: 'pointer', transition: 'all 0.2s' }}
+                        >
+                          <Copy size={13} />
+                        </button>
+                        <button
                           title="Delete Post"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -962,6 +974,17 @@ export const PostTrackerPage = () => {
                     <button onClick={(e) => { e.stopPropagation(); navigate(`/tasks/edit/${post.id}`); }} className="btn-icon-action" title="Edit Post">
                       <Edit2 size={14} />
                     </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPostToDuplicate(post);
+                      }}
+                      className="btn-icon-action"
+                      title="Duplicate Post"
+                      style={{ color: '#2563eb', backgroundColor: '#eff6ff' }}
+                    >
+                      <Copy size={14} />
+                    </button>
                     <button onClick={(e) => { e.stopPropagation(); setPostToDelete(post); }} className="btn-icon-action delete" title="Delete">
                       <Trash2 size={14} />
                     </button>
@@ -1033,6 +1056,14 @@ export const PostTrackerPage = () => {
         onClose={() => setPostToPublish(null)}
         post={postToPublish}
         onConfirm={handlePublishConfirm}
+      />
+
+      <DuplicatePostModal
+        isOpen={!!postToDuplicate}
+        onClose={() => setPostToDuplicate(null)}
+        post={postToDuplicate}
+        onSuccess={() => reload(queryParams)}
+        onCustomize={(p) => navigate('/tasks/create', { state: { duplicatePost: p } })}
       />
     </div>
   );

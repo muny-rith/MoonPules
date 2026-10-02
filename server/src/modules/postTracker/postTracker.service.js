@@ -108,6 +108,7 @@ const createAndSchedulePost = async (postData) => {
     message,
     media_url,
     media_type,
+    thumbnail_url,
     scheduled_time,
     publish_now = false,
     content_cost = 0,
@@ -156,6 +157,7 @@ const createAndSchedulePost = async (postData) => {
     media_type: media_type || (media_url ? (isVideoMediaUrl(media_url) ? 'video' : 'photo') : 'status'),
     message: message || '',
     media_url: media_url || null,
+    thumbnail_url: thumbnail_url || null,
   });
 
   if (publish_now) {
@@ -172,6 +174,7 @@ const createAndSchedulePost = async (postData) => {
         const fbResult = await facebookService.publishPostToPage(page_id, {
           message: created.message,
           mediaUrl: created.media_url,
+          thumbnailUrl: created.thumbnail_url,
           scheduledTime: targetScheduledTime,
         });
 
@@ -341,6 +344,72 @@ const editPostData = async (id, data) => {
     });
   }
 
+  // If thumbnail_url is being replaced with a new thumbnail, delete the old thumbnail from Supabase Storage
+  if (data.thumbnail_url !== undefined && data.thumbnail_url !== existing.thumbnail_url && existing.thumbnail_url) {
+    storageService.deleteFileFromStorage(existing.thumbnail_url).catch((e) => {
+      console.warn(`[EditPost] Error cleaning up old thumbnail:`, e.message);
+    });
+  }
+
+  // ── RESCHEDULING LOGIC FOR SCHEDULED POSTS ──
+  if (existing.status === 'scheduled') {
+    const mediaChanged = data.media_url !== undefined && data.media_url !== existing.media_url;
+    const thumbnailChanged = data.thumbnail_url !== undefined && data.thumbnail_url !== existing.thumbnail_url;
+    const messageChanged = data.message !== undefined && data.message.trim() !== (existing.message || '').trim();
+    const timeChanged = data.scheduled_time !== undefined &&
+      new Date(data.scheduled_time).getTime() !== (existing.scheduled_time ? new Date(existing.scheduled_time).getTime() : 0);
+
+    // If media, thumbnail, message, or scheduled time was modified
+    if (mediaChanged || thumbnailChanged || messageChanged || timeChanged) {
+      // 1. If an existing FB post was already scheduled on Facebook, delete it from Facebook
+      if (existing.fb_post_id) {
+        console.log(`[EditPost] Post ${id} has existing FB scheduled post ${existing.fb_post_id}. Deleting old FB schedule before rescheduling...`);
+        try {
+          await facebookService.deletePostFromPage(existing.page_id, existing.fb_post_id);
+        } catch (delErr) {
+          console.warn(`[EditPost] Could not delete old FB post ${existing.fb_post_id}:`, delErr.message);
+        }
+      }
+
+      const finalMessage = data.message !== undefined ? data.message : existing.message;
+      const finalMediaUrl = data.media_url !== undefined ? data.media_url : existing.media_url;
+      const finalThumbnailUrl = data.thumbnail_url !== undefined ? data.thumbnail_url : existing.thumbnail_url;
+      const finalScheduledTime = data.scheduled_time !== undefined
+        ? (data.scheduled_time ? new Date(data.scheduled_time) : null)
+        : (existing.scheduled_time ? new Date(existing.scheduled_time) : null);
+
+      const targetMs = finalScheduledTime ? finalScheduledTime.getTime() : Date.now();
+      const nowMs = Date.now();
+
+      // If scheduled >= 10 minutes in future, attempt native Facebook scheduling with updated media/content
+      if (targetMs >= nowMs + 600 * 1000) {
+        try {
+          console.log(`[EditPost] Attempting native Facebook rescheduling for post ${id} with updated media/content...`);
+          const fbResult = await facebookService.publishPostToPage(existing.page_id, {
+            message: finalMessage,
+            mediaUrl: finalMediaUrl,
+            thumbnailUrl: finalThumbnailUrl,
+            scheduledTime: finalScheduledTime,
+          });
+
+          if (fbResult && fbResult.fb_post_id) {
+            console.log(`[EditPost] ✅ Rescheduled on Facebook for post ${id}! New FB Post ID: ${fbResult.fb_post_id}`);
+            data.fb_post_id = fbResult.fb_post_id;
+          } else {
+            data.fb_post_id = null;
+          }
+        } catch (fbErr) {
+          console.warn(`[EditPost] Native FB rescheduling attempt failed (${fbErr.message}). Falling back to MoonPulse in-memory scheduler.`);
+          data.fb_post_id = null;
+        }
+      } else {
+        // Less than 10 mins in future: Facebook API won't accept scheduled posts
+        // Will be published by MoonPulse precision timer when scheduled_time arrives
+        data.fb_post_id = null;
+      }
+    }
+  }
+
   const updated = await repository.updateTrackedPostData(id, data);
 
   // Fetch fresh metrics asynchronously in background without delaying user edit response
@@ -423,7 +492,14 @@ const removePost = async (id) => {
         console.warn(`[DeletePost] Error removing media for post ${id}:`, e.message);
       });
     }
-  } catch (_) {}
+    // If post is scheduled and has an fb_post_id on Facebook, delete it from Facebook too!
+    if (post?.status === 'scheduled' && post?.fb_post_id && post?.page_id) {
+      console.log(`[DeletePost] Removing scheduled FB post ${post.fb_post_id} on page ${post.page_id}...`);
+      await facebookService.deletePostFromPage(post.page_id, post.fb_post_id);
+    }
+  } catch (err) {
+    console.warn(`[DeletePost] Error cleaning up post ${id}:`, err.message);
+  }
   return await repository.deleteTrackedPost(id);
 };
 

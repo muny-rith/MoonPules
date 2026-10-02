@@ -5,7 +5,7 @@ import { parseFbPostUrl } from '../utils/parseFbPostUrl';
 import { ProductPicker } from '../../product/component/ProductPicker';
 import { BrandPicker } from '../../product/component/BrandPicker';
 import { usePostTracker } from '../hooks/usePostTracker';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Send,
   Calendar,
@@ -49,9 +49,10 @@ import { MetaEmojiPicker } from '../components/MetaEmojiPicker';
 import { MetaSchedulePicker } from '../components/MetaSchedulePicker';
 import { ContactFooterModal } from '../components/ContactFooterModal';
 import { AddHashtagsModal } from '../components/AddHashtagsModal';
+import { VideoThumbnailPicker } from '../components/VideoThumbnailPicker';
 import { useWheelIsolation } from '../hooks/useWheelIsolation';
 import '../postTracker.css';
-import { compressImageFile, getMediaMetadata, isVideoMedia } from '../../../shared/utils/mediaUrl';
+import { compressImageFile, getMediaMetadata, isVideoMedia, resolveMediaUrl } from '../../../shared/utils/mediaUrl';
 
 const PageAvatar = ({ page, size = 20, className = 'meta-page-avatar-img' }) => {
   const [imgError, setImgError] = useState(false);
@@ -87,6 +88,8 @@ const PageAvatar = ({ page, size = 20, className = 'meta-page-avatar-img' }) => 
 
 export const CreatePostPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const duplicatePost = location.state?.duplicatePost || null;
   const { addPost } = usePostTracker();
 
   // Layout states
@@ -121,6 +124,7 @@ export const CreatePostPage = () => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [mediaSource, setMediaSource] = useState('upload'); // 'upload' | 'product' | 'none'
   const [mediaItems, setMediaItems] = useState([]); // [{ id, file, previewUrl, serverUrl, dimensions, uploading }]
+  const [videoCustomThumb, setVideoCustomThumb] = useState(null); // { url, file, type }
   const [draggedMediaIndex, setDraggedMediaIndex] = useState(null);
   const [dragOverMediaIndex, setDragOverMediaIndex] = useState(null);
   const dragItemIndexRef = useRef(null);
@@ -147,6 +151,7 @@ export const CreatePostPage = () => {
   // Submission
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const isSubmittingRef = useRef(false);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -179,6 +184,64 @@ export const CreatePostPage = () => {
     }
   }, [productId, productsList]);
 
+  // Handle pre-filling from Duplicated Post (Idea A & C)
+  useEffect(() => {
+    if (!duplicatePost) return;
+
+    if (duplicatePost.message) setMessage(duplicatePost.message);
+    if (duplicatePost.content_cost !== undefined && duplicatePost.content_cost !== null) setContentCost(String(duplicatePost.content_cost));
+    if (duplicatePost.ad_spend !== undefined && duplicatePost.ad_spend !== null) setAdSpend(String(duplicatePost.ad_spend));
+    if (duplicatePost.attribution_window_days) setAttributionWindow(duplicatePost.attribution_window_days);
+
+    const isBrand = duplicatePost.tracking_type === 'brand' || (!duplicatePost.product_id && duplicatePost.brand_id);
+    setTrackingTarget(isBrand ? 'brand' : 'product');
+    if (duplicatePost.brand_id) setBrandId(String(duplicatePost.brand_id));
+    if (duplicatePost.product_id) setProductId(String(duplicatePost.product_id));
+
+    if (duplicatePost.page_id) {
+      setSelectedPageIds([String(duplicatePost.page_id)]);
+    }
+
+    if (duplicatePost.media_url) {
+      setMediaSource('upload');
+      let urls = [];
+      try {
+        if (typeof duplicatePost.media_url === 'string' && duplicatePost.media_url.startsWith('[')) {
+          urls = JSON.parse(duplicatePost.media_url);
+        } else {
+          urls = [duplicatePost.media_url];
+        }
+      } catch {
+        urls = [duplicatePost.media_url];
+      }
+
+      const items = urls.map((url, idx) => {
+        const isVid = duplicatePost.media_type === 'video' || isVideoMedia(url);
+        const resolved = resolveMediaUrl(url);
+        const thumb = duplicatePost.thumbnail_url ? resolveMediaUrl(duplicatePost.thumbnail_url) : (isVid ? resolved : null);
+        return {
+          id: `dup_${Date.now()}_${idx}`,
+          file: null,
+          previewUrl: resolved,
+          serverUrl: url,
+          isVideo: isVid,
+          thumbUrl: thumb,
+          dimensions: isVid ? 'Video' : 'Image',
+          uploading: false,
+        };
+      });
+      setMediaItems(items);
+
+      if (duplicatePost.thumbnail_url) {
+        setVideoCustomThumb({
+          url: resolveMediaUrl(duplicatePost.thumbnail_url),
+          file: null,
+          type: 'duplicate',
+        });
+      }
+    }
+  }, [duplicatePost]);
+
   useEffect(() => {
     if (tabMode === 'legacy' && legacyMode === 'pick' && selectedPageIds.length > 0) {
       loadRecentPosts();
@@ -189,9 +252,9 @@ export const CreatePostPage = () => {
     try {
       const data = await api.fetchPages();
       setPages(data || []);
-      // Automatically pre-select all connected pages so user can post to all in one click!
-      if (data && data.length > 0) {
-        setSelectedPageIds(data.map((p) => String(p.id)));
+      // Pre-select primary page by default if not duplicating
+      if (data && data.length > 0 && !location.state?.duplicatePost) {
+        setSelectedPageIds([String(data[0].id)]);
       }
     } catch (err) {
       console.error('Failed to load pages', err);
@@ -568,11 +631,16 @@ export const CreatePostPage = () => {
   };
 
   const handleSubmit = async () => {
+    if (isSubmittingRef.current || submitting) {
+      console.warn('Post creation already in progress. Ignoring duplicate click.');
+      return;
+    }
     const isTargetValid = trackingTarget === 'brand' ? Boolean(brandId) : Boolean(productId);
     if (!isTargetValid || selectedPageIds.length === 0) {
       setSubmitError(`Please select ${trackingTarget === 'brand' ? 'a Brand' : 'a Product'} and at least one Facebook Page.`);
       return;
     }
+    isSubmittingRef.current = true;
     setSubmitting(true);
     setSubmitError('');
     try {
@@ -592,11 +660,13 @@ export const CreatePostPage = () => {
         } else if (mediaSource === 'upload') {
           if (mediaItems.some((m) => m.uploading)) {
             setSubmitError('Please wait for all media to finish uploading.');
+            isSubmittingRef.current = false;
             setSubmitting(false);
             return;
           }
           if (mediaItems.some((m) => m.error || !m.serverUrl)) {
             setSubmitError('One or more media items failed to upload. Please remove or re-upload them.');
+            isSubmittingRef.current = false;
             setSubmitting(false);
             return;
           }
@@ -610,6 +680,20 @@ export const CreatePostPage = () => {
         const hasVideo = mediaSource === 'upload' && mediaItems.some((m) => m.isVideo || isVideoMedia(m.previewUrl) || isVideoMedia(m.serverUrl));
         const finalMediaType = hasVideo ? 'video' : (finalMediaUrl ? 'photo' : 'status');
 
+        let finalThumbnailUrl = null;
+        if (hasVideo && videoCustomThumb) {
+          if (videoCustomThumb.file) {
+            try {
+              const thumbRes = await api.uploadPostImage(videoCustomThumb.file);
+              finalThumbnailUrl = thumbRes.url;
+            } catch (thumbErr) {
+              console.warn('Failed to upload custom video thumbnail:', thumbErr);
+            }
+          } else if (videoCustomThumb.url && !videoCustomThumb.url.startsWith('data:')) {
+            finalThumbnailUrl = videoCustomThumb.url;
+          }
+        }
+
         // Post/Schedule to all selected Facebook pages in parallel
         await Promise.all(
           selectedPageIds.map((pId) =>
@@ -621,6 +705,7 @@ export const CreatePostPage = () => {
               page_id: parseInt(pId, 10),
               message: message.trim(),
               media_url: finalMediaUrl,
+              thumbnail_url: finalThumbnailUrl,
               media_type: finalMediaType,
               publish_now: publishMode === 'now',
               scheduled_time: publishMode === 'schedule' ? new Date(scheduledDateTime).toISOString() : null,
@@ -634,12 +719,14 @@ export const CreatePostPage = () => {
         const fbPostId = legacyMode === 'pick' ? selectedRecentPostId : parsedPostId;
         if (!fbPostId) {
           setSubmitError('Please select or paste a valid Facebook Post ID.');
+          isSubmittingRef.current = false;
           setSubmitting(false);
           return;
         }
         const targetPageId = selectedPageIds[0];
         if (!targetPageId) {
           setSubmitError('Please select a Facebook Page.');
+          isSubmittingRef.current = false;
           setSubmitting(false);
           return;
         }
@@ -661,6 +748,7 @@ export const CreatePostPage = () => {
       console.error('Failed to create/schedule post:', err);
       setSubmitError(err.response?.data?.error || err.message || 'Failed to submit post');
     } finally {
+      isSubmittingRef.current = false;
       setSubmitting(false);
     }
   };
@@ -674,6 +762,24 @@ export const CreatePostPage = () => {
   const filteredPages = pages.filter((p) =>
     (p.page_name || '').toLowerCase().includes(pageSearchQuery.toLowerCase())
   );
+
+  // Video detection and thumbnail handler
+  const firstVideoIndex = mediaItems.findIndex(
+    (m) => m.isVideo || isVideoMedia(m.previewUrl) || isVideoMedia(m.serverUrl)
+  );
+  const firstVideoItem = firstVideoIndex !== -1 ? mediaItems[firstVideoIndex] : null;
+  const hasVideo = Boolean(firstVideoItem);
+
+  const handleThumbnailSelect = (thumbData) => {
+    setVideoCustomThumb(thumbData);
+    if (firstVideoIndex !== -1) {
+      setMediaItems((prev) =>
+        prev.map((item, idx) =>
+          idx === firstVideoIndex ? { ...item, thumbUrl: thumbData.url } : item
+        )
+      );
+    }
+  };
 
   return (
     <div className="meta-post-page">
@@ -1177,6 +1283,15 @@ export const CreatePostPage = () => {
                 </div>
               )}
             </div>
+          )}
+
+          {/* Video Thumbnail Picker (Meta Business Suite Style) */}
+          {tabMode === 'direct' && hasVideo && firstVideoItem && (
+            <VideoThumbnailPicker
+              videoSource={firstVideoItem.file || firstVideoItem.previewUrl || firstVideoItem.serverUrl}
+              currentThumbUrl={firstVideoItem.thumbUrl || videoCustomThumb?.url}
+              onThumbnailSelect={handleThumbnailSelect}
+            />
           )}
 
           {/* 4. Card: Post details (Textarea + Action Toolbar) */}

@@ -54,6 +54,15 @@ const executePublish = async (postId) => {
         } catch (_) {}
 
         return updatedPost;
+      } else {
+        // The post was scheduled natively on Facebook, but is not yet published (e.g. Publish Now was triggered early).
+        // Delete the pending scheduled post from Facebook to avoid duplicate posts.
+        console.log(`[Scheduler] Post ${postId} has pending scheduled FB post ${post.fb_post_id}. Deleting it from FB before immediate publish...`);
+        try {
+          await facebookService.deletePostFromPage(post.page_id, post.fb_post_id);
+        } catch (delErr) {
+          console.warn(`[Scheduler] Could not delete pending FB schedule ${post.fb_post_id}:`, delErr.message);
+        }
       }
     } catch (checkErr) {
       console.warn(`[Scheduler] Checking fb_post_id ${post.fb_post_id} status failed:`, checkErr.message);
@@ -66,6 +75,7 @@ const executePublish = async (postId) => {
     const published = await facebookService.publishPostToPage(post.page_id, {
       message: post.message,
       mediaUrl: post.media_url,
+      thumbnailUrl: post.thumbnail_url,
     });
 
     const permanentFbPostId = published.fb_post_id;

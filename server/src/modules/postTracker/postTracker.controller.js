@@ -54,12 +54,35 @@ const getPostById = async (req, res, next) => {
   }
 };
 
+// In-flight / rapid-duplicate submission guard (prevents accidental multi-clicks creating duplicate posts)
+const recentCreations = new Map();
+
+const isDuplicateSubmission = (pageId, message, mediaUrl) => {
+  const key = `${pageId}_${(message || '').trim()}_${typeof mediaUrl === 'string' ? mediaUrl : JSON.stringify(mediaUrl || '')}`;
+  const now = Date.now();
+  if (recentCreations.has(key)) {
+    const lastTimestamp = recentCreations.get(key);
+    if (now - lastTimestamp < 4000) {
+      return true;
+    }
+  }
+  recentCreations.set(key, now);
+  setTimeout(() => recentCreations.delete(key), 10000);
+  return false;
+};
+
 const createPost = async (req, res, next) => {
   try {
     const postData = {
       ...req.body,
       marked_by: req.user?.id || 1,
     };
+
+    // Prevent duplicate rapid submissions from rapid clicks or network retries
+    if (isDuplicateSubmission(postData.page_id, postData.message, postData.media_url)) {
+      console.warn(`[createPost] Duplicate submission detected for page ${postData.page_id} within 4s. Ignoring.`);
+      return res.status(200).json({ message: 'Duplicate post creation ignored' });
+    }
 
     // If direct scheduling / publishing mode (Method 1)
     if (req.body.mode === 'schedule' || !req.body.fb_post_id) {

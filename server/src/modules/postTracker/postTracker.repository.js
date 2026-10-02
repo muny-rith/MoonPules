@@ -160,7 +160,7 @@ const createTrackedPost = async (postData) => {
     attribution_window_days,
     media_type,
     message,
-    media_url,
+    thumbnail_url,
   } = postData;
 
   try {
@@ -168,9 +168,9 @@ const createTrackedPost = async (postData) => {
       INSERT INTO tb_post_tracker (
         product_id, brand_id, tracking_type, page_id, fb_post_id, status, scheduled_time, published_time, 
         marked_by, content_cost, ad_spend, attribution_window_days, media_type,
-        message, media_url
+        message, media_url, thumbnail_url
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING *
     `, [
       product_id ? parseInt(product_id, 10) : null,
@@ -188,6 +188,7 @@ const createTrackedPost = async (postData) => {
       media_type || 'photo',
       message || null,
       media_url || null,
+      thumbnail_url || null,
     ]);
     return result.rows[0];
   } catch (err) {
@@ -359,6 +360,10 @@ const updateTrackedPostData = async (id, data) => {
   if (data.media_url !== undefined) {
     fields.push(`media_url = $${idx++}`);
     values.push(data.media_url || null);
+  }
+  if (data.thumbnail_url !== undefined) {
+    fields.push(`thumbnail_url = $${idx++}`);
+    values.push(data.thumbnail_url || null);
   }
   if (data.media_type !== undefined) {
     fields.push(`media_type = $${idx++}`);

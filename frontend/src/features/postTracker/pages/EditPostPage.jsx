@@ -45,6 +45,7 @@ import { MetaEmojiPicker } from '../components/MetaEmojiPicker';
 import { MetaSchedulePicker } from '../components/MetaSchedulePicker';
 import { ContactFooterModal } from '../components/ContactFooterModal';
 import { AddHashtagsModal } from '../components/AddHashtagsModal';
+import { VideoThumbnailPicker } from '../components/VideoThumbnailPicker';
 import { useWheelIsolation } from '../hooks/useWheelIsolation';
 import '../postTracker.css';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
@@ -120,6 +121,8 @@ export const EditPostPage = () => {
   const [customFile, setCustomFile] = useState(null);
   const [customPreview, setCustomPreview] = useState('');
   const [customThumb, setCustomThumb] = useState('');
+  const [videoThumbnailUrl, setVideoThumbnailUrl] = useState('');
+  const [videoCustomThumbFile, setVideoCustomThumbFile] = useState(null);
   const [isCustomVideo, setIsCustomVideo] = useState(false);
   const [uploadedMediaUrl, setUploadedMediaUrl] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -133,6 +136,7 @@ export const EditPostPage = () => {
   // Submission state
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const isSubmittingRef = useRef(false);
 
   // Store Contact Footer
   const [contactFooter, setContactFooter] = useState('');
@@ -212,6 +216,12 @@ export const EditPostPage = () => {
         setMediaSource('none');
       }
 
+      if (post.thumbnail_url) {
+        const resolvedThumb = resolveMediaUrl(post.thumbnail_url);
+        setVideoThumbnailUrl(post.thumbnail_url);
+        setCustomThumb(resolvedThumb);
+      }
+
       if (post.scheduled_time) {
         const d = new Date(post.scheduled_time);
         const localIso = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
@@ -268,6 +278,14 @@ export const EditPostPage = () => {
     }
   };
 
+  const handleThumbnailSelect = (thumbData) => {
+    setVideoCustomThumbFile(thumbData.file || null);
+    setCustomThumb(thumbData.url);
+    if (thumbData.url && !thumbData.url.startsWith('data:')) {
+      setVideoThumbnailUrl(thumbData.url);
+    }
+  };
+
   const handleInsertProductName = () => {
     if (!selectedProduct) return;
     setMessage((prev) => (prev ? `${prev} ${selectedProduct.product_name}` : selectedProduct.product_name));
@@ -281,11 +299,16 @@ export const EditPostPage = () => {
   };
 
   const handleSubmit = async () => {
+    if (isSubmittingRef.current || submitting) {
+      console.warn('Update already in progress. Ignoring duplicate click.');
+      return;
+    }
     const isTargetValid = trackingTarget === 'brand' ? Boolean(brandId) : Boolean(productId);
     if (!isTargetValid || !pageId) {
       setSubmitError(`Please select ${trackingTarget === 'brand' ? 'a Brand' : 'a Product'} and a Facebook Page.`);
       return;
     }
+    isSubmittingRef.current = true;
     setSubmitting(true);
     setSubmitError('');
     try {
@@ -298,6 +321,7 @@ export const EditPostPage = () => {
         finalMediaUrl = uploadedMediaUrl || null;
         if (!finalMediaUrl && customFile) {
           setSubmitError('Please wait for image upload to complete.');
+          isSubmittingRef.current = false;
           setSubmitting(false);
           return;
         }
@@ -311,12 +335,24 @@ export const EditPostPage = () => {
         : null;
 
       const isVideo = isCustomVideo || (finalMediaUrl ? isVideoMedia(finalMediaUrl) : false);
+
+      let finalThumbnailUrl = videoThumbnailUrl || originalPost?.thumbnail_url || null;
+      if (videoCustomThumbFile) {
+        try {
+          const thumbRes = await api.uploadPostImage(videoCustomThumbFile);
+          finalThumbnailUrl = thumbRes.url;
+        } catch (thumbErr) {
+          console.warn('Failed to upload custom video thumbnail:', thumbErr);
+        }
+      }
+
       const updateData = {
         tracking_type: trackingTarget,
         product_id: targetProductId,
         brand_id: targetBrandId,
         message: message.trim(),
         media_url: finalMediaUrl,
+        thumbnail_url: finalThumbnailUrl,
         media_type: isVideo ? 'video' : (finalMediaUrl ? 'photo' : 'status'),
         content_cost: parseFloat(contentCost) || 0,
         ad_spend: parseFloat(adSpend) || 0,
@@ -331,6 +367,79 @@ export const EditPostPage = () => {
       console.error('Update error:', err);
       setSubmitError(err?.response?.data?.error || err.message || 'Failed to update post');
     } finally {
+      isSubmittingRef.current = false;
+      setSubmitting(false);
+    }
+  };
+
+  const handleDuplicateAsNew = async () => {
+    if (isSubmittingRef.current || submitting) {
+      console.warn('Action in progress. Ignoring duplicate click.');
+      return;
+    }
+    const isTargetValid = trackingTarget === 'brand' ? Boolean(brandId) : Boolean(productId);
+    if (!isTargetValid || !pageId) {
+      setSubmitError(`Please select ${trackingTarget === 'brand' ? 'a Brand' : 'a Product'} and a Facebook Page.`);
+      return;
+    }
+
+    isSubmittingRef.current = true;
+    setSubmitting(true);
+    setSubmitError('');
+
+    try {
+      let finalMediaUrl = null;
+      if (mediaSource === 'product') {
+        finalMediaUrl = trackingTarget === 'brand'
+          ? (selectedBrand?.image_url || originalPost?.media_url || null)
+          : (selectedProduct?.image_url || originalPost?.media_url || null);
+      } else if (mediaSource === 'upload') {
+        finalMediaUrl = uploadedMediaUrl || originalPost?.media_url || null;
+      }
+
+      const targetBrandId = trackingTarget === 'brand' && brandId
+        ? parseInt(brandId, 10)
+        : (selectedProduct?.brand_id ? parseInt(selectedProduct.brand_id, 10) : null);
+      const targetProductId = trackingTarget === 'product' && productId
+        ? parseInt(productId, 10)
+        : null;
+
+      const isVideo = isCustomVideo || (finalMediaUrl ? isVideoMedia(finalMediaUrl) : false);
+
+      let finalThumbnailUrl = videoThumbnailUrl || originalPost?.thumbnail_url || null;
+      if (videoCustomThumbFile) {
+        try {
+          const thumbRes = await api.uploadPostImage(videoCustomThumbFile);
+          finalThumbnailUrl = thumbRes.url;
+        } catch (thumbErr) {
+          console.warn('Failed to upload custom video thumbnail:', thumbErr);
+        }
+      }
+
+      const newPostData = {
+        mode: 'schedule',
+        tracking_type: trackingTarget,
+        product_id: targetProductId,
+        brand_id: targetBrandId,
+        page_id: parseInt(pageId, 10),
+        message: message.trim(),
+        media_url: finalMediaUrl,
+        thumbnail_url: finalThumbnailUrl,
+        media_type: isVideo ? 'video' : (finalMediaUrl ? 'photo' : 'status'),
+        publish_now: !scheduledDateTime,
+        scheduled_time: scheduledDateTime ? new Date(scheduledDateTime).toISOString() : null,
+        content_cost: parseFloat(contentCost) || 0,
+        ad_spend: parseFloat(adSpend) || 0,
+        attribution_window_days: parseInt(attributionWindow, 10) || 7,
+      };
+
+      await api.createPost(newPostData);
+      navigate('/tasks');
+    } catch (err) {
+      console.error('Duplicate post creation error:', err);
+      setSubmitError(err?.response?.data?.error || err.message || 'Failed to duplicate post');
+    } finally {
+      isSubmittingRef.current = false;
       setSubmitting(false);
     }
   };
@@ -727,6 +836,15 @@ export const EditPostPage = () => {
             )}
           </div>
 
+          {/* Video Thumbnail Picker (Meta Business Suite Style) */}
+          {!isPublished && (isCustomVideo || isVideoMedia(customPreview) || isVideoMedia(uploadedMediaUrl)) && (customFile || customPreview || uploadedMediaUrl) && (
+            <VideoThumbnailPicker
+              videoSource={customFile || customPreview || uploadedMediaUrl}
+              currentThumbUrl={customThumb || videoThumbnailUrl}
+              onThumbnailSelect={handleThumbnailSelect}
+            />
+          )}
+
           {/* 4. Card: Post details (Textarea + Action Toolbar) */}
           <div className="meta-card" ref={textCardRef}>
             <div style={{ marginBottom: '8px', fontSize: '13px', fontWeight: 600, color: '#050505', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -949,7 +1067,7 @@ export const EditPostPage = () => {
               Post ID: <strong style={{ color: '#050505' }}>#{id}</strong>
             </div>
 
-            <div className="meta-actions-right">
+            <div className="meta-actions-right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
                 type="button"
                 onClick={handleCancel}
@@ -957,6 +1075,25 @@ export const EditPostPage = () => {
                 disabled={submitting}
               >
                 Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDuplicateAsNew}
+                disabled={submitting || !(trackingTarget === 'brand' ? Boolean(brandId) : Boolean(productId)) || !pageId}
+                className="meta-btn-secondary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  borderColor: '#93c5fd',
+                  color: '#1d4ed8',
+                  background: '#eff6ff',
+                  fontWeight: 600,
+                }}
+                title="Save your edited text/image as a brand new duplicate post without overwriting the original"
+              >
+                <Copy size={15} />
+                <span>Duplicate as New Post</span>
               </button>
               <button
                 type="button"

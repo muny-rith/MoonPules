@@ -184,8 +184,9 @@ export const generateVideoThumbnail = (fileOrUrl) => {
       };
 
       video.onloadeddata = () => {
-        // Seek to 0.2s or midpoint of a short video
-        const target = Math.min(0.2, (video.duration || 1) / 2);
+        // Seek to 1s or 15% of video to avoid 0.0s black fade-in frames
+        const dur = video.duration || 1;
+        const target = Math.min(1.0, dur * 0.15);
         video.currentTime = target;
       };
 
@@ -213,6 +214,176 @@ export const generateVideoThumbnail = (fileOrUrl) => {
       resolve(null);
     }
   });
+};
+
+/**
+ * Extracts multiple suggested frames across the video duration for thumbnail selection.
+ */
+export const extractVideoFrames = (fileOrUrl, count = 8) => {
+  return new Promise((resolve) => {
+    try {
+      if (!fileOrUrl) return resolve([]);
+      const isFile = typeof fileOrUrl !== 'string';
+      const video = document.createElement('video');
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = 'auto';
+
+      const url = isFile ? URL.createObjectURL(fileOrUrl) : fileOrUrl;
+      video.src = url;
+
+      const frames = [];
+      const timeout = setTimeout(() => {
+        cleanup();
+        resolve(frames);
+      }, 15000);
+
+      const cleanup = () => {
+        clearTimeout(timeout);
+        video.onloadedmetadata = null;
+        video.onseeked = null;
+        video.onerror = null;
+        if (isFile) {
+          try { URL.revokeObjectURL(url); } catch (_) {}
+        }
+      };
+
+      video.onloadedmetadata = () => {
+        const duration = video.duration || 1;
+        // Generate timestamps avoiding the very start (often black) and very end
+        const timestamps = [];
+        for (let i = 0; i < count; i++) {
+          const ratio = (i + 0.5) / count;
+          // Clamp between 0.5s (or 5%) and duration - 0.2s
+          const t = Math.max(0.5, Math.min(duration - 0.2, duration * ratio));
+          timestamps.push(t);
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.min(video.videoWidth || 480, 720);
+        canvas.height = Math.min(video.videoHeight || 270, 720);
+        const ctx = canvas.getContext('2d');
+
+        let currentIndex = 0;
+
+        const processNext = () => {
+          if (currentIndex >= timestamps.length) {
+            cleanup();
+            return resolve(frames);
+          }
+          video.currentTime = timestamps[currentIndex];
+        };
+
+        video.onseeked = () => {
+          try {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            frames.push({
+              time: timestamps[currentIndex],
+              url: dataUrl,
+              index: currentIndex,
+            });
+          } catch (e) {
+            console.warn('Frame capture error:', e);
+          }
+          currentIndex++;
+          processNext();
+        };
+
+        processNext();
+      };
+
+      video.onerror = () => {
+        cleanup();
+        resolve(frames);
+      };
+    } catch {
+      resolve([]);
+    }
+  });
+};
+
+/**
+ * Captures a single video frame at an exact timestamp.
+ */
+export const captureVideoFrameAtTime = (fileOrUrl, timeSeconds) => {
+  return new Promise((resolve) => {
+    try {
+      if (!fileOrUrl) return resolve(null);
+      const isFile = typeof fileOrUrl !== 'string';
+      const video = document.createElement('video');
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = 'auto';
+
+      const url = isFile ? URL.createObjectURL(fileOrUrl) : fileOrUrl;
+      video.src = url;
+
+      const timer = setTimeout(() => {
+        cleanup();
+        resolve(null);
+      }, 5000);
+
+      const cleanup = () => {
+        clearTimeout(timer);
+        video.onloadedmetadata = null;
+        video.onseeked = null;
+        video.onerror = null;
+        if (isFile) {
+          try { URL.revokeObjectURL(url); } catch (_) {}
+        }
+      };
+
+      video.onloadedmetadata = () => {
+        const clamped = Math.max(0, Math.min(video.duration || 1, timeSeconds));
+        video.currentTime = clamped;
+      };
+
+      video.onseeked = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.min(video.videoWidth || 480, 720);
+          canvas.height = Math.min(video.videoHeight || 270, 720);
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          cleanup();
+          resolve(dataUrl);
+        } catch {
+          cleanup();
+          resolve(null);
+        }
+      };
+
+      video.onerror = () => {
+        cleanup();
+        resolve(null);
+      };
+    } catch {
+      resolve(null);
+    }
+  });
+};
+
+/**
+ * Converts a data URL to a File object.
+ */
+export const dataUrlToFile = (dataUrl, filename = 'thumbnail.jpg') => {
+  if (!dataUrl || !dataUrl.startsWith('data:')) return null;
+  try {
+    const arr = dataUrl.split(',');
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new File([u8arr], filename, { type: mime });
+  } catch (err) {
+    console.error('Failed to convert dataUrl to File:', err);
+    return null;
+  }
 };
 
 /**
