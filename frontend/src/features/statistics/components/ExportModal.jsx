@@ -17,7 +17,7 @@ const OPTIONAL_COLUMNS_CONFIG = [
         id: 'brand_name',
         key: 'brand_name',
         label: 'Brand',
-        name: 'Brand Name',
+        name: 'Brand',
         icon: Building2,
         weight: 14,
         desc: 'Show brand name as second column'
@@ -26,7 +26,7 @@ const OPTIONAL_COLUMNS_CONFIG = [
         id: 'spend',
         key: 'spend',
         label: 'Spend ($)',
-        name: 'Spend per Live / Post',
+        name: 'Spend',
         icon: DollarSign,
         weight: 12,
         desc: 'Ad spend / Spend per live ($)'
@@ -35,7 +35,7 @@ const OPTIONAL_COLUMNS_CONFIG = [
         id: 'post_url',
         key: 'post_url',
         label: 'Post Link',
-        name: 'Post Link (Clickable)',
+        name: 'Link',
         icon: Link2,
         weight: 12,
         desc: 'Direct link to view post'
@@ -44,7 +44,7 @@ const OPTIONAL_COLUMNS_CONFIG = [
         id: 'engagement_rate',
         key: 'engagement_rate',
         label: 'Engage %',
-        name: 'Engagement Rate %',
+        name: 'ERR',
         icon: Percent,
         weight: 9,
         desc: 'Rate of reactions, cmts & shares per reach'
@@ -297,15 +297,6 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
             }
             return next;
         });
-    };
-
-    const setPreset = (cols) => {
-        setSelectedOptionalCols(cols);
-        try {
-            localStorage.setItem(storageKey, JSON.stringify(cols));
-        } catch {
-            // ignore
-        }
     };
 
     // Calculate active columns with Brand Name positioned as 2nd column right after Post Type!
@@ -701,38 +692,9 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
                         <div className="export-customizer-header">
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <SlidersHorizontal size={15} color="#0284c7" />
-                                <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
+                                <span style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>
                                     Customize Report Columns
                                 </span>
-                                <span style={{ fontSize: '12px', color: '#64748b' }}>
-                                    (Saved for {cleanBrandName})
-                                </span>
-                            </div>
-                            <div className="export-presets-group">
-                                <button
-                                    type="button"
-                                    className={`export-preset-btn ${selectedOptionalCols.length === (isMultiBrand ? 1 : 0) ? 'active' : ''}`}
-                                    onClick={() => setPreset(isMultiBrand ? ['brand_name'] : [])}
-                                    title="Standard metrics only"
-                                >
-                                    Standard
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`export-preset-btn ${selectedOptionalCols.includes('spend') && selectedOptionalCols.includes('post_url') ? 'active' : ''}`}
-                                    onClick={() => setPreset(isMultiBrand ? ['brand_name', 'spend', 'post_url'] : ['spend', 'post_url'])}
-                                    title="Include Spend & Clickable Post Links"
-                                >
-                                    Spend & Links
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`export-preset-btn ${selectedOptionalCols.length === OPTIONAL_COLUMNS_CONFIG.length ? 'active' : ''}`}
-                                    onClick={() => setPreset(OPTIONAL_COLUMNS_CONFIG.map((c) => c.id))}
-                                    title="All available metrics"
-                                >
-                                    All Columns
-                                </button>
                             </div>
                         </div>
 
@@ -743,7 +705,7 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
                                 return (
                                     <label
                                         key={col.id}
-                                        className={`export-col-checkbox-label ${isChecked ? 'checked' : ''}`}
+                                        className={`export-col-checkbox-label`}
                                         title={col.desc}
                                     >
                                         <input
@@ -755,8 +717,8 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
                                         <div className="export-col-checkbox-indicator">
                                             {isChecked ? <CheckSquare size={16} color="#0284c7" /> : <Square size={16} color="#94a3b8" />}
                                         </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-                                            <Icon size={14} color={isChecked ? '#0284c7' : '#64748b'} />
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0 }}>
+                                            <Icon className='icon' size={14} color={isChecked ? '#0284c7' : '#64748b'} />
                                             <span style={{ fontSize: '13px', fontWeight: isChecked ? 600 : 500, color: isChecked ? '#0f172a' : '#334155' }}>
                                                 {col.name}
                                             </span>
