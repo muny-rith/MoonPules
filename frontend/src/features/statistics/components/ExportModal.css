@@ -11,7 +11,7 @@
 .export-modal-container {
     width: 960px;
     max-width: 96vw;
-    max-height: 92vh;
+    max-height: 96vh;
     overflow: hidden;
     padding: 32px;
     position: relative;
@@ -49,12 +49,6 @@
     color: #334155;
 }
 
-.export-modal-content .post-count {
-    margin: 8px 0 24px;
-    font-size: 14px;
-    color: var(--text-muted);
-}
-
 .export-preview-wrapper {
     flex: 1;
     background-color: #e2e8f0;
@@ -66,34 +60,22 @@
     gap: 28px;
     overflow-y: auto;
     min-height: 400px;
-    max-height: 55vh;
+    /* max-height: 55vh; */
     margin-bottom: 24px;
 }
 
-.export-page-indicator {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 13px;
-    font-weight: 600;
-    color: #475569;
-    background-color: #ffffff;
-    border: 1px solid #cbd5e1;
-    padding: 4px 12px;
-    border-radius: 6px;
-    align-self: flex-start;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
 .export-preview-page {
-    width: 100%;
-    max-width: 900px;
+    width: 840px;
+    max-width: 840px;
     min-height: 500px;
     background-color: white;
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    padding: 40px;
+    padding: 36px 40px;
     display: flex;
     flex-direction: column;
+    box-sizing: border-box;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
 }
 
 .export-preview-page h3 {
@@ -266,12 +248,29 @@
 }
 
 @media (max-width: 768px) {
+    .export-modal-container {
+        padding: 20px 16px;
+        width: 95vw;
+        max-height: 95vh;
+    }
+
+    .export-preview-wrapper {
+        padding: 12px 6px;
+        min-height: 280px;
+        max-height: 52vh;
+        margin-bottom: 16px;
+    }
+
     .export-columns-customizer {
         flex-direction: column;
+        gap: 8px;
+        margin-bottom: 12px;
     }
 
     .export-columns-grid {
         display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
     }
 
     .export-columns-grid .icon {
@@ -280,7 +279,6 @@
 
     .export-format-desc {
         display: none;
-
     }
 
     .export-controls {
@@ -290,6 +288,30 @@
 }
 
 @media (max-width: 576px) {
+    .export-modal-container {
+        padding: 16px 12px;
+        width: 96vw;
+        max-height: 96vh;
+    }
+
+    .export-modal-close {
+        top: 14px;
+        right: 14px;
+    }
+
+    .export-modal-content h2 {
+        font-size: 18px;
+        margin-bottom: 6px;
+    }
+
+    .export-preview-wrapper {
+        padding: 8px 4px;
+        min-height: 220px;
+        max-height: 50vh;
+        margin-bottom: 12px;
+        border-radius: 6px;
+    }
+
     .export-controls {
         flex-direction: column;
 
@@ -306,6 +328,8 @@
 
             .export-format-label {
                 justify-content: center;
+                padding: 6px 10px;
+                font-size: 12px;
             }
         }
 
@@ -314,11 +338,9 @@
         }
 
         .export-actions {
-            gap: 30px;
+            gap: 20px;
+            width: 100%;
+            justify-content: flex-end;
         }
-    }
-
-    .post-count {
-        display: none;
     }
 }
