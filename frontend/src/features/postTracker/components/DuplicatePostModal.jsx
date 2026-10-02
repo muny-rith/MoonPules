@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Copy,
@@ -16,7 +16,7 @@ import {
 import { FaFacebook } from 'react-icons/fa';
 import * as api from '../api/postTrackerApi';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
-import { resolveMediaUrl } from '../../../shared/utils/mediaUrl';
+import { resolveMediaUrl, isVideoMedia } from '../../../shared/utils/mediaUrl';
 import { MetaSchedulePicker } from './MetaSchedulePicker';
 
 export const DuplicatePostModal = ({
@@ -32,6 +32,7 @@ export const DuplicatePostModal = ({
   const [scheduledDateTime, setScheduledDateTime] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const isSubmittingRef = useRef(false);
 
   // Initialize defaults whenever a post is opened
   useEffect(() => {
@@ -39,6 +40,7 @@ export const DuplicatePostModal = ({
 
     setError(null);
     setSubmitting(false);
+    isSubmittingRef.current = false;
 
     // Default to tomorrow at the same time or next 2 hours
     const defaultTime = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -48,17 +50,14 @@ export const DuplicatePostModal = ({
     setScheduledDateTime(localIso);
     setPublishMode('schedule');
 
-    // Pre-select the post's current page
-    if (post.page_id) {
-      setSelectedPageIds([String(post.page_id)]);
-    }
-
-    // Load available Facebook pages
+    // Load available Facebook pages and select ALL accounts by default
     api.fetchPages()
       .then((data) => {
         setPages(data || []);
-        if ((!post.page_id || !selectedPageIds.length) && data?.length > 0) {
-          setSelectedPageIds([String(data[0].id)]);
+        if (data && data.length > 0) {
+          setSelectedPageIds(data.map((p) => String(p.id)));
+        } else if (post.page_id) {
+          setSelectedPageIds([String(post.page_id)]);
         }
       })
       .catch((err) => {
@@ -81,6 +80,10 @@ export const DuplicatePostModal = ({
   };
 
   const handleConfirmDuplicate = async () => {
+    if (isSubmittingRef.current || submitting) {
+      console.warn('Duplicate post in progress. Ignoring duplicate click.');
+      return;
+    }
     if (selectedPageIds.length === 0) {
       setError('Please select at least one Facebook page to post to.');
       return;
@@ -90,15 +93,17 @@ export const DuplicatePostModal = ({
       return;
     }
 
+    isSubmittingRef.current = true;
     setSubmitting(true);
     setError(null);
 
     try {
       const scheduledIso = publishMode === 'schedule' ? new Date(scheduledDateTime).toISOString() : null;
+      const uniquePageIds = Array.from(new Set(selectedPageIds));
 
-      // Post/Schedule to each selected page in parallel
+      // Post/Schedule to each selected page in parallel (deduplicated)
       await Promise.all(
-        selectedPageIds.map((pId) =>
+        uniquePageIds.map((pId) =>
           api.createPost({
             mode: 'schedule',
             tracking_type: post.tracking_type || (post.brand_id && !post.product_id ? 'brand' : 'product'),
@@ -108,7 +113,7 @@ export const DuplicatePostModal = ({
             message: post.message || '',
             media_url: post.media_url || null,
             thumbnail_url: post.thumbnail_url || null,
-            media_type: post.media_type || (post.media_url ? 'photo' : 'status'),
+            media_type: post.media_type || (post.media_url ? (isVideoMedia(post.media_url) ? 'video' : 'photo') : 'status'),
             publish_now: publishMode === 'now',
             scheduled_time: scheduledIso,
             content_cost: parseFloat(post.content_cost) || 0,
@@ -124,6 +129,7 @@ export const DuplicatePostModal = ({
       console.error('Failed to duplicate post:', err);
       setError(err?.response?.data?.error || err.message || 'Failed to schedule duplicate post.');
     } finally {
+      isSubmittingRef.current = false;
       setSubmitting(false);
     }
   };

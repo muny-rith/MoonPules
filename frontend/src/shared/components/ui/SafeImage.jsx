@@ -62,7 +62,7 @@ export const SafeImage = ({
       return (
         <video
           src={resolvedSrc}
-          poster={poster || undefined}
+          poster={poster ? resolveMediaUrl(poster) : undefined}
           controls
           playsInline
           className={className}
@@ -72,6 +72,50 @@ export const SafeImage = ({
         />
       );
     }
+
+    // Static Thumbnail / Avatar mode: If poster exists, render as an image with play icon badge
+    if (poster) {
+      const resolvedPoster = resolveMediaUrl(poster);
+      return (
+        <div
+          className={`safe-image-video-wrap ${className}`}
+          style={{
+            position: 'relative',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+            borderRadius: style?.borderRadius || '6px',
+            background: '#0f172a',
+            flexShrink: 0,
+            ...style,
+          }}
+        >
+          <img
+            src={resolvedPoster}
+            alt={alt}
+            style={{ width: '100%', height: '100%', objectFit: style?.objectFit || 'cover', display: 'block' }}
+            onError={() => setHasError(true)}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(0,0,0,0.3)',
+              pointerEvents: 'none',
+            }}
+          >
+            <Play size={style?.width && parseInt(style.width) < 40 ? 12 : 16} fill="#ffffff" color="#ffffff" />
+          </div>
+        </div>
+      );
+    }
+
+    // Fallback when no poster is available: seek video to 0.5s so browser displays a non-black frame
+    const videoSrcWithTime = resolvedSrc.includes('#t=') ? resolvedSrc : `${resolvedSrc}#t=0.5`;
 
     return (
       <div
@@ -89,8 +133,7 @@ export const SafeImage = ({
         }}
       >
         <video
-          src={resolvedSrc}
-          poster={poster || undefined}
+          src={videoSrcWithTime}
           muted
           playsInline
           preload="metadata"

@@ -199,7 +199,11 @@ export const CreatePostPage = () => {
     if (duplicatePost.product_id) setProductId(String(duplicatePost.product_id));
 
     if (duplicatePost.page_id) {
-      setSelectedPageIds([String(duplicatePost.page_id)]);
+      if (pages.length > 0) {
+        setSelectedPageIds(pages.map((p) => String(p.id)));
+      } else {
+        setSelectedPageIds([String(duplicatePost.page_id)]);
+      }
     }
 
     if (duplicatePost.media_url) {
@@ -252,9 +256,9 @@ export const CreatePostPage = () => {
     try {
       const data = await api.fetchPages();
       setPages(data || []);
-      // Pre-select primary page by default if not duplicating
-      if (data && data.length > 0 && !location.state?.duplicatePost) {
-        setSelectedPageIds([String(data[0].id)]);
+      // Select all connected Facebook accounts by default
+      if (data && data.length > 0) {
+        setSelectedPageIds(data.map((p) => String(p.id)));
       }
     } catch (err) {
       console.error('Failed to load pages', err);
@@ -694,9 +698,10 @@ export const CreatePostPage = () => {
           }
         }
 
-        // Post/Schedule to all selected Facebook pages in parallel
+        // Post/Schedule to all selected Facebook pages in parallel (deduplicated)
+        const uniquePageIds = Array.from(new Set(selectedPageIds));
         await Promise.all(
-          selectedPageIds.map((pId) =>
+          uniquePageIds.map((pId) =>
             api.createPost({
               mode: 'schedule',
               tracking_type: trackingTarget,

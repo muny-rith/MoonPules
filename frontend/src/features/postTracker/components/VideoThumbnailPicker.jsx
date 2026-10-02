@@ -25,6 +25,7 @@ export const VideoThumbnailPicker = ({
   const [frames, setFrames] = useState([]);
   const [loadingFrames, setLoadingFrames] = useState(false);
   const [selectedThumb, setSelectedThumb] = useState(currentThumbUrl);
+  const [isPortrait, setIsPortrait] = useState(true);
 
   // Scrubber state
   const [scrubberTime, setScrubberTime] = useState(1);
@@ -44,7 +45,7 @@ export const VideoThumbnailPicker = ({
     let isMounted = true;
     setLoadingFrames(true);
 
-    // Get video duration
+    // Get video duration and native aspect ratio
     const tempVideo = document.createElement('video');
     tempVideo.preload = 'metadata';
     const tempUrl = typeof videoSource === 'string' ? videoSource : URL.createObjectURL(videoSource);
@@ -53,6 +54,11 @@ export const VideoThumbnailPicker = ({
       if (isMounted) {
         setVideoDuration(tempVideo.duration || 10);
         setScrubberTime(Math.min(1.0, (tempVideo.duration || 10) * 0.15));
+        const vH = tempVideo.videoHeight || 0;
+        const vW = tempVideo.videoWidth || 0;
+        if (vH && vW) {
+          setIsPortrait(vH >= vW);
+        }
       }
       if (typeof videoSource !== 'string') {
         try { URL.revokeObjectURL(tempUrl); } catch (_) {}
@@ -63,6 +69,9 @@ export const VideoThumbnailPicker = ({
       .then((extracted) => {
         if (!isMounted) return;
         setFrames(extracted);
+        if (extracted.length > 0 && typeof extracted[0].isPortrait === 'boolean') {
+          setIsPortrait(extracted[0].isPortrait);
+        }
         // If no thumb currently selected, automatically select the 2nd frame (usually great non-black shot)
         if (extracted.length > 0 && !currentThumbUrl) {
           const defaultFrame = extracted[1] || extracted[0];
@@ -166,9 +175,14 @@ export const VideoThumbnailPicker = ({
       {/* ── Top Header matching Meta Business Suite ── */}
       <div className="fb-thumb-header">
         <div>
-          <h3 className="meta-card-title fb-thumb-title">Thumbnail</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h3 className="meta-card-title fb-thumb-title">Thumbnail</h3>
+            <span className="fb-thumb-ratio-badge">
+              {isPortrait ? '9:16 Reel' : '16:9 Video'}
+            </span>
+          </div>
           <p className="meta-card-desc fb-thumb-desc">
-            Choose thumbnail <span style={{ opacity: 0.7 }}>• optional</span>
+            Choose thumbnail • Full native aspect ratio (zero distortion)
           </p>
         </div>
 
@@ -244,7 +258,7 @@ export const VideoThumbnailPicker = ({
                 return (
                   <div
                     key={frame.index}
-                    className={`fb-thumb-card-item ${isSelected ? 'selected' : ''}`}
+                    className={`fb-thumb-card-item ${isPortrait ? 'portrait' : 'landscape'} ${isSelected ? 'selected' : ''}`}
                     onClick={() => handleSelectSuggested(frame)}
                   >
                     <img src={frame.url} alt={`Frame at ${formatSeconds(frame.time)}`} />
@@ -266,7 +280,7 @@ export const VideoThumbnailPicker = ({
       {activeTab === 'frame' && (
         <div className="fb-thumb-scrubber-box">
           <div className="fb-thumb-scrubber-top">
-            <div className="fb-thumb-scrubber-preview-wrap">
+            <div className={`fb-thumb-scrubber-preview-wrap ${isPortrait ? 'portrait' : 'landscape'}`}>
               {isScrubbingLoading && (
                 <div className="fb-thumb-scrubber-loading">
                   <Loader2 size={20} className="meta-spin-icon" color="#ffffff" />
@@ -316,11 +330,11 @@ export const VideoThumbnailPicker = ({
           {frames.length > 0 && (
             <div className="fb-thumb-mini-filmstrip">
               <span className="fb-thumb-mini-label">Quick jumps:</span>
-              <div className="fb-thumb-filmstrip" ref={stripRef} style={{ maxHeight: '70px' }}>
+              <div className="fb-thumb-filmstrip" ref={stripRef} style={{ maxHeight: isPortrait ? '90px' : '65px' }}>
                 {frames.map((frame) => (
                   <div
                     key={frame.index}
-                    className={`fb-thumb-card-item mini ${selectedThumb === frame.url ? 'selected' : ''}`}
+                    className={`fb-thumb-card-item mini ${isPortrait ? 'portrait' : 'landscape'} ${selectedThumb === frame.url ? 'selected' : ''}`}
                     onClick={() => {
                       setScrubberTime(frame.time);
                       setScrubbingPreview(frame.url);
@@ -349,7 +363,7 @@ export const VideoThumbnailPicker = ({
           />
 
           {customThumbPreview || (selectedThumb && !selectedThumb.startsWith('data:image')) ? (
-            <div className="fb-thumb-upload-preview-card">
+            <div className={`fb-thumb-upload-preview-card ${isPortrait ? 'portrait' : 'landscape'}`}>
               <img
                 src={customThumbPreview || selectedThumb}
                 alt="Custom thumbnail"
@@ -381,7 +395,7 @@ export const VideoThumbnailPicker = ({
               </div>
               <div className="fb-thumb-dropzone-title">Upload a custom thumbnail</div>
               <div className="fb-thumb-dropzone-desc">
-                JPG, PNG, or WEBP (16:9 or 9:16 recommended)
+                JPG, PNG, or WEBP ({isPortrait ? '9:16 vertical recommended for Reels' : '16:9 landscape recommended'})
               </div>
               <button type="button" className="fb-thumb-browse-btn">
                 Browse file

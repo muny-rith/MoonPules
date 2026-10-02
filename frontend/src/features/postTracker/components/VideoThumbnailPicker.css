@@ -23,6 +23,23 @@
   font-weight: 700;
   color: #050505;
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fb-thumb-ratio-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  letter-spacing: 0.3px;
 }
 
 .fb-thumb-desc {
@@ -122,8 +139,8 @@
 
 .fb-thumb-card-item {
   position: relative;
-  width: 86px;
-  height: 122px;
+  width: 78px;
+  height: 138px; /* default 9:16 portrait */
   flex-shrink: 0;
   border-radius: 8px;
   overflow: hidden;
@@ -132,6 +149,16 @@
   cursor: pointer;
   transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
   user-select: none;
+}
+
+.fb-thumb-card-item.portrait {
+  width: 78px;
+  height: 138px; /* exact 9:16 */
+}
+
+.fb-thumb-card-item.landscape {
+  width: 140px;
+  height: 79px; /* exact 16:9 */
 }
 
 .fb-thumb-card-item img {
@@ -154,8 +181,18 @@
 }
 
 .fb-thumb-card-item.mini {
-  width: 60px;
-  height: 60px;
+  width: 50px;
+  height: 88px;
+}
+
+.fb-thumb-card-item.mini.portrait {
+  width: 48px;
+  height: 85px;
+}
+
+.fb-thumb-card-item.mini.landscape {
+  width: 85px;
+  height: 48px;
 }
 
 .fb-thumb-time-tag {
@@ -228,13 +265,23 @@
 
 .fb-thumb-scrubber-preview-wrap {
   position: relative;
-  width: 120px;
-  height: 90px;
+  width: 90px;
+  height: 160px; /* default 9:16 */
   background: #0f172a;
   border-radius: 6px;
   overflow: hidden;
   flex-shrink: 0;
   border: 1px solid #cbd5e1;
+}
+
+.fb-thumb-scrubber-preview-wrap.portrait {
+  width: 90px;
+  height: 160px; /* 9:16 */
+}
+
+.fb-thumb-scrubber-preview-wrap.landscape {
+  width: 178px;
+  height: 100px; /* 16:9 */
 }
 
 .fb-thumb-scrubber-img {
@@ -386,10 +433,20 @@
 
 .fb-thumb-upload-img {
   width: 72px;
-  height: 96px;
+  height: 128px; /* default 9:16 portrait */
   border-radius: 6px;
   object-fit: cover;
   border: 1px solid #cbd5e1;
+}
+
+.fb-thumb-upload-preview-card.portrait .fb-thumb-upload-img {
+  width: 72px;
+  height: 128px; /* 9:16 */
+}
+
+.fb-thumb-upload-preview-card.landscape .fb-thumb-upload-img {
+  width: 128px;
+  height: 72px; /* 16:9 */
 }
 
 .fb-thumb-upload-info {

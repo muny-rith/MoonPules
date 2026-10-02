@@ -217,7 +217,37 @@ export const generateVideoThumbnail = (fileOrUrl) => {
 };
 
 /**
+ * Calculates optimal canvas dimensions preserving the video's exact natural aspect ratio.
+ * Caps maximum dimension at maxDim (default 1920 for full HD) while maintaining exact proportions.
+ */
+export const calculateVideoAspectRatioDimensions = (videoWidth, videoHeight, maxDim = 1920) => {
+  const vWidth = videoWidth || 720;
+  const vHeight = videoHeight || 1280;
+  let targetWidth = vWidth;
+  let targetHeight = vHeight;
+
+  if (vWidth > maxDim || vHeight > maxDim) {
+    const ratio = vWidth / vHeight;
+    if (ratio >= 1) {
+      targetWidth = maxDim;
+      targetHeight = Math.round(maxDim / ratio);
+    } else {
+      targetHeight = maxDim;
+      targetWidth = Math.round(maxDim * ratio);
+    }
+  }
+
+  return {
+    width: targetWidth,
+    height: targetHeight,
+    aspectRatio: vWidth / vHeight,
+    isPortrait: vHeight > vWidth,
+  };
+};
+
+/**
  * Extracts multiple suggested frames across the video duration for thumbnail selection.
+ * Preserves the exact native aspect ratio of the video (9:16 vertical, 16:9 landscape, etc.).
  */
 export const extractVideoFrames = (fileOrUrl, count = 8) => {
   return new Promise((resolve) => {
@@ -259,9 +289,15 @@ export const extractVideoFrames = (fileOrUrl, count = 8) => {
           timestamps.push(t);
         }
 
+        const { width: targetW, height: targetH, isPortrait, aspectRatio } = calculateVideoAspectRatioDimensions(
+          video.videoWidth,
+          video.videoHeight,
+          1920
+        );
+
         const canvas = document.createElement('canvas');
-        canvas.width = Math.min(video.videoWidth || 480, 720);
-        canvas.height = Math.min(video.videoHeight || 270, 720);
+        canvas.width = targetW;
+        canvas.height = targetH;
         const ctx = canvas.getContext('2d');
 
         let currentIndex = 0;
@@ -277,11 +313,15 @@ export const extractVideoFrames = (fileOrUrl, count = 8) => {
         video.onseeked = () => {
           try {
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.90);
             frames.push({
               time: timestamps[currentIndex],
               url: dataUrl,
               index: currentIndex,
+              width: targetW,
+              height: targetH,
+              isPortrait,
+              aspectRatio,
             });
           } catch (e) {
             console.warn('Frame capture error:', e);
@@ -305,6 +345,7 @@ export const extractVideoFrames = (fileOrUrl, count = 8) => {
 
 /**
  * Captures a single video frame at an exact timestamp.
+ * Preserves the exact native aspect ratio of the video (9:16, 16:9, etc.).
  */
 export const captureVideoFrameAtTime = (fileOrUrl, timeSeconds) => {
   return new Promise((resolve) => {
@@ -341,12 +382,17 @@ export const captureVideoFrameAtTime = (fileOrUrl, timeSeconds) => {
 
       video.onseeked = () => {
         try {
+          const { width: targetW, height: targetH } = calculateVideoAspectRatioDimensions(
+            video.videoWidth,
+            video.videoHeight,
+            1920
+          );
           const canvas = document.createElement('canvas');
-          canvas.width = Math.min(video.videoWidth || 480, 720);
-          canvas.height = Math.min(video.videoHeight || 270, 720);
+          canvas.width = targetW;
+          canvas.height = targetH;
           const ctx = canvas.getContext('2d');
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.90);
           cleanup();
           resolve(dataUrl);
         } catch {

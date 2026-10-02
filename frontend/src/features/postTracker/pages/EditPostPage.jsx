@@ -820,7 +820,8 @@ export const EditPostPage = () => {
                 <div className="meta-media-preview-box">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <SafeImage
-                      src={originalPost.media_url}
+                      src={originalPost.thumbnail_url || originalPost.media_url}
+                      poster={originalPost.thumbnail_url}
                       alt="Published media"
                       fallbackText="Attached media"
                       className="meta-media-thumb"

@@ -537,7 +537,8 @@ export const PostTrackerPage = () => {
                           boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
                         }}>
                           <SafeImage
-                            src={post.media_url || post.product_image || `https://ui-avatars.com/api/?name=${post.product_name || 'PR'}&background=c7d2fe&color=3730a3&rounded=false`}
+                            src={post.thumbnail_url || post.media_url || post.product_image || `https://ui-avatars.com/api/?name=${post.product_name || 'PR'}&background=c7d2fe&color=3730a3&rounded=false`}
+                            poster={post.thumbnail_url}
                             alt={post.product_name || 'product'}
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                             fallbackText=""
@@ -825,7 +826,8 @@ export const PostTrackerPage = () => {
                   <div className="task-mob-product-wrap">
                     <div className="task-mob-thumb">
                       <SafeImage
-                        src={post.media_url || post.product_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.product_name || 'PR')}&background=c7d2fe&color=3730a3&rounded=false`}
+                        src={post.thumbnail_url || post.media_url || post.product_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.product_name || 'PR')}&background=c7d2fe&color=3730a3&rounded=false`}
+                        poster={post.thumbnail_url}
                         alt={post.product_name || 'product'}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         fallbackText=""
