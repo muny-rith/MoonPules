@@ -42,7 +42,7 @@ export const PostTrackerTableSkeleton = ({ rowCount = 8 }) => {
             </td>
 
             {/* 4. Dates */}
-            <td style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9' }}>
+            <td style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                 <Skeleton width={s.dateWidth} height={13} borderRadius={4} />
                 <Skeleton width={s.timeWidth} height={12} borderRadius={4} />

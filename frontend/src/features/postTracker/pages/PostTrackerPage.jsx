@@ -494,13 +494,13 @@ export const PostTrackerPage = () => {
         </div>
 
         <div className="desktop-only" style={{ overflowX: 'auto' }}>
-          <table className="custom-table" style={{ width: '100%', minWidth: '1000px', borderCollapse: 'collapse' }}>
+          <table className="custom-table" style={{ width: '100%', minWidth: '1150px', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
                 <SortableHeader label="Post Content" sortKey="post_content" currentSort={sortConfig} onSort={requestSort} thStyle={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }} />
                 <SortableHeader label="Platform" sortKey="platform" currentSort={sortConfig} onSort={requestSort} align="center" thStyle={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }} />
                 <SortableHeader label="Status" sortKey="status" currentSort={sortConfig} onSort={requestSort} thStyle={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }} />
-                <SortableHeader label="Dates" sortKey="dates" currentSort={sortConfig} onSort={requestSort} defaultDirection="desc" thStyle={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }} />
+                <SortableHeader label="Dates" sortKey="dates" currentSort={sortConfig} onSort={requestSort} defaultDirection="desc" thStyle={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: '140px', whiteSpace: 'nowrap' }} />
                 <SortableHeader label="Views" sortKey="views_count" currentSort={sortConfig} onSort={requestSort} align="right" defaultDirection="desc" thStyle={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }} />
                 <SortableHeader label="Reach" sortKey="reach_count" currentSort={sortConfig} onSort={requestSort} align="right" defaultDirection="desc" thStyle={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }} />
                 <SortableHeader label="Engagements" sortKey="engagements" currentSort={sortConfig} onSort={requestSort} align="right" defaultDirection="desc" thStyle={{ padding: '14px 24px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }} />
@@ -611,16 +611,21 @@ export const PostTrackerPage = () => {
                       </div>
                     </td>
                     <td style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9' }}><PostStatusBadge status={post.status} /></td>
-                    <td style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <div style={{ fontSize: '13px', color: '#334155' }}>
+                    <td style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#334155', whiteSpace: 'nowrap' }}>
                           {post.published_time
                             ? new Date(post.published_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                             : post.scheduled_time
                               ? new Date(post.scheduled_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                               : '-'}
                         </div>
-                        <div style={{ fontSize: '12px', color: post.status === 'failed' ? '#dc2626' : post.status === 'scheduled' ? '#d97706' : '#94a3b8' }}>
+                        <div style={{
+                          fontSize: '12px',
+                          fontWeight: 500,
+                          whiteSpace: 'nowrap',
+                          color: post.status === 'failed' ? '#dc2626' : post.status === 'scheduled' ? '#d97706' : '#94a3b8'
+                        }}>
                           {post.status === 'failed'
                             ? <span title={post.publish_error || 'Publishing failed'} style={{ cursor: 'help' }}>⚠️ {post.publish_error ? (post.publish_error.length > 35 ? post.publish_error.slice(0, 35) + '…' : post.publish_error) : 'Failed'}</span>
                             : post.published_time
