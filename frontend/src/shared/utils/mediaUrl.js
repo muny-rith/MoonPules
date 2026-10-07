@@ -467,7 +467,7 @@ export const getMediaMetadata = async (file) => {
     img.onload = () => {
       const dim = `${img.naturalWidth} x ${img.naturalHeight}`;
       URL.revokeObjectURL(url);
-      resolve({ dimensions: dim, isVideo: false, thumbUrl: url });
+      resolve({ dimensions: dim, isVideo: false, thumbUrl: null });
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);

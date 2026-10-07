@@ -1,6 +1,6 @@
 /* Dashboard Page - Flex Stretch for 100vh */
 .content-scroll.content-dashboard {
-  padding: 12px 20px;
+  padding: 20px 24px;
   overflow: hidden;
   height: calc(100vh - 60px);
   display: flex;
@@ -1141,7 +1141,7 @@
     overflow-y: auto !important;
     height: auto !important;
     min-height: calc(100vh - 60px) !important;
-    padding: 14px 20px 32px !important;
+    padding: 24px 24px 32px !important;
   }
 
   .dashboard-page {

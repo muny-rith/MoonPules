@@ -59,9 +59,51 @@ export const fetchPostById = async (id) => {
   return response.data;
 };
 
+const PAGES_CACHE_KEY = 'moonpulse_cached_fb_pages';
+let memoryPagesCache = null;
+
+export const sortPagesAlphabetically = (pages) => {
+  if (!Array.isArray(pages)) return [];
+  return [...pages].sort((a, b) => (a.page_name || '').localeCompare(b.page_name || ''));
+};
+
+export const getCachedPages = () => {
+  if (memoryPagesCache && memoryPagesCache.length > 0) {
+    return memoryPagesCache;
+  }
+  try {
+    const raw = localStorage.getItem(PAGES_CACHE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        memoryPagesCache = sortPagesAlphabetically(parsed);
+        return memoryPagesCache;
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+  return null;
+};
+
+export const setCachedPages = (pages) => {
+  if (Array.isArray(pages) && pages.length > 0) {
+    const sorted = sortPagesAlphabetically(pages);
+    memoryPagesCache = sorted;
+    try {
+      localStorage.setItem(PAGES_CACHE_KEY, JSON.stringify(sorted));
+    } catch (e) {
+      // ignore
+    }
+  }
+};
+
 export const fetchPages = async () => {
   const response = await apiClient.get('/facebook/pages');
-  return response.data;
+  const data = response.data || [];
+  const sorted = sortPagesAlphabetically(data);
+  setCachedPages(sorted);
+  return sorted;
 };
 
 export const fetchFbInsights = async (postId, pageId) => {

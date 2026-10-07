@@ -370,8 +370,8 @@ export const PostTrackerPage = () => {
   if (error) return <div className="alert-error-banner" style={{ margin: '24px' }}>Error: {error}</div>;
 
   return (
-    <div>
-      <div className="tasks-page-header" style={{ marginBottom: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <div className="page-container tasks-page-container">
+      <div className="tasks-page-header" style={{ marginBottom: '4px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <h1 style={{ margin: '0', fontSize: '24px', textAlign: "left", alignSelf: "start" }}>Moon Pulse Tracker</h1>
 
         <div style={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', display: 'flex', alignItems: 'center', padding: '16px 24px', flexWrap: 'wrap', gap: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', width: '100%' }}>

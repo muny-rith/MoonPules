@@ -243,7 +243,7 @@ const markPost = async (postData) => {
     brand_id: hasBrand ? parseInt(brand_id, 10) : null,
     tracking_type: tracking_type || (hasBrand && !hasProduct ? 'brand' : 'product'),
     status: isPublished ? 'published' : 'scheduled',
-    scheduled_time: now,
+    scheduled_time: isPublished ? (createdTime || now) : (postData.scheduled_time ? new Date(postData.scheduled_time) : now),
     published_time: isPublished ? (createdTime || now) : null,
     media_type: mediaType,
     media_url: permanentMediaUrl,

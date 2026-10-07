@@ -1,0 +1,1091 @@
+/* ==========================================================================
+   Planner Page Styles - Content Calendar (Meta Business Suite Aesthetic)
+   ========================================================================== */
+
+/* Lock main content container to 100vh with ZERO page-level scrolling */
+.content-scroll.content-planner,
+.content-scroll:has(.planner-container) {
+  padding: 16px 24px;
+  overflow: hidden !important;
+  height: calc(100vh - 60px) !important;
+  max-height: calc(100vh - 60px) !important;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.planner-container {
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-sizing: border-box;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Header */
+.planner-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.planner-header-title-wrap h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.planner-header-title-wrap p {
+  display: none;
+  /* Hide subtitle to maximize vertical canvas space */
+}
+
+.planner-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Primary / Secondary Buttons */
+.planner-btn-primary {
+  background: #1877f2;
+  color: #ffffff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(24, 119, 242, 0.25);
+}
+
+.planner-btn-primary:hover {
+  background: #166fe5;
+  box-shadow: 0 4px 12px rgba(24, 119, 242, 0.35);
+  transform: translateY(-1px);
+}
+
+.planner-btn-secondary {
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.planner-btn-secondary:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+/* Toolbar */
+.planner-toolbar-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 8px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.planner-nav-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.planner-nav-btns {
+  display: flex;
+  align-items: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #ffffff;
+  height: 36px;
+  box-sizing: border-box;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.planner-nav-btn {
+  background: transparent;
+  border: none;
+  height: 100%;
+  padding: 0 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #475569;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.planner-nav-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.planner-today-btn {
+  background: transparent;
+  border: none;
+  border-left: 1px solid #e2e8f0;
+  border-right: 1px solid #e2e8f0;
+  height: 100%;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2563eb;
+  cursor: pointer;
+  transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.planner-today-btn:hover {
+  background: #eff6ff;
+}
+
+.planner-current-period {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.planner-current-range {
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.planner-toolbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* View Switcher: Week / Month */
+.planner-view-toggle {
+  display: flex;
+  align-items: center;
+  background: #f1f5f9;
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  height: 36px;
+  box-sizing: border-box;
+}
+
+.planner-view-btn {
+  background: transparent;
+  border: none;
+  padding: 0 14px;
+  height: 100%;
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.planner-view-btn.active {
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Search Box */
+.planner-search-wrap {
+  position: relative;
+  min-width: 210px;
+  height: 36px;
+}
+
+.planner-search-input {
+  width: 100%;
+  height: 100%;
+  padding: 0 28px 0 32px;
+  font-size: 13px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  outline: none;
+  background: #ffffff;
+  color: #0f172a;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-sizing: border-box;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.planner-search-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.planner-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.planner-search-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  padding: 3px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.planner-search-clear:hover {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+/* Custom Dropdown Filters */
+.planner-dropdown-group {
+  position: relative;
+}
+
+.planner-dropdown-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  user-select: none;
+  box-sizing: border-box;
+}
+
+.planner-dropdown-btn:hover {
+  background-color: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.planner-dropdown-btn.active-filter {
+  background-color: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.planner-dropdown-btn-icon {
+  flex-shrink: 0;
+}
+
+.planner-dropdown-label {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.planner-dropdown-chevron {
+  color: #94a3b8;
+  flex-shrink: 0;
+  transition: transform 0.2s ease, color 0.15s ease;
+}
+
+.planner-dropdown-btn:hover .planner-dropdown-chevron {
+  color: #64748b;
+}
+
+.planner-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 200px;
+  max-width: 280px;
+  max-height: 280px;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  z-index: 100;
+  padding: 5px;
+  animation: plannerDropdownFade 0.15s ease-out;
+}
+
+@keyframes plannerDropdownFade {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.planner-dropdown-divider {
+  height: 1px;
+  background: #f1f5f9;
+  margin: 4px 6px;
+}
+
+.planner-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: #334155;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.planner-dropdown-item:hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+.planner-dropdown-item.selected {
+  background-color: #eff6ff;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.planner-dropdown-item-icon {
+  flex-shrink: 0;
+}
+
+.planner-dropdown-item-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.planner-dropdown-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.planner-dropdown-item.selected .planner-dropdown-badge {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.planner-dropdown-check {
+  color: #2563eb;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+.planner-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+/* ==========================================================================
+   WEEK VIEW CALENDAR (Meta Business Suite Architecture: Pinned Headers + Unified Body)
+   ========================================================================== */
+
+/* Outer week wrapper */
+.planner-week-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* 1. Day Headers Row (Sticky at top of columns, 100% matched sub-pixel grid) */
+.planner-week-header-row {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--bg-body, #f8fafc);
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+/* Header box for each day */
+.planner-day-col-header {
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  border-left: 1px solid #e2e8f0;
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-sizing: border-box;
+  transition: all 0.15s ease;
+}
+
+/* Today header */
+.planner-day-col-header.is-today {
+  background: #f0f7ff;
+  border-top: 2px solid #1877f2;
+  border-left: 2px solid #1877f2;
+  border-right: 2px solid #1877f2;
+  border-bottom: 1px solid #bfdbfe;
+}
+
+.planner-day-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Standard Day Label */
+.planner-day-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.planner-day-label .day-name {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.planner-day-label .day-number {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* Today Active Pill */
+.planner-today-pill {
+  background: #1877f2;
+  color: #ffffff;
+  padding: 4px 10px;
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(24, 119, 242, 0.3);
+}
+
+.planner-today-pill .day-name {
+  color: #ffffff;
+}
+
+.planner-today-pill .day-number {
+  color: #ffffff;
+}
+
+/* Daily Post Count Badges */
+.planner-day-count-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  align-self: flex-start;
+}
+
+.planner-day-count-zero {
+  display: inline-flex;
+  align-items: center;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 500;
+  align-self: flex-start;
+  padding: 2px 4px;
+}
+
+/* Day Quick Schedule Button */
+.planner-day-add-btn {
+  background: transparent;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.planner-day-add-btn:hover {
+  background: #1877f2;
+  border-color: #1877f2;
+  color: #ffffff;
+  transform: scale(1.05);
+}
+
+/* 2. Unified Scrollable Columns Body (Cards clip at top boundary, NEVER leak!) */
+.planner-week-body-scroll {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+  margin-top: 0;
+  padding-bottom: 16px;
+}
+
+.planner-week-body-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.planner-week-body-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.planner-week-body-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.planner-week-body-scroll::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* 7 Column Body Grid */
+.planner-week-body-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  margin: -1px 0 0 0;
+  padding: 0;
+  align-items: stretch;
+}
+
+/* Column Body - Seamlessly attaches to the header above */
+.planner-day-col-body {
+  background: #ffffff;
+  border-left: 1px solid #e2e8f0;
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  border-top: none;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-sizing: border-box;
+  min-height: 600px;
+}
+
+/* Today Column Body */
+.planner-day-col-body.is-today {
+  background: #fbfdff;
+  border-left: 2px solid #1877f2;
+  border-right: 2px solid #1877f2;
+  border-bottom: 2px solid #1877f2;
+  border-top: none;
+  box-shadow: 0 4px 16px rgba(24, 119, 242, 0.08);
+}
+
+/* Empty day placeholder */
+.planner-empty-day {
+  min-height: 180px;
+  height: 100%;
+  border: 1px dashed #e2e8f0;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #94a3b8;
+  font-size: 12px;
+  padding: 16px;
+  text-align: center;
+  transition: all 0.15s ease;
+}
+
+.planner-empty-day:hover {
+  border-color: #93c5fd;
+  background: #f8fafc;
+  color: #3b82f6;
+  cursor: pointer;
+}
+
+/* ==========================================================================
+   POST CARD (Meta Business Suite Style)
+   ========================================================================== */
+
+.planner-post-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  position: relative;
+}
+
+.planner-post-card:hover {
+  transform: translateY(-2px);
+  border-color: #93c5fd;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
+/* Time Bar */
+.planner-card-time-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.planner-time-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #0369a1;
+  padding: 2px 7px;
+  letter-spacing: -0.2px;
+}
+
+.planner-card-action-btn {
+  background: transparent;
+  border: none;
+  font-size: 11px;
+  color: #64748b;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 4px;
+  border-radius: 4px;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.planner-card-action-btn:hover {
+  background: #eff6ff;
+  color: #1877f2;
+}
+
+/* Card Media Preview */
+.planner-card-media-wrap {
+  position: relative;
+  width: 100%;
+  height: 85px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+}
+
+.planner-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.25s ease;
+}
+
+.planner-post-card:hover .planner-card-img {
+  transform: scale(1.03);
+}
+
+/* Multi-photo badge (Meta Business Suite icon) */
+.planner-multi-photo-badge {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(4px);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Unified Content Type Icon Badges (Top-Right of thumbnail) */
+.planner-type-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(4px);
+  color: #ffffff;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease;
+}
+
+.planner-type-badge.type-live {
+  background: #dc2626;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.45);
+}
+
+.planner-type-badge.type-video {
+  background: rgba(15, 23, 42, 0.75);
+}
+
+.planner-type-badge.type-photo {
+  background: rgba(15, 23, 42, 0.75);
+}
+
+.planner-type-badge.type-photo.multi {
+  width: auto;
+  padding: 0 5px;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.planner-type-badge.type-status {
+  background: rgba(15, 23, 42, 0.75);
+}
+
+/* Facebook badge on bottom-right of thumbnail */
+.planner-platform-badge {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  border: 1px solid #ffffff;
+  z-index: 2;
+}
+
+/* Brand/Product tag overlay badge at top-left of media */
+.planner-card-brand-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(6px);
+  padding: 2px 7px;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  max-width: calc(100% - 12px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.planner-card-brand-badge span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   MONTH VIEW CALENDAR GRID
+   ========================================================================== */
+
+.planner-month-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.planner-month-header-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-top-left-radius: 11px;
+  border-top-right-radius: 11px;
+}
+
+.planner-month-col-title {
+  padding: 10px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.planner-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.planner-month-cell {
+  min-height: 125px;
+  border-right: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f1f5f9;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #ffffff;
+  transition: background 0.15s;
+}
+
+.planner-month-cell:nth-child(7n) {
+  border-right: none;
+}
+
+.planner-month-cell.outside-month {
+  background: #fafbfc;
+  opacity: 0.55;
+}
+
+.planner-month-cell.is-today {
+  background: #f0f7ff;
+}
+
+.planner-month-cell-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.planner-month-day-num {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.planner-month-cell.is-today .planner-month-day-num {
+  background: #1877f2;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.planner-month-post-chip {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 4px 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.planner-month-post-chip:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  transform: translateY(-1px);
+}
+
+.planner-chip-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.planner-chip-time {
+  font-weight: 700;
+  color: #0369a1;
+  white-space: nowrap;
+}
+
+.planner-chip-text {
+  color: #334155;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+/* ==========================================================================
+   RESPONSIVE DESIGN
+   ========================================================================== */
+
+@media (max-width: 1024px) {
+  .planner-toolbar-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .planner-toolbar-controls {
+    justify-content: space-between;
+  }
+}
+
+/* ==========================================================================
+   PLANNER SKELETON & LOADING STATES
+   ========================================================================== */
+
+.planner-col-loading-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-sizing: border-box;
+  animation: plannerPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes plannerPulse {
+  0%, 100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.95;
+  }
+}
+
+.planner-skeleton-line {
+  height: 12px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  width: 80%;
+}
+
+.planner-skeleton-line.short {
+  width: 45%;
+  height: 10px;
+}
+
+.planner-skeleton-thumb {
+  height: 110px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  width: 100%;
+}
+
+.planner-day-count-badge.loading {
+  background: #f1f5f9;
+  color: #94a3b8;
+  letter-spacing: 2px;
+}

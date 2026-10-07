@@ -211,7 +211,7 @@ export const BrandStatsPage = () => {
   const hasActiveFilters = (dateFilter !== 'this_month' || customRange.start !== '' || customRange.end !== '') || searchTerm.trim() !== '';
 
   return (
-    <div className="product-page-container">
+    <div className="page-container product-page-container">
       <div className="product-page-header">
         <div>
           <div className="page-breadcrumb">

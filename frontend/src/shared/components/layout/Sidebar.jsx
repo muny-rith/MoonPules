@@ -1,8 +1,10 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, CheckSquare, Package, BarChart2, MessageSquare, Target, Settings, HelpCircle, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { NavLink, useLocation } from 'react-router-dom';
+import { LayoutDashboard, CheckSquare, Calendar, Package, BarChart2, MessageSquare, Target, Settings, HelpCircle, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { FaFacebook, FaTiktok } from 'react-icons/fa';
 export const Sidebar = ({ isCollapsed, isMobileOpen, toggleCollapse, closeMobile }) => {
+  const location = useLocation();
+
   return (
     <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''} ${isMobileOpen ? 'mobile-open' : ''}`}>
       <div className="sidebar-header">
@@ -17,9 +19,23 @@ export const Sidebar = ({ isCollapsed, isMobileOpen, toggleCollapse, closeMobile
           <LayoutDashboard size={20} />
           {!isCollapsed && <span>Dashboard</span>}
         </NavLink>
-        <NavLink to="/tasks" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeMobile} title={isCollapsed ? "Task (Content Post)" : ""}>
+        <NavLink
+          to="/tasks"
+          className={`nav-item ${location.pathname.startsWith('/tasks') ? 'active' : ''}`}
+          onClick={closeMobile}
+          title={isCollapsed ? "Task (Content Post)" : ""}
+        >
           <CheckSquare size={20} />
           {!isCollapsed && <span>Task (Content Post)</span>}
+        </NavLink>
+        <NavLink
+          to="/planner"
+          className={`nav-item ${location.pathname.startsWith('/planner') ? 'active' : ''}`}
+          onClick={closeMobile}
+          title={isCollapsed ? "Planner" : ""}
+        >
+          <Calendar size={20} />
+          {!isCollapsed && <span>Planner</span>}
         </NavLink>
         <NavLink to="/product" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeMobile} title={isCollapsed ? "Product" : ""}>
           <Package size={20} />

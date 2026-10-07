@@ -2,7 +2,10 @@ const db = require('../../config/db');
 
 const listPages = async () => {
     const result = await db.query(`
-    SELECT id, page_name, fb_page_id, is_active, picture_url FROM tb_fb_page WHERE is_active = true
+    SELECT id, page_name, fb_page_id, is_active, picture_url 
+    FROM tb_fb_page 
+    WHERE is_active = true 
+    ORDER BY page_name ASC, id ASC
   `);
     return result.rows; // never return access_token
 };

@@ -315,7 +315,7 @@ export const DashboardPage = () => {
   }, [stats?.recent_posts, profitData?.all_posts_profit]);
 
   return (
-    <div className="dashboard-page">
+    <div className="page-container dashboard-page">
       <div className="dashboard-top">
 
         <h1 className="dashboard-welcome">

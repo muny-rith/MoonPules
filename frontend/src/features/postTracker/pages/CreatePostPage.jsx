@@ -89,6 +89,10 @@ const PageAvatar = ({ page, size = 20, className = 'meta-page-avatar-img' }) => 
 export const CreatePostPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const dateParam = searchParams.get('date');
+  const isFromPlanner = location.pathname.startsWith('/planner') || location.search.includes('from=planner');
+  const returnPath = isFromPlanner ? '/planner' : '/tasks';
   const duplicatePost = location.state?.duplicatePost || null;
   const { addPost } = usePostTracker();
 
@@ -130,8 +134,8 @@ export const CreatePostPage = () => {
   const dragItemIndexRef = useRef(null);
   const dragOverItemIndexRef = useRef(null);
   const editItemIndexRef = useRef(null);
-  const [publishMode, setPublishMode] = useState('now'); // 'now' | 'schedule'
-  const [scheduledDateTime, setScheduledDateTime] = useState('');
+  const [publishMode, setPublishMode] = useState(() => (dateParam || isFromPlanner ? 'schedule' : 'now'));
+  const [scheduledDateTime, setScheduledDateTime] = useState(() => (dateParam ? `${dateParam}T09:00` : ''));
   const fileInputRef = useRef(null);
 
   // Legacy FB Post tracking
@@ -168,12 +172,24 @@ export const CreatePostPage = () => {
     loadPages();
     loadProducts();
     loadContactFooter();
-    const nextHour = new Date(Date.now() + 60 * 60 * 1000);
-    const localIso = new Date(nextHour.getTime() - nextHour.getTimezoneOffset() * 60000)
-      .toISOString()
-      .slice(0, 16);
-    setScheduledDateTime(localIso);
-  }, []);
+
+    const searchParams = new URLSearchParams(location.search);
+    const dateParam = searchParams.get('date');
+    if (dateParam) {
+      setPublishMode('schedule');
+      if (dateParam.length === 10) {
+        setScheduledDateTime(`${dateParam}T09:00`);
+      } else {
+        setScheduledDateTime(dateParam.slice(0, 16));
+      }
+    } else {
+      const nextHour = new Date(Date.now() + 60 * 60 * 1000);
+      const localIso = new Date(nextHour.getTime() - nextHour.getTimezoneOffset() * 60000)
+        .toISOString()
+        .slice(0, 16);
+      setScheduledDateTime(localIso);
+    }
+  }, [location.search]);
 
   useEffect(() => {
     if (productId && productsList.length > 0) {
@@ -370,7 +386,7 @@ export const CreatePostPage = () => {
       try {
         const res = await api.uploadPostImage(file);
         setMediaItems((prev) =>
-          prev.map((it) => (it.id === itemId ? { ...it, serverUrl: res.url, uploading: false } : it))
+          prev.map((it) => (it.id === itemId ? { ...it, serverUrl: res.url, previewUrl: res.url, thumbUrl: res.url, uploading: false } : it))
         );
       } catch (err) {
         console.error('Failed to upload media:', err);
@@ -405,7 +421,7 @@ export const CreatePostPage = () => {
         .then((compressed) => api.uploadPostImage(compressed))
         .then((res) => {
           setMediaItems((prev) =>
-            prev.map((it) => (it.id === item.id ? { ...it, serverUrl: res.url, uploading: false } : it))
+            prev.map((it) => (it.id === item.id ? { ...it, serverUrl: res.url, previewUrl: res.url, thumbUrl: res.url, uploading: false } : it))
           );
         })
         .catch((err) => {
@@ -748,7 +764,7 @@ export const CreatePostPage = () => {
         });
       }
 
-      navigate('/tasks');
+      navigate(returnPath);
     } catch (err) {
       console.error('Failed to create/schedule post:', err);
       setSubmitError(err.response?.data?.error || err.message || 'Failed to submit post');
@@ -758,7 +774,7 @@ export const CreatePostPage = () => {
     }
   };
 
-  const handleCancel = () => navigate('/tasks');
+  const handleCancel = () => navigate(returnPath);
 
   // Resolved active Facebook Page(s)
   const selectedPages = pages.filter((p) => selectedPageIds.includes(String(p.id)));
@@ -787,11 +803,11 @@ export const CreatePostPage = () => {
   };
 
   return (
-    <div className="meta-post-page">
+    <div className="page-container meta-post-page">
       {/* ── Top Navigation Bar ── */}
       <div className="meta-top-nav">
         <div className="meta-top-nav-left">
-          <button type="button" onClick={handleCancel} className="meta-back-btn" title="Back to tasks">
+          <button type="button" onClick={handleCancel} className="meta-back-btn" title={isFromPlanner ? "Back to planner" : "Back to tasks"}>
             <ArrowLeft size={18} />
           </button>
           <h1 className="meta-page-title">Create post</h1>

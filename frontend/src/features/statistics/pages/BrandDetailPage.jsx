@@ -465,7 +465,7 @@ export const BrandDetailPage = () => {
   };
 
   return (
-    <div className="product-page-container">
+    <div className="page-container product-page-container">
       {/* Breadcrumb & Back */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
         <button

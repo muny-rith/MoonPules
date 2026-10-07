@@ -40,7 +40,7 @@ export const Product = () => {
   } = useProducts();
 
   return (
-    <div className="product-page-container">
+    <div className="page-container product-page-container">
       {/* Page Header */}
       <div className="product-page-header">
         <div>

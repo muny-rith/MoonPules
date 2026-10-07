@@ -4,7 +4,7 @@ import * as productService from '../../product/services/productService';
 import { ProductPicker } from '../../product/component/ProductPicker';
 import { BrandPicker } from '../../product/component/BrandPicker';
 import { usePostTracker } from '../hooks/usePostTracker';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   Upload,
   Globe,
@@ -35,9 +35,17 @@ import {
   Award,
   Radio,
   Copy,
-  Check,
+  Images,
+  Trash2,
+  GripVertical,
   Play,
-  Video
+  Video,
+  Star,
+  LayoutGrid,
+  List,
+  ZoomIn,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 import { PostEditorSkeleton } from '../../../shared/components/skeletons';
@@ -49,7 +57,7 @@ import { VideoThumbnailPicker } from '../components/VideoThumbnailPicker';
 import { useWheelIsolation } from '../hooks/useWheelIsolation';
 import '../postTracker.css';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
-import { resolveMediaUrl, compressImageFile, isVideoMedia, getMediaMetadata } from '../../../shared/utils/mediaUrl';
+import { resolveMediaUrl, resolveAllMediaUrls, compressImageFile, isVideoMedia, getMediaMetadata } from '../../../shared/utils/mediaUrl';
 
 const PageAvatar = ({ page, size = 26, className = 'meta-page-avatar-img' }) => {
   const [imgError, setImgError] = useState(false);
@@ -85,8 +93,11 @@ const PageAvatar = ({ page, size = 26, className = 'meta-page-avatar-img' }) => 
 
 export const EditPostPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams();
   const { updatePost } = usePostTracker();
+  const isFromPlanner = location.pathname.startsWith('/planner') || location.search.includes('from=planner');
+  const returnPath = isFromPlanner ? '/planner' : '/tasks';
 
   // Layout states
   const [previewDevice, setPreviewDevice] = useState('desktop'); // 'desktop' | 'mobile'
@@ -118,14 +129,16 @@ export const EditPostPage = () => {
   const [message, setMessage] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [mediaSource, setMediaSource] = useState('product');
-  const [customFile, setCustomFile] = useState(null);
-  const [customPreview, setCustomPreview] = useState('');
-  const [customThumb, setCustomThumb] = useState('');
+  const [mediaItems, setMediaItems] = useState([]); // [{ id, file, previewUrl, thumbUrl, isVideo, serverUrl, dimensions, uploading, error }]
+  const [mediaViewMode, setMediaViewMode] = useState('grid'); // 'grid' | 'list'
+  const [lightboxIndex, setLightboxIndex] = useState(null);
+  const [draggedMediaIndex, setDraggedMediaIndex] = useState(null);
+  const [dragOverMediaIndex, setDragOverMediaIndex] = useState(null);
+  const dragItemIndexRef = useRef(null);
+  const dragOverItemIndexRef = useRef(null);
+  const editItemIndexRef = useRef(null);
   const [videoThumbnailUrl, setVideoThumbnailUrl] = useState('');
   const [videoCustomThumbFile, setVideoCustomThumbFile] = useState(null);
-  const [isCustomVideo, setIsCustomVideo] = useState(false);
-  const [uploadedMediaUrl, setUploadedMediaUrl] = useState('');
-  const [uploadingImage, setUploadingImage] = useState(false);
   const [scheduledDateTime, setScheduledDateTime] = useState('');
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
@@ -199,27 +212,54 @@ export const EditPostPage = () => {
       setFbPostId(post.fb_post_id || '');
 
       if (post.media_url) {
-        const resolved = resolveMediaUrl(post.media_url);
-        const isVid = post.media_type === 'video' || isVideoMedia(post.media_url) || isVideoMedia(resolved);
-        setIsCustomVideo(isVid);
+        let rawUrls = [];
+        if (typeof post.media_url === 'string' && post.media_url.trim().startsWith('[')) {
+          try {
+            const parsed = JSON.parse(post.media_url);
+            if (Array.isArray(parsed)) {
+              rawUrls = parsed;
+            } else {
+              rawUrls = [post.media_url];
+            }
+          } catch (e) {
+            rawUrls = [post.media_url];
+          }
+        } else {
+          rawUrls = [post.media_url];
+        }
+
+        const items = rawUrls.map((url, i) => {
+          const resolved = resolveMediaUrl(url);
+          const isVid = isVideoMedia(url) || isVideoMedia(resolved) || (i === 0 && post.media_type === 'video');
+          return {
+            id: `loaded_${i}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+            file: null,
+            previewUrl: resolved,
+            serverUrl: url,
+            thumbUrl: (i === 0 && post.thumbnail_url) ? resolveMediaUrl(post.thumbnail_url) : (isVid ? null : resolved),
+            isVideo: isVid,
+            dimensions: isVid ? 'Video' : 'Image',
+            uploading: false,
+          };
+        });
+
+        setMediaItems(items);
+
         if (post.media_url.includes('/uploads/') || post.media_url.includes('http') || post.media_url.startsWith('[')) {
           setMediaSource('upload');
-          setUploadedMediaUrl(post.media_url);
-          setCustomPreview(resolved);
         } else {
           setMediaSource('product');
         }
       } else if (post.media_type === 'video') {
         setMediaSource('upload');
-        setIsCustomVideo(true);
+        setMediaItems([]);
       } else {
         setMediaSource('none');
+        setMediaItems([]);
       }
 
       if (post.thumbnail_url) {
-        const resolvedThumb = resolveMediaUrl(post.thumbnail_url);
         setVideoThumbnailUrl(post.thumbnail_url);
-        setCustomThumb(resolvedThumb);
       }
 
       if (post.scheduled_time) {
@@ -255,35 +295,238 @@ export const EditPostPage = () => {
     }
   };
 
-  const handleCustomFileChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setCustomFile(file);
-    const previewUrl = URL.createObjectURL(file);
-    setCustomPreview(previewUrl);
-    setMediaSource('upload');
-    const meta = await getMediaMetadata(file);
-    setIsCustomVideo(meta.isVideo);
-    setCustomThumb(meta.thumbUrl || previewUrl);
+  // Global safety listener to ensure drag state is never stuck if browser aborts drag
+  useEffect(() => {
+    const handleGlobalDragReset = () => {
+      if (dragItemIndexRef.current !== null || dragOverItemIndexRef.current !== null) {
+        dragItemIndexRef.current = null;
+        dragOverItemIndexRef.current = null;
+        setDraggedMediaIndex(null);
+        setDragOverMediaIndex(null);
+      }
+    };
+
+    window.addEventListener('dragend', handleGlobalDragReset);
+    window.addEventListener('drop', handleGlobalDragReset);
+    window.addEventListener('mouseup', handleGlobalDragReset);
+    return () => {
+      window.removeEventListener('dragend', handleGlobalDragReset);
+      window.removeEventListener('drop', handleGlobalDragReset);
+      window.removeEventListener('mouseup', handleGlobalDragReset);
+    };
+  }, []);
+
+  const handleMediaDragStart = (e, index) => {
+    dragItemIndexRef.current = index;
+    e.dataTransfer.effectAllowed = 'move';
     try {
-      setUploadingImage(true);
-      const compressedFile = await compressImageFile(file, 1200, 0.85);
-      const res = await api.uploadPostImage(compressedFile);
-      setUploadedMediaUrl(res.url);
-    } catch (err) {
-      console.error('Failed to upload media:', err);
-      alert('Failed to upload media. Please try again.');
-    } finally {
-      setUploadingImage(false);
+      e.dataTransfer.setData('text/plain', String(index));
+    } catch {}
+    setTimeout(() => {
+      setDraggedMediaIndex(index);
+    }, 0);
+  };
+
+  const handleMediaDragEnter = (e, index) => {
+    e.preventDefault();
+    if (dragOverItemIndexRef.current !== index) {
+      dragOverItemIndexRef.current = index;
+      setDragOverMediaIndex(index);
     }
   };
 
+  const handleMediaDragOver = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverItemIndexRef.current !== index) {
+      dragOverItemIndexRef.current = index;
+      setDragOverMediaIndex(index);
+    }
+  };
+
+  const handleMediaDrop = (e, targetIndex) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const sourceIndex = dragItemIndexRef.current !== null ? dragItemIndexRef.current : draggedMediaIndex;
+
+    if (sourceIndex !== null && sourceIndex !== targetIndex && sourceIndex >= 0 && targetIndex >= 0) {
+      setMediaItems((prev) => {
+        const items = [...prev];
+        const [movedItem] = items.splice(sourceIndex, 1);
+        items.splice(targetIndex, 0, movedItem);
+        return items;
+      });
+    }
+
+    dragItemIndexRef.current = null;
+    dragOverItemIndexRef.current = null;
+    setDraggedMediaIndex(null);
+    setDragOverMediaIndex(null);
+  };
+
+  const handleMediaDragEnd = () => {
+    dragItemIndexRef.current = null;
+    dragOverItemIndexRef.current = null;
+    setDraggedMediaIndex(null);
+    setDragOverMediaIndex(null);
+  };
+
+  const handleRemoveMediaItem = (itemId) => {
+    setMediaItems((prev) => prev.filter((it) => it.id !== itemId));
+  };
+
+  const handleMakeCover = (e, index) => {
+    e.stopPropagation();
+    if (index === 0) return;
+    setMediaItems((prev) => {
+      const items = [...prev];
+      const [target] = items.splice(index, 1);
+      items.unshift(target);
+      return items;
+    });
+  };
+
+  // Keyboard navigation for Lightbox
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setLightboxIndex(null);
+      if (e.key === 'ArrowLeft') {
+        setLightboxIndex((prev) => (prev > 0 ? prev - 1 : mediaItems.length - 1));
+      }
+      if (e.key === 'ArrowRight') {
+        setLightboxIndex((prev) => (prev < mediaItems.length - 1 ? prev + 1 : 0));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [lightboxIndex, mediaItems.length]);
+
+  const handleFileSelect = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    e.target.value = '';
+
+    setMediaSource('upload');
+
+    // If editing a specific item in the list
+    if (editItemIndexRef.current !== null) {
+      const index = editItemIndexRef.current;
+      editItemIndexRef.current = null;
+      const file = files[0];
+      const previewUrl = URL.createObjectURL(file);
+      const meta = await getMediaMetadata(file);
+      const itemId = `${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+
+      setMediaItems((prev) => {
+        const updated = [...prev];
+        updated[index] = {
+          id: itemId,
+          file,
+          previewUrl,
+          thumbUrl: meta.thumbUrl || previewUrl,
+          isVideo: meta.isVideo,
+          serverUrl: '',
+          dimensions: meta.dimensions,
+          uploading: true,
+        };
+        return updated;
+      });
+
+      try {
+        const compressed = meta.isVideo ? file : await compressImageFile(file, 1200, 0.85);
+        const res = await api.uploadPostImage(compressed);
+        setMediaItems((prev) =>
+          prev.map((it) => (it.id === itemId ? { ...it, serverUrl: res.url, previewUrl: res.url, thumbUrl: res.url, uploading: false } : it))
+        );
+      } catch (err) {
+        console.error('Failed to upload media:', err);
+        setMediaItems((prev) =>
+          prev.map((it) => (it.id === itemId ? { ...it, uploading: false, error: true } : it))
+        );
+      }
+      return;
+    }
+
+    // Adding new items
+    const newItems = await Promise.all(
+      files.map(async (file) => {
+        const previewUrl = URL.createObjectURL(file);
+        const meta = await getMediaMetadata(file);
+        return {
+          id: `${Date.now()}_${Math.random().toString(36).substr(2, 7)}`,
+          file,
+          previewUrl,
+          thumbUrl: meta.thumbUrl || previewUrl,
+          isVideo: meta.isVideo,
+          serverUrl: '',
+          dimensions: meta.dimensions,
+          uploading: true,
+        };
+      })
+    );
+
+    setMediaItems((prev) => [...prev, ...newItems]);
+
+    for (const item of newItems) {
+      (async () => {
+        try {
+          const compressed = item.isVideo ? item.file : await compressImageFile(item.file, 1200, 0.85);
+          const res = await api.uploadPostImage(compressed);
+          setMediaItems((prev) =>
+            prev.map((it) => (it.id === item.id ? { ...it, serverUrl: res.url, previewUrl: res.url, thumbUrl: res.url, uploading: false } : it))
+          );
+        } catch (err) {
+          console.error('Failed to upload item', err);
+          setMediaItems((prev) =>
+            prev.map((it) => (it.id === item.id ? { ...it, uploading: false, error: true } : it))
+          );
+        }
+      })();
+    }
+  };
+
+  // Video detection and thumbnail handler
+  const firstVideoIndex = mediaItems.findIndex(
+    (m) => m.isVideo || isVideoMedia(m.previewUrl) || isVideoMedia(m.serverUrl)
+  );
+  const firstVideoItem = firstVideoIndex !== -1 ? mediaItems[firstVideoIndex] : null;
+  const hasVideo = Boolean(firstVideoItem);
+
   const handleThumbnailSelect = (thumbData) => {
     setVideoCustomThumbFile(thumbData.file || null);
-    setCustomThumb(thumbData.url);
     if (thumbData.url && !thumbData.url.startsWith('data:')) {
       setVideoThumbnailUrl(thumbData.url);
     }
+    if (firstVideoIndex !== -1) {
+      setMediaItems((prev) =>
+        prev.map((item, idx) =>
+          idx === firstVideoIndex ? { ...item, thumbUrl: thumbData.url } : item
+        )
+      );
+    }
+  };
+
+  const renderFeedGridItem = (item, idx) => {
+    if (!item) return null;
+    const isVid = item.isVideo || isVideoMedia(item.previewUrl) || isVideoMedia(item.serverUrl);
+    if (isVid) {
+      return (
+        <div className="meta-feed-grid-video-wrap">
+          {item.thumbUrl ? (
+            <img src={item.thumbUrl} alt={`Media ${idx + 1}`} className="meta-feed-grid-img" />
+          ) : (
+            <video src={item.previewUrl} className="meta-feed-grid-img" muted preload="metadata" playsInline />
+          )}
+          <div className="meta-feed-grid-play-badge">
+            <div className="meta-feed-grid-play-circle">
+              <Play size={16} fill="#ffffff" color="#ffffff" style={{ marginLeft: '2px' }} />
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return <img src={item.previewUrl} alt={`Media ${idx + 1}`} className="meta-feed-grid-img" />;
   };
 
   const handleInsertProductName = () => {
@@ -318,12 +561,17 @@ export const EditPostPage = () => {
           ? (selectedBrand?.image_url || originalPost?.media_url || null)
           : (selectedProduct?.image_url || originalPost?.media_url || null);
       } else if (mediaSource === 'upload') {
-        finalMediaUrl = uploadedMediaUrl || null;
-        if (!finalMediaUrl && customFile) {
-          setSubmitError('Please wait for image upload to complete.');
+        if (mediaItems.some((m) => m.uploading)) {
+          setSubmitError('Please wait for all media uploads to complete.');
           isSubmittingRef.current = false;
           setSubmitting(false);
           return;
+        }
+        if (mediaItems.length === 1) {
+          finalMediaUrl = mediaItems[0].serverUrl || null;
+        } else if (mediaItems.length > 1) {
+          const urls = mediaItems.map((m) => m.serverUrl).filter(Boolean);
+          finalMediaUrl = JSON.stringify(urls);
         }
       }
 
@@ -334,7 +582,7 @@ export const EditPostPage = () => {
         ? parseInt(productId, 10)
         : null;
 
-      const isVideo = isCustomVideo || (finalMediaUrl ? isVideoMedia(finalMediaUrl) : false);
+      const isVideo = hasVideo || (finalMediaUrl ? isVideoMedia(finalMediaUrl) : false);
 
       let finalThumbnailUrl = videoThumbnailUrl || originalPost?.thumbnail_url || null;
       if (videoCustomThumbFile) {
@@ -362,7 +610,7 @@ export const EditPostPage = () => {
       };
 
       await updatePost(parseInt(id, 10), updateData);
-      navigate('/tasks');
+      navigate(returnPath);
     } catch (err) {
       console.error('Update error:', err);
       setSubmitError(err?.response?.data?.error || err.message || 'Failed to update post');
@@ -394,7 +642,18 @@ export const EditPostPage = () => {
           ? (selectedBrand?.image_url || originalPost?.media_url || null)
           : (selectedProduct?.image_url || originalPost?.media_url || null);
       } else if (mediaSource === 'upload') {
-        finalMediaUrl = uploadedMediaUrl || originalPost?.media_url || null;
+        if (mediaItems.some((m) => m.uploading)) {
+          setSubmitError('Please wait for all media uploads to complete.');
+          isSubmittingRef.current = false;
+          setSubmitting(false);
+          return;
+        }
+        if (mediaItems.length === 1) {
+          finalMediaUrl = mediaItems[0].serverUrl || null;
+        } else if (mediaItems.length > 1) {
+          const urls = mediaItems.map((m) => m.serverUrl).filter(Boolean);
+          finalMediaUrl = JSON.stringify(urls);
+        }
       }
 
       const targetBrandId = trackingTarget === 'brand' && brandId
@@ -404,7 +663,7 @@ export const EditPostPage = () => {
         ? parseInt(productId, 10)
         : null;
 
-      const isVideo = isCustomVideo || (finalMediaUrl ? isVideoMedia(finalMediaUrl) : false);
+      const isVideo = hasVideo || (finalMediaUrl ? isVideoMedia(finalMediaUrl) : false);
 
       let finalThumbnailUrl = videoThumbnailUrl || originalPost?.thumbnail_url || null;
       if (videoCustomThumbFile) {
@@ -434,7 +693,7 @@ export const EditPostPage = () => {
       };
 
       await api.createPost(newPostData);
-      navigate('/tasks');
+      navigate(returnPath);
     } catch (err) {
       console.error('Duplicate post creation error:', err);
       setSubmitError(err?.response?.data?.error || err.message || 'Failed to duplicate post');
@@ -512,7 +771,7 @@ export const EditPostPage = () => {
     }, 20);
   };
 
-  const handleCancel = () => navigate('/tasks');
+  const handleCancel = () => navigate(returnPath);
 
   // Loading Skeleton
   if (loadingPost) {
@@ -522,7 +781,7 @@ export const EditPostPage = () => {
   // Error state
   if (loadError) {
     return (
-      <div className="meta-post-page">
+      <div className="page-container meta-post-page">
         <div className="meta-top-nav">
           <button type="button" onClick={handleCancel} className="meta-back-btn">
             <ArrowLeft size={18} />
@@ -544,22 +803,13 @@ export const EditPostPage = () => {
   const currentPage = pages.find((p) => String(p.id) === String(pageId)) || null;
   const pageDisplayName = currentPage ? currentPage.page_name : originalPost?.page_name || 'Facebook Page';
 
-  // Preview Media URL
-  let previewMediaUrl = null;
-  if (mediaSource === 'product' && selectedProduct?.image_url) {
-    previewMediaUrl = resolveMediaUrl(selectedProduct.image_url);
-  } else if (mediaSource === 'upload' && (customPreview || uploadedMediaUrl)) {
-    previewMediaUrl = resolveMediaUrl(customPreview || uploadedMediaUrl);
-  } else if (originalPost?.media_url) {
-    previewMediaUrl = resolveMediaUrl(originalPost.media_url);
-  }
 
   return (
-    <div className="meta-post-page">
+    <div className="page-container meta-post-page">
       {/* ── Top Navigation Bar ── */}
       <div className="meta-top-nav">
         <div className="meta-top-nav-left">
-          <button type="button" onClick={handleCancel} className="meta-back-btn" title="Back to tasks">
+          <button type="button" onClick={handleCancel} className="meta-back-btn" title={isFromPlanner ? "Back to planner" : "Back to tasks"}>
             <ArrowLeft size={18} />
           </button>
           <h1 className="meta-page-title">Edit post #{id}</h1>
@@ -722,8 +972,9 @@ export const EditPostPage = () => {
                 <input
                   type="file"
                   ref={fileInputRef}
-                  onChange={handleCustomFileChange}
+                  onChange={handleFileSelect}
                   accept="image/*,video/*"
+                  multiple
                   style={{ display: 'none' }}
                 />
 
@@ -746,102 +997,407 @@ export const EditPostPage = () => {
                 )}
 
                 {mediaSource === 'upload' && (
-                  customPreview ? (
-                    <div className="meta-media-preview-box">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        {isCustomVideo || isVideoMedia(customPreview) ? (
-                          <div style={{ position: 'relative', width: '44px', height: '44px', borderRadius: '6px', overflow: 'hidden', background: '#0f172a', flexShrink: 0 }}>
-                            {customThumb ? (
-                              <img src={customThumb} alt="Video thumb" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                              <video src={customPreview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted preload="metadata" />
-                            )}
-                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)' }}>
-                              <Play size={14} fill="#ffffff" color="#ffffff" />
-                            </div>
-                          </div>
-                        ) : (
-                          <img src={customPreview} alt="Upload preview" className="meta-media-thumb" />
-                        )}
-                        <div>
-                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#050505' }}>{customFile?.name || (isCustomVideo ? 'Video file' : 'Custom upload')}</div>
-                          <div style={{ fontSize: '11px', color: uploadingImage ? '#1877f2' : '#16a34a' }}>
-                            {uploadingImage ? 'Uploading...' : '✓ Ready'}
-                          </div>
+                  <div>
+                    {/* Bento Header: Count + View Mode Switcher */}
+                    {mediaItems.length > 0 && (
+                      <div className="bento-media-header">
+                        <div className="bento-media-count">
+                          <span>{mediaItems.length} {mediaItems.length === 1 ? 'photo/video' : 'photos'} attached</span>
+                          <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
+                            · Photo #1 is Facebook Feed Cover
+                          </span>
+                        </div>
+                        <div className="bento-view-toggle">
+                          <button
+                            type="button"
+                            className={`bento-toggle-btn ${mediaViewMode === 'grid' ? 'active' : ''}`}
+                            onClick={() => setMediaViewMode('grid')}
+                            title="Grid gallery view"
+                          >
+                            <LayoutGrid size={13} />
+                            <span>Grid</span>
+                          </button>
+                          <button
+                            type="button"
+                            className={`bento-toggle-btn ${mediaViewMode === 'list' ? 'active' : ''}`}
+                            onClick={() => setMediaViewMode('list')}
+                            title="List view"
+                          >
+                            <List size={13} />
+                            <span>List</span>
+                          </button>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        style={{
-                          background: 'none',
-                          border: '1px solid #ced0d4',
-                          borderRadius: '6px',
-                          padding: '6px 12px',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          color: '#050505'
+                    )}
+
+                    {/* View Mode 1: Bento Grid Gallery */}
+                    {mediaViewMode === 'grid' && mediaItems.length > 0 && (
+                      <div
+                        className="bento-media-grid"
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = 'move';
+                        }}
+                        onDragLeave={(e) => {
+                          if (!e.currentTarget.contains(e.relatedTarget)) {
+                            dragOverItemIndexRef.current = null;
+                            setDragOverMediaIndex(null);
+                          }
                         }}
                       >
-                        Change
-                      </button>
-                    </div>
-                  ) : (
-                    <div
-                      onClick={() => fileInputRef.current?.click()}
-                      style={{
-                        marginTop: '12px',
-                        padding: '16px',
-                        border: '2px dashed #cbd5e1',
-                        borderRadius: '8px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        cursor: 'pointer',
-                        background: '#f8fafc'
-                      }}
-                    >
-                      <Upload size={20} color="#64748b" />
-                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#1877f2' }}>
-                        Click to choose video or photo to upload
-                      </span>
-                      <span style={{ fontSize: '11px', color: '#64748b' }}>
-                        Supports MP4, MOV, WEBM, JPG, PNG up to 200MB
-                      </span>
-                    </div>
-                  )
+                        {mediaItems.map((item, idx) => {
+                          const isDragging = draggedMediaIndex === idx;
+                          const isOver = dragOverMediaIndex === idx;
+                          const isCover = idx === 0;
+
+                          return (
+                            <div
+                              key={item.id}
+                              className={`bento-media-card ${isCover ? 'is-cover' : ''} ${isDragging ? 'is-dragging' : ''} ${isOver ? 'is-drag-over' : ''}`}
+                              draggable={true}
+                              onDragStart={(e) => handleMediaDragStart(e, idx)}
+                              onDragEnter={(e) => handleMediaDragEnter(e, idx)}
+                              onDragOver={(e) => handleMediaDragOver(e, idx)}
+                              onDrop={(e) => handleMediaDrop(e, idx)}
+                              onDragEnd={handleMediaDragEnd}
+                              title="Drag to reorder"
+                            >
+                              {/* Position Badge */}
+                              <div className={`bento-pos-badge ${isCover ? 'cover' : ''}`}>
+                                {isCover ? (
+                                  <>
+                                    <Star size={11} fill="#ffffff" />
+                                    <span>Cover</span>
+                                  </>
+                                ) : (
+                                  <span>#{idx + 1}</span>
+                                )}
+                              </div>
+
+                              {/* Media Thumbnail */}
+                              {item.isVideo || isVideoMedia(item.previewUrl) ? (
+                                <div style={{ position: 'relative', width: '100%', height: '100%', background: '#0f172a' }}>
+                                  {item.thumbUrl ? (
+                                    <img
+                                      src={item.thumbUrl}
+                                      alt="Video thumbnail"
+                                      className="bento-media-img"
+                                    />
+                                  ) : (
+                                    <video
+                                      src={item.previewUrl}
+                                      muted
+                                      preload="metadata"
+                                      className="bento-media-img"
+                                    />
+                                  )}
+                                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)' }}>
+                                    <Play size={22} fill="#ffffff" color="#ffffff" />
+                                  </div>
+                                </div>
+                              ) : (
+                                <SafeImage
+                                  src={item.serverUrl || item.previewUrl || item.thumbUrl}
+                                  alt={`Media ${idx + 1}`}
+                                  className="bento-media-img"
+                                  fallbackText={`Photo #${idx + 1}`}
+                                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                />
+                              )}
+
+                              {/* Uploading / Error indicator */}
+                              {item.uploading && (
+                                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontSize: '11px', fontWeight: 600 }}>
+                                  Uploading...
+                                </div>
+                              )}
+                              {item.error && (
+                                <div style={{ position: 'absolute', inset: 0, background: 'rgba(220,38,38,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontSize: '11px', fontWeight: 600 }}>
+                                  Failed
+                                </div>
+                              )}
+
+                              {/* Hover Overlay with Action Buttons */}
+                              <div className="bento-card-overlay" onMouseDown={(e) => e.stopPropagation()}>
+                                <div className="bento-overlay-top">
+                                  <button
+                                    type="button"
+                                    className="bento-action-btn"
+                                    title="View full size"
+                                    onClick={() => setLightboxIndex(idx)}
+                                  >
+                                    <ZoomIn size={14} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="bento-action-btn"
+                                    title="Replace photo"
+                                    onClick={() => {
+                                      editItemIndexRef.current = idx;
+                                      fileInputRef.current?.click();
+                                    }}
+                                  >
+                                    <Edit2 size={13} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="bento-action-btn delete"
+                                    title="Delete photo"
+                                    onClick={() => handleRemoveMediaItem(item.id)}
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
+
+                                <div className="bento-overlay-bottom">
+                                  {!isCover && (
+                                    <button
+                                      type="button"
+                                      className="bento-action-btn cover-btn"
+                                      title="Set as Facebook cover photo (#1)"
+                                      onClick={(e) => handleMakeCover(e, idx)}
+                                    >
+                                      <Star size={11} fill="#2563eb" />
+                                      <span>Make Cover</span>
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {/* Add Card Tile inside Grid */}
+                        <div
+                          className="bento-add-card"
+                          onClick={() => {
+                            editItemIndexRef.current = null;
+                            fileInputRef.current?.click();
+                          }}
+                          title="Upload more photos or videos"
+                        >
+                          <Images size={22} />
+                          <span style={{ fontSize: '12px', fontWeight: 600 }}>+ Add Photo</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* View Mode 2: Classic List */}
+                    {mediaViewMode === 'list' && mediaItems.length > 0 && (
+                      <div
+                        className={`meta-media-items-list ${draggedMediaIndex !== null ? 'is-reordering' : ''}`}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = 'move';
+                        }}
+                        onDragLeave={(e) => {
+                          if (!e.currentTarget.contains(e.relatedTarget)) {
+                            dragOverItemIndexRef.current = null;
+                            setDragOverMediaIndex(null);
+                          }
+                        }}
+                      >
+                        {mediaItems.map((item, idx) => {
+                          const isDragging = draggedMediaIndex === idx;
+                          const isOver = dragOverMediaIndex === idx;
+
+                          return (
+                            <div
+                              key={item.id}
+                              className={`meta-media-row-item ${isDragging ? 'is-dragging' : ''} ${isOver ? 'is-drag-over' : ''}`}
+                              draggable={true}
+                              onDragStart={(e) => handleMediaDragStart(e, idx)}
+                              onDragEnter={(e) => handleMediaDragEnter(e, idx)}
+                              onDragOver={(e) => handleMediaDragOver(e, idx)}
+                              onDrop={(e) => handleMediaDrop(e, idx)}
+                              onDragEnd={handleMediaDragEnd}
+                            >
+                              <div className="meta-media-row-left">
+                                <div className="meta-media-drag-handle" title="Drag to reorder">
+                                  <GripVertical size={18} style={{ pointerEvents: 'none' }} />
+                                </div>
+
+                                <div
+                                  style={{
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    color: '#475569',
+                                    background: '#f1f5f9',
+                                    border: '1px solid #e2e8f0',
+                                    width: '22px',
+                                    height: '22px',
+                                    borderRadius: '50%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0,
+                                  }}
+                                  title={`Photo position #${idx + 1}`}
+                                >
+                                  {idx + 1}
+                                </div>
+
+                                {item.isVideo || isVideoMedia(item.previewUrl) ? (
+                                  <div className="meta-media-square-thumb-wrap">
+                                    {item.thumbUrl ? (
+                                      <img
+                                        src={item.thumbUrl}
+                                        alt="Video thumbnail"
+                                        draggable={false}
+                                        style={{ pointerEvents: 'none', userSelect: 'none' }}
+                                      />
+                                    ) : (
+                                      <video
+                                        src={item.previewUrl}
+                                        muted
+                                        preload="metadata"
+                                        playsInline
+                                      />
+                                    )}
+                                    <div className="meta-media-thumb-play-overlay">
+                                      <Play size={14} fill="#ffffff" color="#ffffff" />
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <SafeImage
+                                    src={item.serverUrl || item.previewUrl || item.thumbUrl}
+                                    alt="Media item"
+                                    className="meta-media-square-thumb"
+                                    fallbackText={`Photo #${idx + 1}`}
+                                    style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '6px', cursor: 'pointer' }}
+                                    onClick={() => setLightboxIndex(idx)}
+                                  />
+                                )}
+                                <div>
+                                  <div className="meta-media-dim-label">
+                                    {item.dimensions || 'Image'}
+                                  </div>
+                                  <div style={{ fontSize: '11px', color: item.uploading ? '#1877f2' : item.error ? '#dc2626' : '#16a34a' }}>
+                                    {item.uploading ? 'Uploading...' : item.error ? 'Upload failed' : '✓ Ready'}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="meta-media-row-actions" onMouseDown={(e) => e.stopPropagation()}>
+                                <button
+                                  type="button"
+                                  className="meta-media-icon-btn"
+                                  title="View full size"
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  onClick={() => setLightboxIndex(idx)}
+                                >
+                                  <ZoomIn size={16} />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="meta-media-icon-btn"
+                                  title="Edit / Change photo"
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    editItemIndexRef.current = idx;
+                                    fileInputRef.current?.click();
+                                  }}
+                                >
+                                  <Edit2 size={16} />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="meta-media-icon-btn delete"
+                                  title="Delete photo"
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemoveMediaItem(item.id);
+                                  }}
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {mediaItems.length === 0 && (
+                      <div
+                        onClick={() => {
+                          editItemIndexRef.current = null;
+                          fileInputRef.current?.click();
+                        }}
+                        style={{
+                          marginTop: '12px',
+                          padding: '16px',
+                          border: '2px dashed #cbd5e1',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          cursor: 'pointer',
+                          background: '#f8fafc'
+                        }}
+                      >
+                        <Upload size={20} color="#64748b" />
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#1877f2' }}>
+                          Click to choose photos or video to upload
+                        </span>
+                        <span style={{ fontSize: '11px', color: '#64748b' }}>
+                          Supports multiple photos, MP4, MOV, JPG, PNG
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Add photo/video button for list mode */}
+                    {mediaViewMode === 'list' && (
+                      <div style={{ marginTop: mediaItems.length > 0 ? '12px' : '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            editItemIndexRef.current = null;
+                            fileInputRef.current?.click();
+                          }}
+                          className="meta-media-add-btn"
+                        >
+                          <Images size={16} />
+                          <span>Add photo/video</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </>
             ) : (
-              originalPost?.media_url && (
+              mediaItems.length > 0 ? (
                 <div className="meta-media-preview-box">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <SafeImage
-                      src={originalPost.thumbnail_url || originalPost.media_url}
-                      poster={originalPost.thumbnail_url}
+                      src={mediaItems[0]?.thumbUrl || mediaItems[0]?.previewUrl}
+                      poster={mediaItems[0]?.thumbUrl}
                       alt="Published media"
                       fallbackText="Attached media"
                       className="meta-media-thumb"
                       style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '6px' }}
                     />
                     <div>
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: '#050505' }}>Published Media</div>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: '#050505' }}>
+                        Published Media {mediaItems.length > 1 ? `(${mediaItems.length} photos)` : ''}
+                      </div>
                       <div style={{ fontSize: '11px', color: '#65676b' }}>Cannot be modified after publish</div>
                     </div>
                   </div>
                 </div>
-              )
+              ) : null
             )}
           </div>
 
           {/* Video Thumbnail Picker (Meta Business Suite Style) */}
-          {!isPublished && (isCustomVideo || isVideoMedia(customPreview) || isVideoMedia(uploadedMediaUrl)) && (customFile || customPreview || uploadedMediaUrl) && (
+          {!isPublished && hasVideo && firstVideoItem && (
             <VideoThumbnailPicker
-              videoSource={customFile || customPreview || uploadedMediaUrl}
-              currentThumbUrl={customThumb || videoThumbnailUrl}
+              videoSource={firstVideoItem.file || firstVideoItem.previewUrl || firstVideoItem.serverUrl}
+              currentThumbUrl={firstVideoItem.thumbUrl || videoThumbnailUrl}
               onThumbnailSelect={handleThumbnailSelect}
             />
           )}
@@ -1147,19 +1703,78 @@ export const EditPostPage = () => {
             )}
 
             {/* Post Media Preview / Empty Meta Dashed Frame */}
-            {previewMediaUrl ? (
+            {mediaSource === 'product' && (trackingTarget === 'brand' ? selectedBrand?.image_url : selectedProduct?.image_url) ? (
               <div className="meta-feed-media">
-                <SafeImage
-                  src={previewMediaUrl}
-                  poster={customThumb || undefined}
-                  controls={true}
+                <img
+                  src={trackingTarget === 'brand' ? selectedBrand.image_url : selectedProduct.image_url}
                   alt="Post preview"
                   className="meta-feed-image"
-                  fallbackText="Attached media preview"
-                  style={{ width: '100%', maxHeight: '460px', objectFit: 'cover' }}
                 />
               </div>
-            ) : (
+            ) : (mediaSource === 'upload' || isPublished) && mediaItems.length > 0 ? (
+              mediaItems.length === 1 ? (
+                (mediaItems[0].isVideo || isVideoMedia(mediaItems[0].previewUrl)) ? (
+                  <div className="meta-feed-media" style={{ background: '#000000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <video
+                      src={mediaItems[0].previewUrl}
+                      poster={mediaItems[0].thumbUrl || undefined}
+                      controls
+                      playsInline
+                      className="meta-feed-video"
+                    />
+                  </div>
+                ) : (
+                  <div className="meta-feed-media">
+                    <img
+                      src={mediaItems[0].previewUrl}
+                      alt="Post preview"
+                      className="meta-feed-image"
+                    />
+                  </div>
+                )
+              ) : mediaItems.length === 2 ? (
+                <div className="meta-feed-multi-grid grid-2">
+                  <div className="meta-feed-grid-item">
+                    {renderFeedGridItem(mediaItems[0], 0)}
+                  </div>
+                  <div className="meta-feed-grid-item">
+                    {renderFeedGridItem(mediaItems[1], 1)}
+                  </div>
+                </div>
+              ) : mediaItems.length === 3 ? (
+                <div className="meta-feed-multi-grid grid-3">
+                  <div className="meta-feed-grid-item span-2-rows">
+                    {renderFeedGridItem(mediaItems[0], 0)}
+                  </div>
+                  <div className="meta-feed-grid-item">
+                    {renderFeedGridItem(mediaItems[1], 1)}
+                  </div>
+                  <div className="meta-feed-grid-item">
+                    {renderFeedGridItem(mediaItems[2], 2)}
+                  </div>
+                </div>
+              ) : (
+                <div className="meta-feed-multi-grid grid-4">
+                  <div className="meta-feed-grid-item">
+                    {renderFeedGridItem(mediaItems[0], 0)}
+                  </div>
+                  <div className="meta-feed-grid-item">
+                    {renderFeedGridItem(mediaItems[1], 1)}
+                  </div>
+                  <div className="meta-feed-grid-item">
+                    {renderFeedGridItem(mediaItems[2], 2)}
+                  </div>
+                  <div className="meta-feed-grid-item">
+                    {renderFeedGridItem(mediaItems[3], 3)}
+                    {mediaItems.length > 4 && (
+                      <div className="meta-feed-more-overlay">
+                        +{mediaItems.length - 4}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            ) : mediaSource !== 'none' ? (
               <div className="meta-feed-empty-placeholder">
                 <svg className="meta-placeholder-svg" viewBox="0 0 100 100" fill="none" stroke="currentColor">
                   <rect x="10" y="10" width="80" height="80" rx="8" strokeWidth="3" strokeDasharray="6 6" />
@@ -1167,7 +1782,7 @@ export const EditPostPage = () => {
                   <path d="M20 75 L45 45 L65 65 L80 50 L85 75 Z" fill="currentColor" fillOpacity="0.4" stroke="none" />
                 </svg>
               </div>
-            )}
+            ) : null}
 
             {/* Post Engagement Actions Footer */}
             <div className="meta-feed-footer">
@@ -1208,6 +1823,70 @@ export const EditPostPage = () => {
           selectedProduct={selectedProduct}
           selectedBrand={selectedBrand}
         />
+      )}
+
+      {/* Lightbox Modal for inspecting photos full-screen */}
+      {lightboxIndex !== null && mediaItems[lightboxIndex] && (
+        <div className="bento-lightbox-backdrop" onClick={() => setLightboxIndex(null)}>
+          <div className="bento-lightbox-header" onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontSize: '14px', fontWeight: 600 }}>
+              Photo {lightboxIndex + 1} of {mediaItems.length}
+              {lightboxIndex === 0 && <span style={{ marginLeft: '8px', color: '#60a5fa' }}>(Facebook Cover)</span>}
+            </div>
+            <button
+              type="button"
+              onClick={() => setLightboxIndex(null)}
+              style={{ background: 'none', border: 'none', color: '#ffffff', cursor: 'pointer', padding: '6px' }}
+            >
+              <X size={22} />
+            </button>
+          </div>
+
+          <div className="bento-lightbox-img-wrap" onClick={(e) => e.stopPropagation()}>
+            {mediaItems[lightboxIndex].isVideo || isVideoMedia(mediaItems[lightboxIndex].previewUrl) ? (
+              <video
+                src={mediaItems[lightboxIndex].previewUrl}
+                controls
+                autoPlay
+                className="bento-lightbox-img"
+              />
+            ) : (
+              <SafeImage
+                src={mediaItems[lightboxIndex].serverUrl || mediaItems[lightboxIndex].previewUrl || mediaItems[lightboxIndex].thumbUrl}
+                alt={`Photo ${lightboxIndex + 1}`}
+                className="bento-lightbox-img"
+                style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain' }}
+              />
+            )}
+          </div>
+
+          {mediaItems.length > 1 && (
+            <>
+              <button
+                type="button"
+                className="bento-lightbox-nav prev"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxIndex((prev) => (prev > 0 ? prev - 1 : mediaItems.length - 1));
+                }}
+                title="Previous photo (Left arrow)"
+              >
+                <ChevronLeft size={24} />
+              </button>
+              <button
+                type="button"
+                className="bento-lightbox-nav next"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxIndex((prev) => (prev < mediaItems.length - 1 ? prev + 1 : 0));
+                }}
+                title="Next photo (Right arrow)"
+              >
+                <ChevronRight size={24} />
+              </button>
+            </>
+          )}
+        </div>
       )}
     </div>
   );

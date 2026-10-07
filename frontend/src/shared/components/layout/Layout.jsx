@@ -8,6 +8,7 @@ export const Layout = ({ children }) => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const location = useLocation();
   const isDashboard = location.pathname === '/';
+  const isPlanner = location.pathname === '/planner';
 
   const toggleCollapse = () => setIsCollapsed(!isCollapsed);
   const toggleMobileOpen = () => setIsMobileOpen(!isMobileOpen);
@@ -62,7 +63,7 @@ export const Layout = ({ children }) => {
             </div>
           </div>
         </header>
-        <div className={`content-scroll ${isDashboard ? 'content-dashboard' : ''}`}>
+        <div className={`content-scroll ${isDashboard ? 'content-dashboard' : ''} ${isPlanner ? 'content-planner' : ''}`}>
           {children}
         </div>
       </main>
