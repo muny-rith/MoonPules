@@ -1,5 +1,9 @@
 const client = require('./products.client');
 
+let lastKnownProducts = [];
+let lastKnownCategories = [];
+let lastKnownBrands = [];
+
 const normalizeProduct = (p) => {
   const prodId = p.product_id || p.id;
   return {
@@ -17,6 +21,7 @@ const normalizeProduct = (p) => {
     on_hand_qty: parseInt(p.on_hand_qty ?? p.stock ?? 0, 10),
     reserved_qty: parseInt(p.reserved_qty ?? 0, 10),
     is_active: p.is_active !== undefined ? p.is_active : true,
+    variants: Array.isArray(p.variants) ? p.variants : [],
   };
 };
 
@@ -31,9 +36,13 @@ const listProducts = async ({ category, search, stockStatus } = {}) => {
     } else {
       products = [];
     }
+
+    if (products.length > 0) {
+      lastKnownProducts = products;
+    }
   } catch (err) {
-    console.warn(`[ProductsService] Moon IMS API unavailable (${err.message}). Returning empty list.`);
-    products = [];
+    console.warn(`[ProductsService] Moon IMS API unavailable (${err.message}). Using last known products (${lastKnownProducts.length}).`);
+    products = lastKnownProducts.length > 0 ? [...lastKnownProducts] : [];
   }
 
   // Filtering
@@ -42,7 +51,8 @@ const listProducts = async ({ category, search, stockStatus } = {}) => {
     products = products.filter(p =>
       p.product_name?.toLowerCase().includes(q) ||
       p.product_code?.toLowerCase().includes(q) ||
-      p.category_name?.toLowerCase().includes(q)
+      p.category_name?.toLowerCase().includes(q) ||
+      p.department?.toLowerCase().includes(q)
     );
   }
 
@@ -77,17 +87,36 @@ const getProductById = async (id) => {
     console.warn(`[ProductsService] IMS lookup failed for product ${id}: ${err.message}`);
   }
 
+  // Fallback to searching in lastKnownProducts
+  const fallback = lastKnownProducts.find(p => String(p.id) === String(id));
+  if (fallback) return fallback;
+
   const error = new Error(`Product with ID ${id} not found`);
   error.status = 404;
   throw error;
 };
 
 const getCategories = async () => {
+  try {
+    const rawCats = await client.getCategoriesFromIms();
+    const catList = Array.isArray(rawCats) ? rawCats : (rawCats?.data || []);
+    if (catList.length > 0) {
+      const names = catList.map(c => c.category_name || c.name).filter(Boolean);
+      lastKnownCategories = Array.from(new Set(names));
+      return lastKnownCategories;
+    }
+  } catch (e) {
+    // fallback below
+  }
+
   const products = await listProducts();
   const categories = Array.from(
     new Set(products.map(p => p.category_name).filter(Boolean))
   );
-  return categories;
+  if (categories.length > 0) {
+    lastKnownCategories = categories;
+  }
+  return lastKnownCategories.length > 0 ? lastKnownCategories : categories;
 };
 
 const listBrands = async () => {
@@ -101,9 +130,12 @@ const listBrands = async () => {
     } else {
       brands = [];
     }
+    if (brands.length > 0) {
+      lastKnownBrands = brands;
+    }
   } catch (err) {
-    console.warn(`[ProductsService] Moon IMS API unavailable for brands (${err.message}).`);
-    brands = [];
+    console.warn(`[ProductsService] Moon IMS API unavailable for brands (${err.message}). Using last known brands (${lastKnownBrands.length}).`);
+    brands = lastKnownBrands.length > 0 ? [...lastKnownBrands] : [];
   }
 
   return brands;
@@ -115,3 +147,4 @@ module.exports = {
   getCategories,
   listBrands,
 };
+

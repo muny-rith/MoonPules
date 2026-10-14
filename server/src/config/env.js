@@ -10,6 +10,7 @@ module.exports = {
   JWT_SECRET: process.env.JWT_SECRET || 'mock_secret_key',
   IMS_API_URL: process.env.IMS_API_URL || 'http://localhost:50257/api',
   IMS_AUTH_TOKEN: process.env.IMS_AUTH_TOKEN || null,
+  IMS_SERVICE_KEY: process.env.IMS_SERVICE_KEY || 'ims_sk_live_moonpulse_7f8a9b2c3d4e5f6',
   SUPABASE_URL: process.env.SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || null,
   SUPABASE_BUCKET: process.env.SUPABASE_BUCKET,

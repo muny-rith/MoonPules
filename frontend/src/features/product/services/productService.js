@@ -33,7 +33,9 @@ export const fetchProducts = async (params = {}, forceRefresh = false) => {
   }
 
   const response = await apiClient.get('/products', { params });
-  productCache.set(key, { data: response.data, timestamp: Date.now() });
+  if (Array.isArray(response.data) && response.data.length > 0) {
+    productCache.set(key, { data: response.data, timestamp: Date.now() });
+  }
   return response.data;
 };
 

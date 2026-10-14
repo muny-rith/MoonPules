@@ -4,97 +4,135 @@ const env = require('../../config/env');
 let cachedImsToken = env.IMS_AUTH_TOKEN || null;
 let tokenExpiresAt = null;
 
-const getImsToken = async () => {
-  if (cachedImsToken && (!tokenExpiresAt || Date.now() < tokenExpiresAt)) {
+// Primary and fallback IMS URLs
+let activeBaseUrl = env.IMS_API_URL || 'https://ims-y8a6.onrender.com/api';
+const fallbackBaseUrl = activeBaseUrl.includes('localhost')
+  ? 'https://ims-y8a6.onrender.com/api'
+  : 'http://localhost:50257/api';
+
+const getActiveBaseUrl = () => activeBaseUrl;
+
+const getImsToken = async (forceRefresh = false, targetBaseUrl = activeBaseUrl) => {
+  if (!forceRefresh && cachedImsToken && (!tokenExpiresAt || Date.now() < tokenExpiresAt)) {
     return cachedImsToken;
   }
 
   // Attempt auto-login to Moon IMS
   try {
-    const loginUrl = `${env.IMS_API_URL}/auth/login`;
-    const response = await axios.post(loginUrl, {
-      email: process.env.IMS_EMAIL || 'admin@moonims.com',
-      password: process.env.IMS_PASSWORD || 'admin123',
-    }, { timeout: 5000 });
+    const loginUrl = `${targetBaseUrl}/auth/login`;
+    const response = await axios.post(
+      loginUrl,
+      {
+        email: process.env.IMS_EMAIL || 'admin@moonims.com',
+        password: process.env.IMS_PASSWORD || 'admin123',
+      },
+      { timeout: 15000 }
+    );
 
-    if (response.data?.data?.token) {
-      cachedImsToken = response.data.data.token;
-      tokenExpiresAt = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+    const token = response.data?.data?.token || response.data?.data?.accessToken;
+    if (token) {
+      cachedImsToken = token;
+      // IMS tokens expire in 15 minutes; cache for 10 minutes to safely refresh before expiry
+      tokenExpiresAt = Date.now() + 10 * 60 * 1000;
       return cachedImsToken;
     }
   } catch (err) {
-    console.warn(`[ProductsClient] Moon IMS auto-login failed: ${err.message}`);
+    console.warn(`[ProductsClient] Moon IMS auto-login to ${targetBaseUrl} failed: ${err.message}`);
   }
 
   return cachedImsToken || env.IMS_AUTH_TOKEN || null;
 };
 
-const getProductsFromIms = async (overrideToken) => {
-  const token = overrideToken || (await getImsToken());
-  const headers = {
-    'Content-Type': 'application/json',
+/**
+ * Executes an HTTP request to IMS with:
+ * 1. Automatic Bearer auth injection
+ * 2. 401 Unauthorized handling (token refresh + automatic single retry)
+ * 3. Connection error fallback (e.g. localhost <-> Render)
+ */
+const requestWithAuth = async (path, options = {}) => {
+  const execute = async (token, baseUrl) => {
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    };
+
+    // 1. Professional Machine-to-Machine API Key
+    if (env.IMS_SERVICE_KEY) {
+      headers['X-API-Key'] = env.IMS_SERVICE_KEY;
+    }
+
+    // 2. Backward compatibility Bearer token
+    if (token) {
+      headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+    }
+
+    return axios({
+      url: `${baseUrl}${path}`,
+      method: options.method || 'GET',
+      headers,
+      data: options.data,
+      params: options.params,
+      timeout: options.timeout || 25000,
+    });
   };
-  if (token) {
-    headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+
+  let token = await getImsToken();
+  let currentBase = activeBaseUrl;
+
+  try {
+    const response = await execute(token, currentBase);
+    return response.data;
+  } catch (err) {
+    // 1. If 401 Unauthorized (expired token), refresh token and retry once
+    if (err.response?.status === 401) {
+      console.warn(`[ProductsClient] Token rejected (401) from ${currentBase}${path}. Refreshing token...`);
+      token = await getImsToken(true, currentBase);
+      const retryResponse = await execute(token, currentBase);
+      return retryResponse.data;
+    }
+
+    // 2. If Network error (ECONNREFUSED / timeout) and fallback is available, try fallback
+    const isNetworkError = !err.response || err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT';
+    if (isNetworkError && fallbackBaseUrl && currentBase !== fallbackBaseUrl) {
+      console.warn(`[ProductsClient] ${currentBase} unreachable (${err.message}). Trying fallback ${fallbackBaseUrl}...`);
+      try {
+        const fallbackToken = await getImsToken(false, fallbackBaseUrl);
+        const fbRes = await execute(fallbackToken, fallbackBaseUrl);
+        activeBaseUrl = fallbackBaseUrl; // switch active base URL
+        return fbRes.data;
+      } catch (fbErr) {
+        if (fbErr.response?.status === 401) {
+          const freshToken = await getImsToken(true, fallbackBaseUrl);
+          const fbRetry = await execute(freshToken, fallbackBaseUrl);
+          activeBaseUrl = fallbackBaseUrl;
+          return fbRetry.data;
+        }
+        throw fbErr;
+      }
+    }
+
+    throw err;
   }
-
-  const response = await axios.get(`${env.IMS_API_URL}/products`, {
-    headers,
-    timeout: 6000,
-  });
-
-  return response.data;
 };
 
-const getProductByIdFromIms = async (id, overrideToken) => {
-  const token = overrideToken || (await getImsToken());
-  const headers = {
-    'Content-Type': 'application/json',
-  };
-  if (token) {
-    headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-  }
-
-  const response = await axios.get(`${env.IMS_API_URL}/products/${id}`, {
-    headers,
-    timeout: 6000,
-  });
-
-  return response.data;
+const getProductsFromIms = async () => {
+  return requestWithAuth('/products');
 };
 
-const getBrandsFromIms = async (overrideToken) => {
-  const token = overrideToken || (await getImsToken());
-  const headers = {
-    'Content-Type': 'application/json',
-  };
-  if (token) {
-    headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-  }
-
-  const response = await axios.get(`${env.IMS_API_URL}/brands`, {
-    headers,
-    timeout: 6000,
-  });
-
-  return response.data;
+const getProductByIdFromIms = async (id) => {
+  return requestWithAuth(`/products/${id}`);
 };
 
-const getSalesFromIms = async (overrideToken) => {
-  const token = overrideToken || (await getImsToken());
-  const headers = {
-    'Content-Type': 'application/json',
-  };
-  if (token) {
-    headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-  }
+const getBrandsFromIms = async () => {
+  return requestWithAuth('/brands');
+};
 
-  const response = await axios.get(`${env.IMS_API_URL}/sales`, {
-    headers,
-    timeout: 6000,
-  });
+const getSalesFromIms = async () => {
+  return requestWithAuth('/sales');
+};
 
-  return response.data;
+const getCategoriesFromIms = async () => {
+  return requestWithAuth('/categories');
 };
 
 module.exports = {
@@ -102,6 +140,9 @@ module.exports = {
   getProductByIdFromIms,
   getBrandsFromIms,
   getSalesFromIms,
+  getCategoriesFromIms,
   getImsToken,
+  getActiveBaseUrl,
 };
+
 
