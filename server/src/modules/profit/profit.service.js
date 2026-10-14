@@ -3,62 +3,18 @@ const productsService = require('../products/products.service');
 const productsClient = require('../products/products.client');
 const { getDateRangeBounds, isPostInPlatform, isPostInRange, calcTrend } = require('../../utils/filterUtils');
 
-// Fallback sales data when IMS is unavailable
-const FALLBACK_SALES = [
-  {
-    sale_id: 1, sale_code: 'SL-2025-001', sale_date: '2025-10-28',
-    customer_name: 'Online Order', sale_status: 'COMPLETED',
-    items: [
-      { variant_id: 1, qty: 3, unit_price: 18.50, product_name: 'Moon Velvet Matte Lipstick (Cherry Moon)' },
-      { variant_id: 2, qty: 1, unit_price: 34.00, product_name: 'Luminous Hydra Glow Serum (50ml)' },
-    ]
-  },
-  {
-    sale_id: 2, sale_code: 'SL-2025-002', sale_date: '2025-10-30',
-    customer_name: 'Walk-In', sale_status: 'COMPLETED',
-    items: [
-      { variant_id: 5, qty: 2, unit_price: 68.00, product_name: 'Midnight Bloom Eau de Parfum (100ml)' },
-      { variant_id: 3, qty: 1, unit_price: 129.00, product_name: 'Celestial Crescent Moon Pendant (18k Gold)' },
-    ]
-  },
-  {
-    sale_id: 3, sale_code: 'SL-2025-003', sale_date: '2025-11-02',
-    customer_name: 'Facebook Order', sale_status: 'COMPLETED',
-    items: [
-      { variant_id: 1, qty: 5, unit_price: 18.50, product_name: 'Moon Velvet Matte Lipstick (Cherry Moon)' },
-      { variant_id: 8, qty: 2, unit_price: 28.50, product_name: 'Radiance Peptide Eye Renewal Cream' },
-    ]
-  },
-  {
-    sale_id: 4, sale_code: 'SL-2025-004', sale_date: '2025-11-05',
-    customer_name: 'Social Media Lead', sale_status: 'COMPLETED',
-    items: [
-      { variant_id: 4, qty: 1, unit_price: 89.90, product_name: 'Aurora Minimalist Vegan Leather Tote' },
-      { variant_id: 7, qty: 2, unit_price: 45.00, product_name: 'Solaris Retro Aviator Sunglasses' },
-    ]
-  },
-  {
-    sale_id: 5, sale_code: 'SL-2025-005', sale_date: '2025-11-10',
-    customer_name: 'Online Order', sale_status: 'COMPLETED',
-    items: [
-      { variant_id: 6, qty: 1, unit_price: 195.00, product_name: 'Eclipse Chronograph Watch (Onyx Black)' },
-      { variant_id: 2, qty: 3, unit_price: 34.00, product_name: 'Luminous Hydra Glow Serum (50ml)' },
-    ]
-  }
-];
-
 /**
- * Fetch sales data from IMS. Falls back to mock data if IMS is unavailable.
+ * Fetch sales data from IMS. Returns empty array if IMS is unavailable.
  */
 const getSalesData = async () => {
   try {
     const sales = await productsClient.getSalesFromIms();
     if (Array.isArray(sales)) return sales;
     if (sales && Array.isArray(sales.data)) return sales.data;
-    return FALLBACK_SALES;
+    return [];
   } catch (err) {
-    console.warn(`[ProfitService] IMS Sales API unavailable (${err.message}). Using fallback sales data.`);
-    return FALLBACK_SALES;
+    console.warn(`[ProfitService] IMS Sales API unavailable (${err.message}). Returning empty sales list.`);
+    return [];
   }
 };
 

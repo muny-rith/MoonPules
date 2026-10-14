@@ -3,6 +3,24 @@ import { Search, ChevronDown, Check, X, Tag, AlertCircle } from 'lucide-react';
 import * as productService from '../services/productService';
 import { PickerListSkeleton } from '../../../shared/components/skeletons';
 
+const ProductPickerThumb = ({ product, className = 'product-picker-item-thumb' }) => {
+  const [imgError, setImgError] = useState(false);
+  const initial = (product?.product_name || product?.category_name || 'P').trim().charAt(0).toUpperCase();
+
+  if (!product?.image_url || imgError) {
+    return <div className="product-picker-letter-thumb">{initial}</div>;
+  }
+
+  return (
+    <img
+      src={product.image_url}
+      alt={product.product_name}
+      className={className}
+      onError={() => setImgError(true)}
+    />
+  );
+};
+
 export const ProductPicker = ({ value, onChange, placeholder = 'Search product from catalog...' }) => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -51,22 +69,14 @@ export const ProductPicker = ({ value, onChange, placeholder = 'Search product f
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
-
-  const filteredProducts = products.filter((p) => {
-    const q = search.toLowerCase().trim();
-    if (!q) return true;
-    return (
-      p.product_name?.toLowerCase().includes(q) ||
-      p.category_name?.toLowerCase().includes(q) ||
-      String(p.product_id).includes(q)
-    );
-  });
 
   const handleSelect = (product) => {
     setSelectedProduct(product);
-    onChange(product.product_id);
+    onChange(product.product_id, product);
     setIsOpen(false);
     setSearch('');
   };
@@ -74,8 +84,20 @@ export const ProductPicker = ({ value, onChange, placeholder = 'Search product f
   const handleClear = (e) => {
     e.stopPropagation();
     setSelectedProduct(null);
-    onChange('');
+    onChange(null, null);
     setSearch('');
+  };
+
+  const filteredProducts = products.filter((p) => {
+    const q = search.toLowerCase();
+    return (
+      p.product_name?.toLowerCase().includes(q) ||
+      p.product_code?.toLowerCase().includes(q) ||
+      p.category_name?.toLowerCase().includes(q)
+    );
+  });
+
+  const handleOpenDropdown = () => {
     setIsOpen(true);
     setTimeout(() => inputRef.current?.focus(), 50);
   };
@@ -90,14 +112,7 @@ export const ProductPicker = ({ value, onChange, placeholder = 'Search product f
             setTimeout(() => inputRef.current?.focus(), 50);
           }}
         >
-          <img
-            src={selectedProduct.image_url}
-            alt={selectedProduct.product_name}
-            className="product-picker-thumb"
-            onError={(e) => {
-              e.target.src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80';
-            }}
-          />
+          <ProductPickerThumb product={selectedProduct} className="product-picker-thumb" />
           <div className="product-picker-selected-info">
             <div className="product-picker-selected-name">{selectedProduct.product_name}</div>
             <div className="product-picker-selected-meta">
@@ -171,14 +186,7 @@ export const ProductPicker = ({ value, onChange, placeholder = 'Search product f
                     className={`product-picker-item ${isSelected ? 'selected' : ''}`}
                     onClick={() => handleSelect(p)}
                   >
-                    <img
-                      src={p.image_url}
-                      alt={p.product_name}
-                      className="product-picker-item-thumb"
-                      onError={(e) => {
-                        e.target.src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80';
-                      }}
-                    />
+                    <ProductPickerThumb product={p} className="product-picker-item-thumb" />
                     <div className="product-picker-item-details">
                       <div className="product-picker-item-title">{p.product_name}</div>
                       <div className="product-picker-item-sub">

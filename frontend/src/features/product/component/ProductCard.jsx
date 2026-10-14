@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Package, Tag, Layers, CheckCircle2, AlertTriangle, XCircle, Share2, Copy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export const ProductCard = ({ product }) => {
   const navigate = useNavigate();
+  const [imgError, setImgError] = useState(false);
 
   const getStockBadge = (qty) => {
     if (qty > 20) {
@@ -29,20 +30,34 @@ export const ProductCard = ({ product }) => {
 
   const copySku = (e) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(product.product_code);
+    const skuCode = product.product_code || (product.product_id ? `SKU-${product.product_id}` : '');
+    if (skuCode) {
+      navigator.clipboard.writeText(skuCode);
+    }
   };
+
+  const hasImage = Boolean(product.image_url && !imgError);
+  const firstLetter = (product.product_name || product.category_name || 'P').trim().charAt(0).toUpperCase();
+  const displaySku = product.product_code || (product.product_id ? `SKU-${product.product_id}` : 'SKU-0');
 
   return (
     <div className="product-card">
       <div className="product-card-image-wrap">
-        <img 
-          src={product.image_url} 
-          alt={product.product_name} 
-          className="product-card-image"
-          onError={(e) => {
-            e.target.src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80';
-          }}
-        />
+        {hasImage ? (
+          <img 
+            src={product.image_url} 
+            alt={product.product_name} 
+            className="product-card-image"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div className="product-card-no-image">
+            <div className="product-card-letter-badge">
+              {firstLetter}
+            </div>
+            <span className="product-card-no-image-sub">{product.product_name}</span>
+          </div>
+        )}
         <div className="product-card-category-pill">
           {product.category_name}
         </div>
@@ -56,7 +71,7 @@ export const ProductCard = ({ product }) => {
       <div className="product-card-content">
         <div className="product-card-meta-row">
           <span className="product-code-chip" onClick={copySku} title="Click to copy SKU">
-            <Tag size={11} /> {product.product_code}
+            <Tag size={11} /> {displaySku}
           </span>
           {getStockBadge(product.on_hand_qty)}
         </div>

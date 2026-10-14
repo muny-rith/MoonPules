@@ -1,8 +1,26 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Tag, CheckCircle2, AlertTriangle, XCircle, Share2, Layers } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { SortableHeader } from '../../../shared/components/ui/SortableHeader';
 import { useSortableTable } from '../../../shared/hooks/useSortableTable';
+
+const ProductTableThumb = ({ product }) => {
+  const [imgError, setImgError] = useState(false);
+  const initial = (product.product_name || product.category_name || 'P').trim().charAt(0).toUpperCase();
+
+  if (!product.image_url || imgError) {
+    return <div className="product-table-letter-thumb">{initial}</div>;
+  }
+
+  return (
+    <img 
+      src={product.image_url} 
+      alt={product.product_name}
+      className="product-table-thumb"
+      onError={() => setImgError(true)}
+    />
+  );
+};
 
 export const ProductTable = ({ products }) => {
   const navigate = useNavigate();
@@ -54,57 +72,53 @@ export const ProductTable = ({ products }) => {
           </tr>
         </thead>
         <tbody>
-          {sortedItems.map((product) => (
-            <tr key={product.product_id}>
-              <td>
-                <img 
-                  src={product.image_url} 
-                  alt={product.product_name}
-                  className="product-table-thumb"
-                  onError={(e) => {
-                    e.target.src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80';
-                  }}
-                />
-              </td>
-              <td>
-                <div className="product-table-name-wrap">
-                  <span className="product-table-name">{product.product_name}</span>
-                  {product.department && (
-                    <span className="product-table-sub">{product.department}</span>
-                  )}
-                </div>
-              </td>
-              <td>
-                <span className="product-code-chip">
-                  <Tag size={11} /> {product.product_code}
-                </span>
-              </td>
-              <td>
-                <span className="category-tag-chip">
-                  <Layers size={11} /> {product.category_name}
-                </span>
-              </td>
-              <td>
-                <strong className="product-table-price">${Number(product.unit_price).toFixed(2)}</strong>
-              </td>
-              <td>
-                <span className="product-table-qty">{product.on_hand_qty} units</span>
-              </td>
-              <td>
-                {getStockBadge(product.on_hand_qty)}
-              </td>
-              <td style={{ textAlign: 'right' }}>
-                <button 
-                  className="btn-primary-soft"
-                  onClick={() => navigate('/tasks')}
-                  title="Mark social post for this product"
-                >
-                  <Share2 size={12} />
-                  <span>Track Post</span>
-                </button>
-              </td>
-            </tr>
-          ))}
+          {sortedItems.map((product) => {
+            const displaySku = product.product_code || (product.product_id ? `SKU-${product.product_id}` : 'SKU-0');
+            return (
+              <tr key={product.product_id}>
+                <td>
+                  <ProductTableThumb product={product} />
+                </td>
+                <td>
+                  <div className="product-table-name-wrap">
+                    <span className="product-table-name">{product.product_name}</span>
+                    {product.department && (
+                      <span className="product-table-sub">{product.department}</span>
+                    )}
+                  </div>
+                </td>
+                <td>
+                  <span className="product-code-chip">
+                    <Tag size={11} /> {displaySku}
+                  </span>
+                </td>
+                <td>
+                  <span className="category-tag-chip">
+                    <Layers size={11} /> {product.category_name}
+                  </span>
+                </td>
+                <td>
+                  <strong className="product-table-price">${Number(product.unit_price).toFixed(2)}</strong>
+                </td>
+                <td>
+                  <span className="product-table-qty">{product.on_hand_qty} units</span>
+                </td>
+                <td>
+                  {getStockBadge(product.on_hand_qty)}
+                </td>
+                <td style={{ textAlign: 'right' }}>
+                  <button 
+                    className="btn-primary-soft"
+                    onClick={() => navigate('/tasks')}
+                    title="Mark social post for this product"
+                  >
+                    <Share2 size={12} />
+                    <span>Track Post</span>
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
           {sortedItems.length === 0 && (
             <tr>
               <td colSpan="8" style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
