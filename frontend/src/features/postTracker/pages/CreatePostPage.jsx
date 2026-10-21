@@ -261,8 +261,9 @@ export const CreatePostPage = () => {
     if (duplicatePost.brand_id) setBrandId(String(duplicatePost.brand_id));
     if (duplicatePost.product_id) setProductId(String(duplicatePost.product_id));
 
-    if (duplicatePost.page_id) {
-      setSelectedPageIds([String(duplicatePost.page_id)]);
+    // Default to selecting all Facebook accounts when duplicating
+    if (pages.length > 0) {
+      setSelectedPageIds(pages.map((p) => String(p.id)));
     }
 
     if (duplicatePost.media_url) {
@@ -315,13 +316,9 @@ export const CreatePostPage = () => {
     try {
       const data = await api.fetchPages();
       setPages(data || []);
-      // Select all connected Facebook accounts by default if not duplicating a specific page
+      // Select all connected Facebook accounts by default
       if (data && data.length > 0) {
-        if (duplicatePost?.page_id) {
-          setSelectedPageIds([String(duplicatePost.page_id)]);
-        } else {
-          setSelectedPageIds(data.map((p) => String(p.id)));
-        }
+        setSelectedPageIds(data.map((p) => String(p.id)));
       }
     } catch (err) {
       console.error('Failed to load pages', err);
