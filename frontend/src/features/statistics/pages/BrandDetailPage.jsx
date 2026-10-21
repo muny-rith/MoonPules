@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { useUrlFilters } from '../../../shared/hooks/useUrlFilters';
 import {
   BarChart2, Package, Calendar, ExternalLink, ArrowLeft, Tag, Search,
   RefreshCw, ChevronDown, Filter, Eye, Heart, MessageCircle, Share2, Trophy, Download, X,
@@ -24,7 +25,7 @@ import { getFacebookPostUrl } from '../../../shared/utils/facebookUrl';
 export const BrandDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
 
   // Compute cache key for instant initial render
   const idsParam = searchParams.get('ids');
@@ -35,8 +36,40 @@ export const BrandDetailPage = () => {
   const initialCached = getCachedBrandDetail(initialCacheKey);
   const [detail, setDetail] = useState(() => initialCached || null);
   const [loading, setLoading] = useState(() => !initialCached);
-  const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const location = useLocation();
+
+  // Professional URL-synced multi-filter hook
+  const { filters, setFilter, setFilters, resetFilters } = useUrlFilters({
+    range: 'this_month',
+    start: '',
+    end: '',
+    platform: 'all',
+    page_id: 'all',
+    product: 'all',
+    format: 'all',
+    search: '',
+  }, {
+    debouncedKeys: ['search'],
+    debounceDelay: 300,
+    pageKey: null,
+  });
+
+  const {
+    range: timeFilter,
+    start: customStart,
+    end: customEnd,
+    platform: platformFilter,
+    page_id: pageFilter,
+    product: productFilter,
+    format: formatFilter,
+    search: searchTerm,
+  } = filters;
+
+  const customRange = useMemo(() => ({
+    start: customStart,
+    end: customEnd,
+  }), [customStart, customEnd]);
+
   const [selectedPosts, setSelectedPosts] = useState([]);
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -44,60 +77,30 @@ export const BrandDetailPage = () => {
 
   // Multi-Filter States
   const [openDropdown, setOpenDropdown] = useState(null); // 'platform' | 'page' | 'product' | 'format' | null
-  const [timeFilter, setTimeFilter] = useState(() => searchParams.get('range') || 'this_month');
-  const [customRange, setCustomRange] = useState(() => ({
-    start: searchParams.get('start') || '',
-    end: searchParams.get('end') || ''
-  }));
-  const [platformFilter, setPlatformFilter] = useState('all');
-  const [pageFilter, setPageFilter] = useState('all');
-  const [productFilter, setProductFilter] = useState('all');
-  const [formatFilter, setFormatFilter] = useState('all');
   const filterToolbarRef = useRef(null);
 
-  // Keep state synced if URL searchParams change
-  useEffect(() => {
-    const range = searchParams.get('range') || 'this_month';
-    const start = searchParams.get('start') || '';
-    const end = searchParams.get('end') || '';
-    setTimeFilter(range);
-    setCustomRange({ start, end });
-  }, [searchParams]);
-
   const handleTimeFilterChange = (newVal) => {
-    setTimeFilter(newVal);
-    const params = new URLSearchParams(searchParams);
-    if (newVal === 'this_month') {
-      params.delete('range');
-      params.delete('start');
-      params.delete('end');
+    if (newVal === 'custom') {
+      setFilter('range', 'custom');
     } else {
-      params.set('range', newVal);
-      if (newVal !== 'custom') {
-        params.delete('start');
-        params.delete('end');
-      }
+      setFilters({ range: newVal, start: '', end: '' });
     }
-    setSearchParams(params, { replace: true });
   };
 
   const handleCustomRangeChange = (range) => {
-    setCustomRange(range);
-    const params = new URLSearchParams(searchParams);
-    if (range.start) params.set('start', range.start);
-    else params.delete('start');
-    if (range.end) params.set('end', range.end);
-    else params.delete('end');
-    setSearchParams(params, { replace: true });
+    setFilters({ start: range.start || '', end: range.end || '' });
   };
 
   const handleBackToBrands = () => {
+    if (location.state?.from) {
+      return navigate(location.state.from);
+    }
     const params = new URLSearchParams();
     if (timeFilter !== 'this_month') {
       params.set('range', timeFilter);
       if (timeFilter === 'custom') {
-        if (customRange.start) params.set('start', customRange.start);
-        if (customRange.end) params.set('end', customRange.end);
+        if (customStart) params.set('start', customStart);
+        if (customEnd) params.set('end', customEnd);
       }
     }
     const q = params.toString() ? `?${params.toString()}` : '';
@@ -248,17 +251,18 @@ export const BrandDetailPage = () => {
   }, [id, searchParams.get('ids'), timeFilter, customRange.start, customRange.end]);
 
   const resetAllFilters = () => {
-    setTimeFilter('this_month');
-    setCustomRange({ start: '', end: '' });
-    setPlatformFilter('all');
-    setPageFilter('all');
-    setProductFilter('all');
-    setFormatFilter('all');
-    setSearchTerm('');
-    setSearchParams({}, { replace: true });
+    resetFilters();
   };
 
-  const hasActiveFilters = (timeFilter !== 'this_month' || customRange.start !== '' || customRange.end !== '') || platformFilter !== 'all' || pageFilter !== 'all' || productFilter !== 'all' || formatFilter !== 'all' || searchTerm !== '';
+  const hasActiveFilters =
+    timeFilter !== 'this_month' ||
+    customStart !== '' ||
+    customEnd !== '' ||
+    platformFilter !== 'all' ||
+    pageFilter !== 'all' ||
+    productFilter !== 'all' ||
+    formatFilter !== 'all' ||
+    Boolean(searchTerm);
 
   const filteredPosts = useMemo(() => {
     if (!detail || !detail.posts) return [];
@@ -609,14 +613,15 @@ export const BrandDetailPage = () => {
                         <div
                           key={opt.value}
                           onClick={() => {
-                            setPlatformFilter(opt.value);
-                            setOpenDropdown(null);
+                            let updates = { platform: opt.value };
                             if (pageFilter !== 'all') {
                               const pg = availablePages.find(p => p.id === String(pageFilter));
                               if (pg && opt.value !== 'all' && pg.platform.toLowerCase() !== opt.value.toLowerCase()) {
-                                setPageFilter('all');
+                                updates.page_id = 'all';
                               }
                             }
+                            setFilters(updates);
+                            setOpenDropdown(null);
                           }}
                           className={`filter-dropdown-item ${platformFilter === opt.value ? 'selected' : ''}`}
                         >
@@ -646,7 +651,7 @@ export const BrandDetailPage = () => {
                   {openDropdown === 'page' && (
                     <div className="filter-dropdown-menu">
                       <div
-                        onClick={() => { setPageFilter('all'); setOpenDropdown(null); }}
+                        onClick={() => { setFilter('page_id', 'all'); setOpenDropdown(null); }}
                         className={`filter-dropdown-item ${pageFilter === 'all' ? 'selected' : ''}`}
                       >
                         All Pages
@@ -654,7 +659,7 @@ export const BrandDetailPage = () => {
                       {availablePages.map(page => (
                         <div
                           key={page.id}
-                          onClick={() => { setPageFilter(page.id); setOpenDropdown(null); }}
+                          onClick={() => { setFilter('page_id', page.id); setOpenDropdown(null); }}
                           className={`filter-dropdown-item ${pageFilter === page.id ? 'selected' : ''}`}
                         >
                           <span>{page.name}</span>
@@ -680,7 +685,7 @@ export const BrandDetailPage = () => {
                   {openDropdown === 'product' && (
                     <div className="filter-dropdown-menu" style={{ minWidth: '220px' }}>
                       <div
-                        onClick={() => { setProductFilter('all'); setOpenDropdown(null); }}
+                        onClick={() => { setFilter('product', 'all'); setOpenDropdown(null); }}
                         className={`filter-dropdown-item ${productFilter === 'all' ? 'selected' : ''}`}
                       >
                         All Products ({availableProducts.length})
@@ -688,7 +693,7 @@ export const BrandDetailPage = () => {
                       {availableProducts.map(prod => (
                         <div
                           key={prod.id}
-                          onClick={() => { setProductFilter(prod.id); setOpenDropdown(null); }}
+                          onClick={() => { setFilter('product', prod.id); setOpenDropdown(null); }}
                           className={`filter-dropdown-item ${productFilter === prod.id ? 'selected' : ''}`}
                         >
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{prod.name}</span>
@@ -718,7 +723,7 @@ export const BrandDetailPage = () => {
                         return (
                           <div
                             key={opt.value}
-                            onClick={() => { setFormatFilter(opt.value); setOpenDropdown(null); }}
+                            onClick={() => { setFilter('format', opt.value); setOpenDropdown(null); }}
                             className={`filter-dropdown-item ${formatFilter === opt.value ? 'selected' : ''}`}
                           >
                             <IconComponent size={13} />
@@ -751,37 +756,37 @@ export const BrandDetailPage = () => {
                   {(timeFilter !== 'this_month' || customRange.start !== '' || customRange.end !== '') && (
                     <span className="active-filter-tag">
                       <span>Date: {timeFilter === 'custom' ? `${customRange.start || 'Start'} to ${customRange.end || 'End'}` : (DATE_PRESETS.find(p => p.id === timeFilter)?.label || timeFilter)}</span>
-                      <button type="button" onClick={() => { handleCustomRangeChange({ start: '', end: '' }); handleTimeFilterChange('this_month'); }}><X size={12} /></button>
+                      <button type="button" onClick={() => { setFilters({ range: 'this_month', start: '', end: '' }); }}><X size={12} /></button>
                     </span>
                   )}
                   {platformFilter !== 'all' && (
                     <span className="active-filter-tag">
                       <span>Platform: {currentPlatformLabel}</span>
-                      <button type="button" onClick={() => setPlatformFilter('all')}><X size={12} /></button>
+                      <button type="button" onClick={() => setFilter('platform', 'all')}><X size={12} /></button>
                     </span>
                   )}
                   {pageFilter !== 'all' && (
                     <span className="active-filter-tag">
                       <span>Page: {currentPageLabel}</span>
-                      <button type="button" onClick={() => setPageFilter('all')}><X size={12} /></button>
+                      <button type="button" onClick={() => setFilter('page_id', 'all')}><X size={12} /></button>
                     </span>
                   )}
                   {productFilter !== 'all' && (
                     <span className="active-filter-tag">
                       <span>Product: {currentProductLabel}</span>
-                      <button type="button" onClick={() => setProductFilter('all')}><X size={12} /></button>
+                      <button type="button" onClick={() => setFilter('product', 'all')}><X size={12} /></button>
                     </span>
                   )}
                   {formatFilter !== 'all' && (
                     <span className="active-filter-tag">
                       <span>Format: {currentFormatLabel}</span>
-                      <button type="button" onClick={() => setFormatFilter('all')}><X size={12} /></button>
+                      <button type="button" onClick={() => setFilter('format', 'all')}><X size={12} /></button>
                     </span>
                   )}
                   {searchTerm && (
                     <span className="active-filter-tag">
                       <span>Search: "{searchTerm}"</span>
-                      <button type="button" onClick={() => setSearchTerm('')}><X size={12} /></button>
+                      <button type="button" onClick={() => setFilter('search', '')}><X size={12} /></button>
                     </span>
                   )}
                 </div>
@@ -838,7 +843,7 @@ export const BrandDetailPage = () => {
                         type="text"
                         placeholder="Search posts by product name..."
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={(e) => setFilter('search', e.target.value)}
                         className="toolbar-search-input"
                         style={{ fontSize: '13px', width: '100%', padding: '10px 16px 10px 40px', borderRadius: '24px', border: '1px solid var(--border-color)' }}
                       />

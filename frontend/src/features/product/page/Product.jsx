@@ -35,6 +35,7 @@ export const Product = () => {
     setStockFilter,
     viewMode,
     setViewMode,
+    resetFilters,
     stats,
     reload,
   } = useProducts();
@@ -244,7 +245,7 @@ export const Product = () => {
                   <p>Try adjusting your search keywords or active category filters.</p>
                   <button 
                     className="btn-secondary" 
-                    onClick={() => { setSearchTerm(''); setSelectedCategory('all'); setStockFilter('all'); }}
+                    onClick={resetFilters}
                   >
                     Reset Filters
                   </button>
@@ -269,7 +270,7 @@ export const Product = () => {
                 <p>Try adjusting your search keywords or active category filters.</p>
                 <button 
                   className="btn-secondary" 
-                  onClick={() => { setSearchTerm(''); setSelectedCategory('all'); setStockFilter('all'); }}
+                  onClick={resetFilters}
                 >
                   Reset Filters
                 </button>

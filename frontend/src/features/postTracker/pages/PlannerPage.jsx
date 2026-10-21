@@ -27,6 +27,7 @@ import * as api from '../api/postTrackerApi';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
 import { resolveAllMediaUrls, isVideoMedia } from '../../../shared/utils/mediaUrl';
 import { getFacebookPostUrl } from '../../../shared/utils/facebookUrl';
+import { useUrlFilters } from '../../../shared/hooks/useUrlFilters';
 import '../planner.css';
 
 // Helper to get local date key "YYYY-MM-DD"
@@ -84,8 +85,28 @@ export const PlannerPage = () => {
   // Load all tracked posts
   const { posts, loading, reload, triggerSync } = usePostTracker({ range: 'all' });
 
+  // URL-synced filters
+  const { filters, setFilter } = useUrlFilters({
+    view: 'week',
+    page_id: '',
+    type: 'all',
+    search: '',
+  }, {
+    debouncedKeys: ['search'],
+    debounceDelay: 300,
+    pageKey: null,
+  });
+
+  const viewMode = filters.view || 'week';
+  const selectedPageFilter = filters.page_id || '';
+  const contentTypeFilter = filters.type || 'all';
+  const searchQuery = filters.search || '';
+
+  const setViewMode = (mode) => setFilter('view', mode);
+  const setContentTypeFilter = (type) => setFilter('type', type);
+  const setSearchQuery = (q) => setFilter('search', q);
+
   // Navigation states
-  const [viewMode, setViewMode] = useState('week'); // 'week' | 'month'
   const [currentWeekStart, setCurrentWeekStart] = useState(() => getWeekMonday(new Date()));
   const [currentMonthDate, setCurrentMonthDate] = useState(() => {
     const d = new Date();
@@ -96,15 +117,15 @@ export const PlannerPage = () => {
   // Filter & Search states: immediately initialize pages & page 1 from cache to prevent any flash
   const cachedPagesInitial = useMemo(() => api.getCachedPages() || [], []);
   const [pages, setPages] = useState(cachedPagesInitial);
-  const [selectedPageId, setSelectedPageId] = useState(() => {
-    if (cachedPagesInitial.length > 0) {
-      return cachedPagesInitial[0].id; // Page 1 immediately!
-    }
-    return 'loading'; // Never 'all' during initial load!
-  });
+
+  const selectedPageId = useMemo(() => {
+    if (selectedPageFilter) return selectedPageFilter;
+    if (cachedPagesInitial.length > 0) return cachedPagesInitial[0].id;
+    if (pages.length > 0) return pages[0].id;
+    return 'loading';
+  }, [selectedPageFilter, cachedPagesInitial, pages]);
+
   const userSelectedPageRef = useRef(false);
-  const [contentTypeFilter, setContentTypeFilter] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null); // 'page' | 'contentType' | null
   const controlsRef = useRef(null);
@@ -152,18 +173,9 @@ export const PlannerPage = () => {
       .then((data) => {
         const pageList = data || [];
         setPages(pageList);
-        if (!userSelectedPageRef.current && pageList.length > 0) {
-          setSelectedPageId((prev) => {
-            if (prev === 'loading' || !pageList.some((p) => String(p.id) === String(prev))) {
-              return pageList[0].id;
-            }
-            return prev;
-          });
-        }
       })
       .catch((err) => {
         console.error('Failed to load FB pages:', err);
-        setSelectedPageId((prev) => (prev === 'loading' ? 'all' : prev));
       });
   }, []);
 
@@ -389,7 +401,7 @@ export const PlannerPage = () => {
 
           <button
             className="planner-btn-primary"
-            onClick={() => navigate('/planner/create')}
+            onClick={() => navigate('/planner/create', { state: { from: location.pathname + location.search } })}
           >
             <Plus size={16} /> Schedule Post
           </button>
@@ -492,7 +504,7 @@ export const PlannerPage = () => {
                     key={p.id}
                     onClick={() => {
                       userSelectedPageRef.current = true;
-                      setSelectedPageId(p.id);
+                      setFilter('page_id', p.id);
                       setOpenDropdown(null);
                     }}
                     className={`planner-dropdown-item ${String(selectedPageId) === String(p.id) ? 'selected' : ''}`}
@@ -509,7 +521,7 @@ export const PlannerPage = () => {
                 <div
                   onClick={() => {
                     userSelectedPageRef.current = true;
-                    setSelectedPageId('all');
+                    setFilter('page_id', 'all');
                     setOpenDropdown(null);
                   }}
                   className={`planner-dropdown-item ${selectedPageId === 'all' ? 'selected' : ''}`}
@@ -649,7 +661,7 @@ export const PlannerPage = () => {
                     ) : dayPosts.length === 0 ? (
                       <div
                         className="planner-empty-day"
-                        onClick={() => navigate(`/planner/create?date=${day.dateKey}`)}
+                        onClick={() => navigate(`/planner/create?date=${day.dateKey}`, { state: { from: location.pathname + location.search } })}
                       >
                         <Plus size={18} />
                         <span>Schedule post</span>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import * as productService from '../services/productService';
+import { useUrlFilters } from '../../../shared/hooks/useUrlFilters';
 
 export const useProducts = () => {
   const initialProds = productService.getCachedProducts();
@@ -9,10 +10,30 @@ export const useProducts = () => {
   const [loading, setLoading] = useState(() => !initialProds);
   const [error, setError] = useState(null);
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [stockFilter, setStockFilter] = useState('all'); // 'all' | 'in_stock' | 'low_stock' | 'out_of_stock'
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
+  // URL-synced filters
+  const { filters, setFilter, resetFilters } = useUrlFilters(
+    {
+      search: '',
+      category: 'all',
+      stock: 'all',
+      view: 'grid',
+    },
+    {
+      debouncedKeys: ['search'],
+      debounceDelay: 300,
+      pageKey: null,
+    }
+  );
+
+  const searchTerm = filters.search || '';
+  const selectedCategory = filters.category || 'all';
+  const stockFilter = filters.stock || 'all';
+  const viewMode = filters.view || 'grid';
+
+  const setSearchTerm = useCallback((val) => setFilter('search', val), [setFilter]);
+  const setSelectedCategory = useCallback((val) => setFilter('category', val), [setFilter]);
+  const setStockFilter = useCallback((val) => setFilter('stock', val), [setFilter]);
+  const setViewMode = useCallback((val) => setFilter('view', val), [setFilter]);
 
   const loadData = useCallback(async (force = false) => {
     try {
@@ -104,6 +125,7 @@ export const useProducts = () => {
     setStockFilter,
     viewMode,
     setViewMode,
+    resetFilters,
     stats,
     reload,
   };

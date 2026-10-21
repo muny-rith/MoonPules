@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { useUrlFilters } from '../../../shared/hooks/useUrlFilters';
 import { BarChart2, Eye, Tag, Search, Layers, TrendingUp, Heart, RotateCcw, Flame, ChevronRight } from 'lucide-react';
 import { BrandStatsTopBannerSkeleton, BrandStatsTableSkeleton, BrandStatsMobileSkeleton } from '../../../shared/components/skeletons';
 import { getBrandStats, getCachedBrandStats } from '../services/brandStatsService';
@@ -9,50 +10,54 @@ import { DateRangeFilter, isPostInDateRange } from '../../../shared/components/u
 
 export const BrandStatsPage = () => {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+
+  const { filters, setFilter, setFilters, resetFilters } = useUrlFilters({
+    range: 'this_month',
+    start: '',
+    end: '',
+    search: '',
+  });
+
+  const {
+    range: dateFilter,
+    start: customStart,
+    end: customEnd,
+    search: searchTerm,
+  } = filters;
+
+  const customRange = useMemo(() => ({
+    start: customStart,
+    end: customEnd,
+  }), [customStart, customEnd]);
+
   const initialCached = getCachedBrandStats();
   const [brands, setBrands] = useState(() => initialCached || []);
   const [loading, setLoading] = useState(() => !initialCached);
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [dateFilter, setDateFilter] = useState(() => searchParams.get('range') || 'this_month');
-  const [customRange, setCustomRange] = useState(() => ({
-    start: searchParams.get('start') || '',
-    end: searchParams.get('end') || ''
-  }));
 
   const handleDateFilterChange = (newVal) => {
-    setDateFilter(newVal);
-    const params = new URLSearchParams(searchParams);
-    if (newVal === 'this_month') {
-      params.delete('range');
-      params.delete('start');
-      params.delete('end');
+    if (newVal === 'custom') {
+      setFilter('range', 'custom');
     } else {
-      params.set('range', newVal);
-      if (newVal !== 'custom') {
-        params.delete('start');
-        params.delete('end');
-      }
+      setFilters({
+        range: newVal,
+        start: '',
+        end: '',
+      });
     }
-    setSearchParams(params, { replace: true });
   };
 
   const handleCustomRangeChange = (range) => {
-    setCustomRange(range);
-    const params = new URLSearchParams(searchParams);
-    if (range.start) params.set('start', range.start);
-    else params.delete('start');
-    if (range.end) params.set('end', range.end);
-    else params.delete('end');
-    setSearchParams(params, { replace: true });
+    setFilters({
+      range: 'custom',
+      start: range.start || '',
+      end: range.end || '',
+    });
   };
 
   const handleResetFilters = () => {
-    setDateFilter('this_month');
-    setCustomRange({ start: '', end: '' });
-    setSearchTerm('');
-    setSearchParams({}, { replace: true });
+    resetFilters();
   };
 
   const [selectedBrandIds, setSelectedBrandIds] = useState([]);
@@ -85,10 +90,10 @@ export const BrandStatsPage = () => {
 
     if (selectedBrandIds.length === 1) {
       const q = params.toString() ? `?${params.toString()}` : '';
-      navigate(`/stats/brands/${selectedBrandIds[0]}${q}`);
+      navigate(`/stats/brands/${selectedBrandIds[0]}${q}`, { state: { from: location.pathname + location.search } });
     } else {
       params.set('ids', selectedBrandIds.join(','));
-      navigate(`/stats/brands/combined?${params.toString()}`);
+      navigate(`/stats/brands/combined?${params.toString()}`, { state: { from: location.pathname + location.search } });
     }
   };
 
@@ -102,7 +107,7 @@ export const BrandStatsPage = () => {
       }
     }
     const q = params.toString() ? `?${params.toString()}` : '';
-    navigate(`/stats/brands/${brandId || 'unbranded'}${q}`);
+    navigate(`/stats/brands/${brandId || 'unbranded'}${q}`, { state: { from: location.pathname + location.search } });
   };
 
   useEffect(() => {
@@ -291,7 +296,7 @@ export const BrandStatsPage = () => {
               type="text"
               placeholder="Search brands by name..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => setFilter('search', e.target.value)}
               className="toolbar-search-input"
             />
           </div>
