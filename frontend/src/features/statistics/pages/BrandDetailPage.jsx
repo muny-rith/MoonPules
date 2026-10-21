@@ -925,6 +925,7 @@ export const BrandDetailPage = () => {
                                 rel="noopener noreferrer"
                                 className="btn-secondary"
                                 style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontSize: '12px', padding: '6px 12px' }}
+                                onClick={(e) => e.stopPropagation()}
                               >
                                 <ExternalLink size={12} />
                                 <span>View Post</span>

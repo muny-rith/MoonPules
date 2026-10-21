@@ -700,6 +700,7 @@ export const PlannerPage = () => {
                                   rel="noopener noreferrer"
                                   className="planner-card-action-btn"
                                   title="Open on Facebook"
+                                  onClick={(e) => e.stopPropagation()}
                                 >
                                   <ExternalLink size={12} />
                                 </a>
