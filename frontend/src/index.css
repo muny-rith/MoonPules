@@ -104,6 +104,14 @@ a {
   display: flex;
   align-items: center;
   gap: 12px;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.logo-container:hover {
+  opacity: 0.9;
 }
 
 .logo-placeholder {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { LayoutDashboard, CheckSquare, Calendar, Package, BarChart2, MessageSquare, Target, Settings, HelpCircle, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { FaFacebook, FaTiktok } from 'react-icons/fa';
 export const Sidebar = ({ isCollapsed, isMobileOpen, toggleCollapse, closeMobile }) => {
@@ -8,10 +8,15 @@ export const Sidebar = ({ isCollapsed, isMobileOpen, toggleCollapse, closeMobile
   return (
     <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''} ${isMobileOpen ? 'mobile-open' : ''}`}>
       <div className="sidebar-header">
-        <div className="logo-container">
+        <Link
+          to="/"
+          className="logo-container"
+          onClick={closeMobile}
+          title="Go to Dashboard"
+        >
           <img src="/logoBlack.png" alt="MoonPulse" style={{ width: '32px', height: '32px', borderRadius: '8px' }} />
           {!isCollapsed && <h2>MoonPulse</h2>}
-        </div>
+        </Link>
       </div>
 
       <nav className="sidebar-nav">
