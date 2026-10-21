@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -79,6 +79,7 @@ const getPostContentType = (post) => {
 
 export const PlannerPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Load all tracked posts
   const { posts, loading, reload, triggerSync } = usePostTracker({ range: 'all' });
@@ -672,7 +673,7 @@ export const PlannerPage = () => {
                           <div
                             key={post.id}
                             className="planner-post-card"
-                            onClick={() => navigate(`/planner/edit/${post.id}`)}
+                            onClick={() => navigate(`/planner/edit/${post.id}`, { state: { from: location.pathname + location.search } })}
                             title="Click to view & edit post"
                           >
                             {/* Time & Status Row */}
@@ -805,7 +806,7 @@ export const PlannerPage = () => {
                         <div
                           key={post.id}
                           className="planner-month-post-chip"
-                          onClick={() => navigate(`/planner/edit/${post.id}`)}
+                          onClick={() => navigate(`/planner/edit/${post.id}`, { state: { from: location.pathname + location.search } })}
                           title={`${postTime} · ${post.message || 'Post'}`}
                         >
                           {thumb ? (

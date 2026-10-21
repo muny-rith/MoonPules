@@ -12,6 +12,7 @@ import {
   AlertCircle,
   Clock,
   CheckCircle2,
+  Check,
   FileText,
   Layers,
   Tag,
@@ -26,6 +27,7 @@ import {
   MessageCircle,
   Phone,
   MoreHorizontal,
+  MoreVertical,
   ThumbsUp,
   MessageSquare,
   Share2,
@@ -97,7 +99,7 @@ export const EditPostPage = () => {
   const { id } = useParams();
   const { updatePost } = usePostTracker();
   const isFromPlanner = location.pathname.startsWith('/planner') || location.search.includes('from=planner');
-  const returnPath = isFromPlanner ? '/planner' : '/tasks';
+  const returnPath = location.state?.from || (isFromPlanner ? '/planner' : '/tasks');
 
   // Layout states
   const [previewDevice, setPreviewDevice] = useState('desktop'); // 'desktop' | 'mobile'
@@ -156,6 +158,24 @@ export const EditPostPage = () => {
   const [showFooterModal, setShowFooterModal] = useState(false);
   const [showHashtagModal, setShowHashtagModal] = useState(false);
   const [copiedText, setCopiedText] = useState(false);
+
+  // Top-Right More Actions Menu (Vertical 3-Dots)
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const moreMenuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target)) {
+        setShowMoreMenu(false);
+      }
+    };
+    if (showMoreMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showMoreMenu]);
 
   const handleCopyText = async () => {
     if (!message) return;
@@ -625,15 +645,6 @@ export const EditPostPage = () => {
       console.warn('Action in progress. Ignoring duplicate click.');
       return;
     }
-    const isTargetValid = trackingTarget === 'brand' ? Boolean(brandId) : Boolean(productId);
-    if (!isTargetValid || !pageId) {
-      setSubmitError(`Please select ${trackingTarget === 'brand' ? 'a Brand' : 'a Product'} and a Facebook Page.`);
-      return;
-    }
-
-    isSubmittingRef.current = true;
-    setSubmitting(true);
-    setSubmitError('');
 
     try {
       let finalMediaUrl = null;
@@ -644,24 +655,22 @@ export const EditPostPage = () => {
       } else if (mediaSource === 'upload') {
         if (mediaItems.some((m) => m.uploading)) {
           setSubmitError('Please wait for all media uploads to complete.');
-          isSubmittingRef.current = false;
-          setSubmitting(false);
           return;
         }
         if (mediaItems.length === 1) {
-          finalMediaUrl = mediaItems[0].serverUrl || null;
+          finalMediaUrl = mediaItems[0].serverUrl || mediaItems[0].previewUrl || null;
         } else if (mediaItems.length > 1) {
-          const urls = mediaItems.map((m) => m.serverUrl).filter(Boolean);
+          const urls = mediaItems.map((m) => m.serverUrl || m.previewUrl).filter(Boolean);
           finalMediaUrl = JSON.stringify(urls);
         }
       }
 
       const targetBrandId = trackingTarget === 'brand' && brandId
         ? parseInt(brandId, 10)
-        : (selectedProduct?.brand_id ? parseInt(selectedProduct.brand_id, 10) : null);
+        : (selectedProduct?.brand_id ? parseInt(selectedProduct.brand_id, 10) : (originalPost?.brand_id || null));
       const targetProductId = trackingTarget === 'product' && productId
         ? parseInt(productId, 10)
-        : null;
+        : (originalPost?.product_id || null);
 
       const isVideo = hasVideo || (finalMediaUrl ? isVideoMedia(finalMediaUrl) : false);
 
@@ -675,31 +684,26 @@ export const EditPostPage = () => {
         }
       }
 
-      const newPostData = {
-        mode: 'schedule',
+      const duplicateData = {
         tracking_type: trackingTarget,
         product_id: targetProductId,
         brand_id: targetBrandId,
-        page_id: parseInt(pageId, 10),
-        message: message.trim(),
+        page_id: pageId ? parseInt(pageId, 10) : originalPost?.page_id,
+        message: message ? message.trim() : (originalPost?.message || ''),
         media_url: finalMediaUrl,
         thumbnail_url: finalThumbnailUrl,
-        media_type: isVideo ? 'video' : (finalMediaUrl ? 'photo' : 'status'),
-        publish_now: !scheduledDateTime,
-        scheduled_time: scheduledDateTime ? new Date(scheduledDateTime).toISOString() : null,
+        media_type: isVideo ? 'video' : (finalMediaUrl ? 'photo' : (originalPost?.media_type || 'status')),
+        scheduled_time: scheduledDateTime ? new Date(scheduledDateTime).toISOString() : originalPost?.scheduled_time,
         content_cost: parseFloat(contentCost) || 0,
         ad_spend: parseFloat(adSpend) || 0,
         attribution_window_days: parseInt(attributionWindow, 10) || 7,
       };
 
-      await api.createPost(newPostData);
-      navigate(returnPath);
+      const createPath = isFromPlanner ? '/planner/create' : '/tasks/create';
+      navigate(createPath, { state: { duplicatePost: duplicateData } });
     } catch (err) {
-      console.error('Duplicate post creation error:', err);
-      setSubmitError(err?.response?.data?.error || err.message || 'Failed to duplicate post');
-    } finally {
-      isSubmittingRef.current = false;
-      setSubmitting(false);
+      console.error('Duplicate post navigation error:', err);
+      setSubmitError(err?.message || 'Failed to prepare duplicate post');
     }
   };
 
@@ -847,6 +851,37 @@ export const EditPostPage = () => {
             >
               <Smartphone size={16} />
             </button>
+          </div>
+
+          {/* Top-Right Vertical 3-Dots Menu */}
+          <div className="meta-more-menu-wrap" ref={moreMenuRef}>
+            <button
+              type="button"
+              className={`meta-more-menu-btn ${showMoreMenu ? 'active' : ''}`}
+              onClick={() => setShowMoreMenu((prev) => !prev)}
+              title="More actions"
+              aria-label="More actions"
+            >
+              <MoreVertical size={18} />
+            </button>
+
+            {showMoreMenu && (
+              <div className="meta-more-dropdown">
+                <button
+                  type="button"
+                  className="meta-more-dropdown-item"
+                  onClick={() => {
+                    setShowMoreMenu(false);
+                    handleDuplicateAsNew();
+                  }}
+                  disabled={submitting}
+                  title="Copy this post into the Create Post form to customize and schedule as a new post"
+                >
+                  <Copy size={15} style={{ color: '#2563eb' }} />
+                  <span>Duplicate as New Post</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1632,25 +1667,6 @@ export const EditPostPage = () => {
                 disabled={submitting}
               >
                 Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDuplicateAsNew}
-                disabled={submitting || !(trackingTarget === 'brand' ? Boolean(brandId) : Boolean(productId)) || !pageId}
-                className="meta-btn-secondary"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  borderColor: '#93c5fd',
-                  color: '#1d4ed8',
-                  background: '#eff6ff',
-                  fontWeight: 600,
-                }}
-                title="Save your edited text/image as a brand new duplicate post without overwriting the original"
-              >
-                <Copy size={15} />
-                <span>Duplicate as New Post</span>
               </button>
               <button
                 type="button"

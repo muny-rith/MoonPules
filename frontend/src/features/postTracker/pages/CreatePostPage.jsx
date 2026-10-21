@@ -38,6 +38,7 @@ import {
   Images,
   Trash2,
   Edit2,
+  Copy,
   Package,
   Award,
   Radio,
@@ -92,7 +93,7 @@ export const CreatePostPage = () => {
   const searchParams = new URLSearchParams(location.search);
   const dateParam = searchParams.get('date');
   const isFromPlanner = location.pathname.startsWith('/planner') || location.search.includes('from=planner');
-  const returnPath = isFromPlanner ? '/planner' : '/tasks';
+  const returnPath = location.state?.from || (isFromPlanner ? '/planner' : '/tasks');
   const duplicatePost = location.state?.duplicatePost || null;
   const { addPost } = usePostTracker();
 
@@ -157,6 +158,20 @@ export const CreatePostPage = () => {
   const [submitError, setSubmitError] = useState('');
   const isSubmittingRef = useRef(false);
 
+  // Copy Text
+  const [copiedText, setCopiedText] = useState(false);
+
+  const handleCopyText = async () => {
+    if (!message) return;
+    try {
+      await navigator.clipboard.writeText(message);
+      setCopiedText(true);
+      setTimeout(() => setCopiedText(false), 2000);
+    } catch (err) {
+      console.warn('Failed to copy text:', err);
+    }
+  };
+
   // Close dropdown on click outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -209,17 +224,45 @@ export const CreatePostPage = () => {
     if (duplicatePost.ad_spend !== undefined && duplicatePost.ad_spend !== null) setAdSpend(String(duplicatePost.ad_spend));
     if (duplicatePost.attribution_window_days) setAttributionWindow(duplicatePost.attribution_window_days);
 
+    // Activate schedule mode for duplicate post
+    setPublishMode('schedule');
+    if (duplicatePost.scheduled_time) {
+      try {
+        const d = new Date(duplicatePost.scheduled_time);
+        if (d.getTime() > Date.now()) {
+          const localIso = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+            .toISOString()
+            .slice(0, 16);
+          setScheduledDateTime(localIso);
+        } else {
+          const nextHour = new Date(Date.now() + 60 * 60 * 1000);
+          const localIso = new Date(nextHour.getTime() - nextHour.getTimezoneOffset() * 60000)
+            .toISOString()
+            .slice(0, 16);
+          setScheduledDateTime(localIso);
+        }
+      } catch {
+        const nextHour = new Date(Date.now() + 60 * 60 * 1000);
+        const localIso = new Date(nextHour.getTime() - nextHour.getTimezoneOffset() * 60000)
+          .toISOString()
+          .slice(0, 16);
+        setScheduledDateTime(localIso);
+      }
+    } else {
+      const nextHour = new Date(Date.now() + 60 * 60 * 1000);
+      const localIso = new Date(nextHour.getTime() - nextHour.getTimezoneOffset() * 60000)
+        .toISOString()
+        .slice(0, 16);
+      setScheduledDateTime(localIso);
+    }
+
     const isBrand = duplicatePost.tracking_type === 'brand' || (!duplicatePost.product_id && duplicatePost.brand_id);
     setTrackingTarget(isBrand ? 'brand' : 'product');
     if (duplicatePost.brand_id) setBrandId(String(duplicatePost.brand_id));
     if (duplicatePost.product_id) setProductId(String(duplicatePost.product_id));
 
     if (duplicatePost.page_id) {
-      if (pages.length > 0) {
-        setSelectedPageIds(pages.map((p) => String(p.id)));
-      } else {
-        setSelectedPageIds([String(duplicatePost.page_id)]);
-      }
+      setSelectedPageIds([String(duplicatePost.page_id)]);
     }
 
     if (duplicatePost.media_url) {
@@ -272,9 +315,13 @@ export const CreatePostPage = () => {
     try {
       const data = await api.fetchPages();
       setPages(data || []);
-      // Select all connected Facebook accounts by default
+      // Select all connected Facebook accounts by default if not duplicating a specific page
       if (data && data.length > 0) {
-        setSelectedPageIds(data.map((p) => String(p.id)));
+        if (duplicatePost?.page_id) {
+          setSelectedPageIds([String(duplicatePost.page_id)]);
+        } else {
+          setSelectedPageIds(data.map((p) => String(p.id)));
+        }
       }
     } catch (err) {
       console.error('Failed to load pages', err);
@@ -1318,8 +1365,30 @@ export const CreatePostPage = () => {
           {/* 4. Card: Post details (Textarea + Action Toolbar) */}
           {tabMode === 'direct' && (
             <div className="meta-card" ref={textCardRef}>
-              <div style={{ marginBottom: '8px', fontSize: '13px', fontWeight: 600, color: '#050505' }}>
-                Text
+              <div style={{ marginBottom: '8px', fontSize: '13px', fontWeight: 600, color: '#050505', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>Text</span>
+                <button
+                  type="button"
+                  onClick={handleCopyText}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '3px 9px',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    borderRadius: '6px',
+                    border: '1px solid #ced0d4',
+                    background: copiedText ? '#ecfdf5' : '#f0f2f5',
+                    color: copiedText ? '#059669' : '#050505',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title="Copy post text to clipboard"
+                >
+                  {copiedText ? <Check size={13} /> : <Copy size={13} />}
+                  <span>{copiedText ? 'Copied!' : 'Copy Text'}</span>
+                </button>
               </div>
 
               <div className="meta-textarea-box">

@@ -5,8 +5,9 @@ import { InsightPanel } from '../components/InsightPanel';
 import { DeleteConfirmModal } from '../components/DeleteConfirmModal';
 import { PublishConfirmModal } from '../components/PublishConfirmModal';
 import { DuplicatePostModal } from '../components/DuplicatePostModal';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { POST_STATUS } from '../constants';
+import { useUrlFilters } from '../../../shared/hooks/useUrlFilters';
 import { Search, Filter, Calendar, ExternalLink, RefreshCw, BarChart2, DollarSign, Image as ImageIcon, Heart, MessageCircle, Share2, Edit2, Trash2, ChevronLeft, ChevronRight, Users, ChevronDown, Eye, TrendingUp, Send, Award, RotateCcw, Check, Sparkles, X, Copy } from 'lucide-react';
 import { FaFacebook, FaTiktok, FaInstagram } from 'react-icons/fa';
 
@@ -164,13 +165,34 @@ const FilterDropdown = ({ icon: Icon, value, options, onChange, minWidth = '130p
 
 export const PostTrackerPage = () => {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const urlRange = searchParams.get('range') || 'this_month';
-  const urlStart = searchParams.get('start') || '';
-  const urlEnd = searchParams.get('end') || '';
+  const location = useLocation();
 
-  const [dateFilter, setDateFilter] = useState(urlRange);
-  const [customDateRange, setCustomDateRange] = useState({ start: urlStart, end: urlEnd });
+  const { filters, setFilter, setFilters, resetFilters } = useUrlFilters({
+    range: 'this_month',
+    start: '',
+    end: '',
+    search: '',
+    status: 'all',
+    platform: 'all',
+    page: 1,
+    limit: 25,
+  });
+
+  const {
+    range: dateFilter,
+    start: customStart,
+    end: customEnd,
+    search: searchTerm,
+    status: statusFilter,
+    platform: platformFilter,
+    page: currentPage,
+    limit: rowsPerPage,
+  } = filters;
+
+  const customDateRange = useMemo(() => ({
+    start: customStart,
+    end: customEnd,
+  }), [customStart, customEnd]);
 
   const queryParams = useMemo(() => {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Phnom_Penh';
@@ -188,11 +210,6 @@ export const PostTrackerPage = () => {
   const [postToDelete, setPostToDelete] = useState(null);
   const [postToPublish, setPostToPublish] = useState(null);
   const [postToDuplicate, setPostToDuplicate] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [platformFilter, setPlatformFilter] = useState('all');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(25);
   const [postsProfit, setPostsProfit] = useState({});
 
   useEffect(() => {
@@ -200,32 +217,23 @@ export const PostTrackerPage = () => {
   }, [queryParams, reload]);
 
   const handleDateFilterChange = (newVal) => {
-    setDateFilter(newVal);
-    setCurrentPage(1);
-    const params = new URLSearchParams(searchParams);
-    if (newVal === 'this_month') {
-      params.delete('range');
-      params.delete('start');
-      params.delete('end');
+    if (newVal === 'custom') {
+      setFilter('range', 'custom');
     } else {
-      params.set('range', newVal);
-      if (newVal !== 'custom') {
-        params.delete('start');
-        params.delete('end');
-      }
+      setFilters({
+        range: newVal,
+        start: '',
+        end: '',
+      });
     }
-    setSearchParams(params, { replace: true });
   };
 
   const handleCustomRangeChange = (range) => {
-    setCustomDateRange(range);
-    setCurrentPage(1);
-    const params = new URLSearchParams(searchParams);
-    if (range.start) params.set('start', range.start);
-    else params.delete('start');
-    if (range.end) params.set('end', range.end);
-    else params.delete('end');
-    setSearchParams(params, { replace: true });
+    setFilters({
+      range: 'custom',
+      start: range.start || '',
+      end: range.end || '',
+    });
   };
 
   const handlePostClick = (post) => {
@@ -309,13 +317,7 @@ export const PostTrackerPage = () => {
   const isAnyFilterActive = searchTerm !== '' || statusFilter !== 'all' || platformFilter !== 'all' || dateFilter !== 'this_month' || customDateRange.start !== '' || customDateRange.end !== '';
 
   const resetAllFilters = () => {
-    setSearchTerm('');
-    setStatusFilter('all');
-    setPlatformFilter('all');
-    setDateFilter('this_month');
-    setCustomDateRange({ start: '', end: '' });
-    setCurrentPage(1);
-    setSearchParams({}, { replace: true });
+    resetFilters();
   };
 
   const customAccessors = useMemo(() => ({
@@ -420,7 +422,7 @@ export const PostTrackerPage = () => {
           <button
             className="btn-primary"
             style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}
-            onClick={() => navigate('/tasks/create')}
+            onClick={() => navigate('/tasks/create', { state: { from: location.pathname + location.search } })}
           >
             <Send size={15} /> Create & Schedule Post
           </button>
@@ -440,7 +442,7 @@ export const PostTrackerPage = () => {
               type="text"
               placeholder="Search by product or page..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => setFilter('search', e.target.value)}
               style={{ fontSize: '13px', width: '100%', padding: '10px 16px 10px 40px', borderRadius: '24px', border: '1px solid var(--border-color)' }}
             />
           </div>
@@ -449,7 +451,7 @@ export const PostTrackerPage = () => {
             <FilterDropdown
               value={platformFilter}
               options={PLATFORM_OPTIONS}
-              onChange={(val) => { setPlatformFilter(val); setCurrentPage(1); }}
+              onChange={(val) => setFilter('platform', val)}
               minWidth="140px"
             />
             <DateRangeFilter
@@ -462,7 +464,7 @@ export const PostTrackerPage = () => {
             <FilterDropdown
               value={statusFilter}
               options={STATUS_OPTIONS}
-              onChange={(val) => { setStatusFilter(val); setCurrentPage(1); }}
+              onChange={(val) => setFilter('status', val)}
               minWidth="135px"
             />
             {isAnyFilterActive && (
@@ -742,7 +744,7 @@ export const PostTrackerPage = () => {
                           title="Edit Post"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/tasks/edit/${post.id}`);
+                            navigate(`/tasks/edit/${post.id}`, { state: { from: location.pathname + location.search } });
                           }}
                           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', color: '#64748b', border: '1px solid #e2e8f0', backgroundColor: '#ffffff', cursor: 'pointer', transition: 'all 0.2s' }}
                         >
@@ -978,7 +980,7 @@ export const PostTrackerPage = () => {
                         <ExternalLink size={14} />
                       </a>
                     )}
-                    <button onClick={(e) => { e.stopPropagation(); navigate(`/tasks/edit/${post.id}`); }} className="btn-icon-action" title="Edit Post">
+                    <button onClick={(e) => { e.stopPropagation(); navigate(`/tasks/edit/${post.id}`, { state: { from: location.pathname + location.search } }); }} className="btn-icon-action" title="Edit Post">
                       <Edit2 size={14} />
                     </button>
                     <button
@@ -1014,8 +1016,7 @@ export const PostTrackerPage = () => {
               <select
                 value={rowsPerPage}
                 onChange={e => {
-                  setRowsPerPage(Number(e.target.value));
-                  setCurrentPage(1);
+                  setFilter('limit', Number(e.target.value));
                 }}
                 style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '4px 8px', backgroundColor: 'white', color: '#334155', fontWeight: 500 }}
               >
@@ -1033,14 +1034,14 @@ export const PostTrackerPage = () => {
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
                   disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(p => p - 1)}
+                  onClick={() => setFilter('page', currentPage - 1)}
                   style={{ padding: '4px', borderRadius: '6px', border: '1px solid #cbd5e1', backgroundColor: currentPage === 1 ? '#f1f5f9' : 'white', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', color: currentPage === 1 ? '#94a3b8' : '#334155' }}
                 >
                   <ChevronLeft size={16} />
                 </button>
                 <button
                   disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage(p => p + 1)}
+                  onClick={() => setFilter('page', currentPage + 1)}
                   style={{ padding: '4px', borderRadius: '6px', border: '1px solid #cbd5e1', backgroundColor: currentPage === totalPages ? '#f1f5f9' : 'white', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', color: currentPage === totalPages ? '#94a3b8' : '#334155' }}
                 >
                   <ChevronRight size={16} />
@@ -1070,7 +1071,7 @@ export const PostTrackerPage = () => {
         onClose={() => setPostToDuplicate(null)}
         post={postToDuplicate}
         onSuccess={() => reload(queryParams)}
-        onCustomize={(p) => navigate('/tasks/create', { state: { duplicatePost: p } })}
+        onCustomize={(p) => navigate('/tasks/create', { state: { duplicatePost: p, from: location.pathname + location.search } })}
       />
     </div>
   );
