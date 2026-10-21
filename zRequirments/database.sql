@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS tb_fb_page (
     page_name VARCHAR(255) NOT NULL,
     fb_page_id VARCHAR(255) NOT NULL UNIQUE,
     access_token TEXT NOT NULL,
+    picture_url TEXT,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
