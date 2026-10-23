@@ -461,8 +461,9 @@ export const EditPostPage = () => {
         );
       } catch (err) {
         console.error('Failed to upload media:', err);
+        const errMsg = err?.response?.data?.error || err.message || 'Upload failed';
         setMediaItems((prev) =>
-          prev.map((it) => (it.id === itemId ? { ...it, uploading: false, error: true } : it))
+          prev.map((it) => (it.id === itemId ? { ...it, uploading: false, error: true, errorMessage: errMsg } : it))
         );
       }
       return;
@@ -498,8 +499,9 @@ export const EditPostPage = () => {
           );
         } catch (err) {
           console.error('Failed to upload item', err);
+          const errMsg = err?.response?.data?.error || err.message || 'Upload failed';
           setMediaItems((prev) =>
-            prev.map((it) => (it.id === item.id ? { ...it, uploading: false, error: true } : it))
+            prev.map((it) => (it.id === item.id ? { ...it, uploading: false, error: true, errorMessage: errMsg } : it))
           );
         }
       })();
@@ -1308,7 +1310,11 @@ export const EditPostPage = () => {
                                     {item.dimensions || 'Image'}
                                   </div>
                                   <div style={{ fontSize: '11px', color: item.uploading ? '#1877f2' : item.error ? '#dc2626' : '#16a34a' }}>
-                                    {item.uploading ? 'Uploading...' : item.error ? 'Upload failed' : '✓ Ready'}
+                                    {item.uploading
+                                      ? (item.isVideo ? '⚡ Optimizing & Uploading...' : 'Uploading...')
+                                      : item.error
+                                        ? (item.errorMessage || 'Upload failed')
+                                        : '✓ Ready'}
                                   </div>
                                 </div>
                               </div>

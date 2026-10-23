@@ -94,6 +94,51 @@ const uploadBuffer = async (buffer, filename, mimeType = 'image/jpeg') => {
 };
 
 /**
+ * Uploads a local file from disk directly to Supabase Storage.
+ * Falls back to local disk if Supabase is not configured or upload fails.
+ */
+const uploadLocalFile = async (localSourcePath, filename, mimeType = 'video/mp4') => {
+  const cleanFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const filePath = `posts/${Date.now()}_${cleanFilename}`;
+
+  if (supabase) {
+    try {
+      const fileBuffer = fs.readFileSync(localSourcePath);
+      const { data, error } = await supabase.storage
+        .from(BUCKET_NAME)
+        .upload(filePath, fileBuffer, {
+          contentType: mimeType,
+          upsert: true,
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      const { data: publicData } = supabase.storage
+        .from(BUCKET_NAME)
+        .getPublicUrl(data.path);
+
+      return publicData.publicUrl;
+    } catch (err) {
+      console.error('[SupabaseStorage] Upload failed, falling back to local storage:', err.message);
+    }
+  } else {
+    console.warn('[SupabaseStorage] SUPABASE_SERVICE_ROLE_KEY not configured. Falling back to local disk storage.');
+  }
+
+  // Fallback to local server disk storage
+  const uploadDir = path.join(__dirname, '../../../uploads/posts');
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+  const localFileName = `fallback_${Date.now()}_${cleanFilename}`;
+  const destinationPath = path.join(uploadDir, localFileName);
+  fs.copyFileSync(localSourcePath, destinationPath);
+  return `/uploads/posts/${localFileName}`;
+};
+
+/**
  * Downloads an image from a remote URL (e.g. Facebook Graph API CDN)
  * and uploads it permanently to Supabase Storage.
  */
@@ -181,6 +226,7 @@ const deleteFileFromStorage = async (mediaUrl) => {
 
 module.exports = {
   uploadBuffer,
+  uploadLocalFile,
   syncImageFromUrl,
   deleteFileFromStorage,
   ensureBucketExists,

@@ -1,6 +1,9 @@
 const service = require('./postTracker.service');
 const storageService = require('../storage/supabaseStorage.service');
+const videoCompressionService = require('../storage/videoCompression.service');
 const { syncPostStatus } = require('../../jobs/syncPostStatus.job');
+const fs = require('fs');
+const path = require('path');
 
 const getPosts = async (req, res, next) => {
   try {
@@ -109,20 +112,61 @@ const publishNow = async (req, res, next) => {
 };
 
 const uploadImage = async (req, res, next) => {
+  const tempRawPath = req.file?.path;
+  let tempCompressedPath = null;
+
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
-    const publicUrl = await storageService.uploadBuffer(
-      req.file.buffer,
-      req.file.originalname,
-      req.file.mimetype
+
+    const ext = path.extname(req.file.originalname || '').toLowerCase();
+    const mime = (req.file.mimetype || '').toLowerCase();
+    const isVideo = mime.startsWith('video/') || /\.(mp4|mov|webm|avi|mkv|m4v|3gp)$/i.test(ext);
+
+    let uploadPath = req.file.path;
+    let uploadFilename = req.file.originalname;
+    let uploadMimeType = req.file.mimetype;
+
+    if (isVideo) {
+      try {
+        console.log(`[Upload] 🎥 Detected video: ${req.file.originalname} (${(req.file.size / (1024 * 1024)).toFixed(2)} MB). Starting compression...`);
+        const comp = await videoCompressionService.compressVideo(req.file.path);
+        if (!comp.skipped) {
+          uploadPath = comp.outputPath;
+          tempCompressedPath = comp.outputPath;
+          uploadFilename = comp.filename;
+          uploadMimeType = 'video/mp4';
+        }
+      } catch (compErr) {
+        console.warn(`[Upload] ⚠️ Video compression failed, falling back to original file:`, compErr.message);
+      }
+    }
+
+    const publicUrl = await storageService.uploadLocalFile(
+      uploadPath,
+      uploadFilename,
+      uploadMimeType
     );
+
+    // Clean up temporary files
+    try {
+      if (tempRawPath && fs.existsSync(tempRawPath)) fs.unlinkSync(tempRawPath);
+      if (tempCompressedPath && fs.existsSync(tempCompressedPath)) fs.unlinkSync(tempCompressedPath);
+    } catch (cleanErr) {
+      console.warn('[Upload] Temp file cleanup warning:', cleanErr.message);
+    }
+
     res.json({
       url: publicUrl,
-      filename: req.file.originalname,
+      filename: uploadFilename,
     });
   } catch (error) {
+    // Ensure temp files are cleaned up on error
+    try {
+      if (tempRawPath && fs.existsSync(tempRawPath)) fs.unlinkSync(tempRawPath);
+      if (tempCompressedPath && fs.existsSync(tempCompressedPath)) fs.unlinkSync(tempCompressedPath);
+    } catch (_) {}
     next(error);
   }
 };

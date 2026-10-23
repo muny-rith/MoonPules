@@ -2,12 +2,21 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-const uploadDir = path.join(__dirname, '../../uploads/posts');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+const tempDir = path.join(__dirname, '../../uploads/temp');
+if (!fs.existsSync(tempDir)) {
+  fs.mkdirSync(tempDir, { recursive: true });
 }
 
-const storage = multer.memoryStorage();
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, tempDir);
+  },
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    const cleanBase = path.basename(file.originalname || 'upload', ext).replace(/[^a-zA-Z0-9._-]/g, '_');
+    cb(null, `upload_${Date.now()}_${cleanBase}${ext}`);
+  },
+});
 
 const fileFilter = (req, file, cb) => {
   const ext = path.extname(file.originalname || '').toLowerCase();
@@ -25,7 +34,7 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({
   storage,
-  limits: { fileSize: 200 * 1024 * 1024 }, // 200MB
+  limits: { fileSize: 500 * 1024 * 1024 }, // 500MB
   fileFilter,
 });
 
