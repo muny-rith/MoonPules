@@ -75,6 +75,23 @@
   display: inline-block;
 }
 
+.skeleton-filter-pill {
+  height: 34px !important;
+  border-radius: 8px !important;
+  width: 100% !important;
+}
+
+.filter-dropdown-group.skel-group {
+  display: inline-flex;
+}
+
+@media (max-width: 480px) {
+  .filter-dropdown-group.skel-group {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+
 /* Table Skeleton Specifics */
 .skeleton-table-row {
   transition: background-color 0.2s ease;

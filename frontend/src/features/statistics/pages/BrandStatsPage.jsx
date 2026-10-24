@@ -227,9 +227,7 @@ export const BrandStatsPage = () => {
       </div>
 
       {loading ? (
-        <div style={{ marginBottom: '20px' }}>
-          <BrandStatsTopBannerSkeleton count={4} />
-        </div>
+        <BrandStatsTopBannerSkeleton count={4} />
       ) : (
         <div className="card stat-card-group" style={{ marginBottom: '20px' }}>
           <div className="stat-item">

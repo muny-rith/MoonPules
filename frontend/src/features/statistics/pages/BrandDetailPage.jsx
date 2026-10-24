@@ -7,7 +7,7 @@ import {
   Layers, Image, Video, Radio, Globe, RotateCcw
 } from 'lucide-react';
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
-import { BrandDetailHeroSkeleton, BrandDetailKpisSkeleton, BrandDetailAnalyticsSkeleton } from '../../../shared/components/skeletons';
+import { BrandDetailHeroSkeleton, BrandDetailAnalyticsSkeleton, BrandDetailTrackedPostsSkeleton } from '../../../shared/components/skeletons';
 import {
   getBrandDetail,
   getCombinedBrandDetail,
@@ -485,8 +485,8 @@ export const BrandDetailPage = () => {
       {loading ? (
         <>
           <BrandDetailHeroSkeleton />
-          <BrandDetailKpisSkeleton />
           <BrandDetailAnalyticsSkeleton />
+          <BrandDetailTrackedPostsSkeleton />
         </>
       ) : detail && (
         <>
