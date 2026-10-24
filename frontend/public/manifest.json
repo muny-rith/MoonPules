@@ -1,31 +1,30 @@
 {
-  "name": "MoonPulse",
   "short_name": "MoonPulse",
+  "name": "MoonPulse",
   "description": "MoonPulse Management Platform",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
+  "orientation": "any",
   "theme_color": "#ffffff",
-  "orientation": "portrait-primary",
-  "icons": [
-    {
-      "src": "/logo-v2.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/logo-v2.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/logo-v2.png",
-      "sizes": "925x925",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
-  ]
+  "background_color": "#ffffff"
 }
