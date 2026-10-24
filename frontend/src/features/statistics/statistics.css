@@ -38,7 +38,6 @@
   border-radius: 16px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
   border: 1px solid var(--border-color);
-  margin-bottom: 24px;
   position: relative;
   overflow: hidden;
 }
@@ -409,6 +408,7 @@
   }
 }
 
+
 .filter-dropdown-item {
   display: flex;
   align-items: center;
@@ -557,14 +557,21 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 9px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  font-size: 12px;
+  padding: 3px 0px;
+  /* background: #f8fafc; */
+  /* border: 1px solid #e2e8f0; */
+  /* border-radius: 6px; */
+  font-size: 12.5px;
   font-weight: 600;
   color: #334155;
-  max-width: 170px;
+  max-width: 260px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.channel-page-badge span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -606,53 +613,203 @@
 }
 
 @media (max-width: 768px) {
+
+  /* Brand Detail Page Container & Spacing Optimization */
+  .brand-detail-page-container {
+    padding-top: 14px !important;
+    gap: 8px !important;
+    padding-bottom: 20px !important;
+  }
+
+  .brand-detail-breadcrumb-bar {
+    gap: 8px !important;
+    margin-bottom: 0 !important;
+  }
+
+  .brand-detail-breadcrumb-bar .page-breadcrumb {
+    font-size: 11px !important;
+  }
+
+  .brand-detail-back-btn {
+    padding: 6px 8px !important;
+  }
+
+  /* Hero Card Compact Spacing */
+  .brand-hero-card,
+  .brand-detail-hero-card {
+    padding: 12px 12px !important;
+    border-radius: 12px !important;
+  }
+
+  .brand-detail-hero-content {
+    gap: 10px !important;
+  }
+
+  .brand-detail-hero-info {
+    gap: 10px !important;
+  }
+
+  .brand-detail-hero-info h1 {
+    font-size: 20px !important;
+  }
+
+  .brand-detail-logo-box {
+    padding: 4px !important;
+    border-radius: 12px !important;
+  }
+
+  .brand-detail-logo-img,
+  .brand-hero-card img,
+  .brand-detail-hero-card img {
+    width: 52px !important;
+    height: 52px !important;
+    border-radius: 10px !important;
+  }
+
+  /* Brand Detail Hero Actions (Equal width & no-wrap) */
+  .brand-detail-hero-actions {
+    width: 100% !important;
+    display: flex !important;
+    gap: 8px !important;
+    margin-top: 2px !important;
+  }
+
+  .brand-hero-card .btn-secondary,
+  .brand-detail-hero-card .btn-secondary {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    white-space: nowrap !important;
+    padding: 8px 10px !important;
+    height: 38px !important;
+    box-sizing: border-box !important;
+    font-size: 12px !important;
+  }
+
+  .brand-detail-hero-card .btn-secondary span {
+    white-space: nowrap !important;
+  }
+
+  /* Analytics Overview Card Compact Spacing */
   .analytics-overview-card {
-    padding: 16px !important;
+    padding: 12px 12px !important;
+    border-radius: 12px !important;
   }
 
   .analytics-filter-container {
-    gap: 12px;
+    gap: 8px !important;
   }
 
+  .detail-main-col {
+    margin-top: 18px !important;
+  }
+
+  /* ==========================================================================
+     Brand Detail Filter Toolbar - 2-Column Balanced Grid (Mobile)
+     ========================================================================== */
   .analytics-filter-toolbar {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-    padding: 10px;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    padding: 8px !important;
+    overflow: visible !important;
   }
 
-  .filter-dropdown-group {
-    width: 100%;
+  .analytics-filter-toolbar .filter-dropdown-group,
+  .analytics-filter-toolbar .date-range-filter-container {
+    width: 100% !important;
+    position: relative !important;
   }
 
-  /* When 5 filter buttons and no reset button, the 5th spans both columns */
+  /* 5th filter button sits naturally in column 1 (NOT stretched across both columns) */
   .filter-dropdown-group:last-child:nth-child(odd) {
-    grid-column: span 2;
+    grid-column: span 1 !important;
   }
 
   .filter-dropdown-btn {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 10px;
-    font-size: 12px;
-    box-sizing: border-box;
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 6px !important;
+    padding: 8px 10px !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    border-radius: 8px !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-sizing: border-box !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+  }
+
+  .filter-dropdown-btn.active-filter {
+    background: #eff6ff !important;
+    border-color: #93c5fd !important;
+    color: #1d4ed8 !important;
+  }
+
+  .analytics-filter-toolbar .date-range-filter-btn {
+    width: 100% !important;
+    min-width: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 8px 10px !important;
+    font-size: 12px !important;
+    border-radius: 8px !important;
+    box-sizing: border-box !important;
   }
 
   .filter-dropdown-btn svg:last-child {
-    flex-shrink: 0;
-    margin-left: 4px;
+    flex-shrink: 0 !important;
+    margin-left: 2px !important;
   }
 
-  /* Right column dropdowns open anchored to the right so they never overflow */
-  .filter-dropdown-group:nth-child(even) .filter-dropdown-menu {
-    left: auto;
-    right: 0;
-  }
-
+  /* Standard absolute dropdown menus anchored beneath each button */
   .filter-dropdown-menu {
-    max-width: min(280px, calc(100vw - 48px));
+    position: absolute !important;
+    top: calc(100% + 6px) !important;
+    left: 0 !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: auto !important;
+    min-width: 160px !important;
+    max-width: calc(100vw - 32px) !important;
+    max-height: 260px !important;
+    overflow-y: auto !important;
+    background: white !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 10px !important;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.06) !important;
+    z-index: 500 !important;
+    padding: 4px !important;
+  }
+
+  /* Right column dropdowns anchor right so they never overflow screen */
+  .filter-dropdown-group:nth-child(even) .filter-dropdown-menu {
+    left: auto !important;
+    right: 0 !important;
+  }
+
+  .filter-dropdown-item {
+    padding: 8px 10px !important;
+    font-size: 12px !important;
+    border-radius: 6px !important;
+  }
+
+  .date-range-filter-dropdown {
+    position: absolute !important;
+    top: calc(100% + 6px) !important;
+    left: 0 !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: 310px !important;
+    max-width: calc(100vw - 32px) !important;
+    z-index: 500 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.15) !important;
   }
 
   .active-filter-reset {
@@ -676,12 +833,44 @@
     flex: 1;
     justify-content: center;
   }
+
+  /* Brand Detail Tracked Posts Table Card & Top Banner */
+  .brand-posts-table-card {
+    border-radius: 12px !important;
+  }
+
+  .brand-posts-table-card .toolbar-header-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    padding: 10px 12px !important;
+  }
+
+  .brand-posts-table-card .toolbar-header-row .search-input-wrap {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 38px !important;
+  }
+
+  .top-performing-banner {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    padding: 12px 14px !important;
+    border-radius: 12px !important;
+    margin: 4px 0 !important;
+  }
+
+  .top-performing-banner a {
+    width: 100% !important;
+    justify-content: center !important;
+  }
 }
 
 @media (max-width: 480px) {
 
   /* Brand Stats Banner (2x2 Grid) */
-  .top-performing-banner {
+  .stat-card-group {
     display: grid !important;
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 8px !important;
@@ -709,9 +898,9 @@
   /* Brand Detail Hero */
   .brand-hero-card,
   .brand-detail-hero-card {
-    padding: 14px 12px !important;
-    gap: 12px !important;
-    border-radius: 14px !important;
+    padding: 12px 12px !important;
+    gap: 10px !important;
+    border-radius: 12px !important;
   }
 
   .hero-logo,
@@ -729,10 +918,16 @@
 
   .brand-hero-card .btn-secondary,
   .brand-detail-hero-card .btn-secondary {
-    flex: 1 !important;
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
     justify-content: center !important;
+    white-space: nowrap !important;
     padding: 8px 10px !important;
     font-size: 12px !important;
+    height: 38px !important;
+    box-sizing: border-box !important;
   }
 
   /* Analytics Overview Card */
@@ -750,26 +945,6 @@
     padding: 3px 8px !important;
   }
 
-  .analytics-filter-toolbar {
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 6px !important;
-    padding: 8px !important;
-  }
-
-  .filter-dropdown-btn {
-    padding: 7px 8px !important;
-    font-size: 11px !important;
-  }
-
-  .filter-dropdown-menu {
-    max-width: calc(100vw - 28px) !important;
-  }
-
-  .filter-dropdown-item {
-    padding: 7px 10px !important;
-    font-size: 12px !important;
-  }
-
   /* Active filter chips */
   .active-filters-row {
     gap: 4px !important;
@@ -780,20 +955,6 @@
     padding: 3px 6px !important;
   }
 
-}
-
-@media (max-width: 360px) {
-  .analytics-filter-toolbar {
-    grid-template-columns: 1fr !important;
-  }
-
-  .filter-dropdown-group:last-child:nth-child(odd) {
-    grid-column: span 1 !important;
-  }
-
-  .filter-dropdown-group:nth-child(even) .filter-dropdown-menu {
-    left: 0 !important;
-  }
 }
 
 /* ==========================================================================
@@ -875,4 +1036,88 @@
 .brand-action-view-btn:hover .brand-action-chevron {
   transform: translateX(2px);
   opacity: 1;
+}
+
+/* ==========================================================================
+   BRAND STATS PAGE - RESPONSIVE & MOBILE OPTIMIZATIONS
+   ========================================================================== */
+
+/* Unified Table-Card with Toolbar Header (Matching PostTracker / Task page) */
+.table-card .toolbar-header-row {
+  padding: 16px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  background-color: #ffffff;
+}
+
+/* --- Mobile Breakpoint (<= 768px) --- */
+@media (max-width: 768px) {
+
+  /* Page Header compact */
+  .brand-stats-page-container {
+    padding-top: 14px !important;
+    gap: 12px !important;
+    padding-bottom: 24px !important;
+  }
+
+  .brand-stats-page-container .page-breadcrumb {
+    font-size: 11px !important;
+    margin-bottom: 2px !important;
+  }
+
+  .brand-stats-page-container .page-title {
+    font-size: 20px !important;
+  }
+
+  /* Toolbar inside table-card responsive */
+  .table-card .toolbar-header-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    padding: 10px 12px !important;
+  }
+
+  .table-card .toolbar-header-row .search-input-wrap {
+    max-width: 100% !important;
+    width: 100% !important;
+    height: 38px !important;
+  }
+
+  .table-card .toolbar-header-row .toolbar-filter-row {
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+
+  .table-card .toolbar-header-row .date-range-filter-container {
+    flex: 1 !important;
+    width: 100% !important;
+  }
+
+  .table-card .toolbar-header-row .date-range-filter-btn {
+    width: 100% !important;
+    height: 38px !important;
+    border-radius: 20px !important;
+    padding: 0 14px !important;
+  }
+
+  .table-card .toolbar-header-row .btn-secondary {
+    height: 38px !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Floating Selection Bar */
+  .brand-floating-selection-bar {
+    width: calc(100% - 24px) !important;
+    max-width: 100% !important;
+    padding: 8px 12px !important;
+    gap: 10px !important;
+    bottom: 12px !important;
+    border-radius: 12px !important;
+    justify-content: space-between !important;
+  }
 }

@@ -95,8 +95,26 @@ export const DateRangeFilter = ({
   minWidth = '145px',
   align = 'auto', // 'auto' | 'left' | 'right'
   defaultPreset = 'this_month',
+  isOpen: controlledIsOpen,
+  onOpenChange,
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isControlled = controlledIsOpen !== undefined;
+  const isOpen = isControlled ? controlledIsOpen : internalIsOpen;
+
+  const onOpenChangeRef = useRef(onOpenChange);
+  useEffect(() => {
+    onOpenChangeRef.current = onOpenChange;
+  }, [onOpenChange]);
+
+  const setIsOpen = (next) => {
+    const val = typeof next === 'function' ? next(isOpen) : next;
+    if (isControlled) {
+      onOpenChangeRef.current?.(val);
+    } else {
+      setInternalIsOpen(val);
+    }
+  };
   const [localStart, setLocalStart] = useState(customRange.start || '');
   const [localEnd, setLocalEnd] = useState(customRange.end || '');
   const [dropdownAlign, setDropdownAlign] = useState(align === 'right' ? 'right' : 'left');
@@ -110,6 +128,7 @@ export const DateRangeFilter = ({
 
   // Click outside listener
   useEffect(() => {
+    if (!isOpen) return;
     const handleClickOutside = (event) => {
       if (ref.current && !ref.current.contains(event.target)) {
         setIsOpen(false);
@@ -117,7 +136,7 @@ export const DateRangeFilter = ({
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [isOpen, isControlled]);
 
   // Compute alignment when opened so it never clips off-screen
   useEffect(() => {
@@ -184,9 +203,10 @@ export const DateRangeFilter = ({
   const isFiltered = value !== defaultPreset || !!(customRange.start || customRange.end);
 
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
+    <div ref={ref} className="date-range-filter-container" style={{ position: 'relative' }}>
       <button
         type="button"
+        className="date-range-filter-btn"
         onClick={() => setIsOpen(!isOpen)}
         style={{
           padding: '8px 12px',
@@ -223,9 +243,10 @@ export const DateRangeFilter = ({
 
       {isOpen && (
         <div
+          className="date-range-filter-dropdown"
           style={{
             position: 'absolute',
-            top: 'calc(100% + 6px)',
+              top: 'calc(100% + 6px)',
             ...(dropdownAlign === 'right' ? { right: 0 } : { left: 0 }),
             backgroundColor: '#ffffff',
             border: '1px solid #e2e8f0',

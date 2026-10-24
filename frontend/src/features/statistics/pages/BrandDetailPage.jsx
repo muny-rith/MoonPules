@@ -4,7 +4,7 @@ import { useUrlFilters } from '../../../shared/hooks/useUrlFilters';
 import {
   BarChart2, Package, Calendar, ExternalLink, ArrowLeft, Tag, Search,
   RefreshCw, ChevronDown, Filter, Eye, Heart, MessageCircle, Share2, Trophy, Download, X,
-  CheckSquare, Square, BarChart, Layers, Image, Video, Radio, Globe, RotateCcw
+  Layers, Image, Video, Radio, Globe, RotateCcw
 } from 'lucide-react';
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 import { BrandDetailHeroSkeleton, BrandDetailKpisSkeleton, BrandDetailAnalyticsSkeleton } from '../../../shared/components/skeletons';
@@ -36,6 +36,7 @@ export const BrandDetailPage = () => {
   const initialCached = getCachedBrandDetail(initialCacheKey);
   const [detail, setDetail] = useState(() => initialCached || null);
   const [loading, setLoading] = useState(() => !initialCached);
+  const [error, setError] = useState(null);
   const location = useLocation();
 
   // Professional URL-synced multi-filter hook
@@ -70,8 +71,6 @@ export const BrandDetailPage = () => {
     end: customEnd,
   }), [customStart, customEnd]);
 
-  const [selectedPosts, setSelectedPosts] = useState([]);
-  const [showCompareModal, setShowCompareModal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
 
@@ -108,14 +107,18 @@ export const BrandDetailPage = () => {
   };
 
   useEffect(() => {
+    if (!openDropdown) return;
     const handleClickOutside = (event) => {
-      if (filterToolbarRef.current && !filterToolbarRef.current.contains(event.target)) {
+      if (
+        !event.target.closest('.filter-dropdown-group') &&
+        !event.target.closest('.date-range-filter-container')
+      ) {
         setOpenDropdown(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [openDropdown]);
 
   const toggleDropdown = (name) => {
     setOpenDropdown(prev => prev === name ? null : name);
@@ -428,18 +431,6 @@ export const BrandDetailPage = () => {
     );
   };
 
-  const handleSelectPost = (postId) => {
-    setSelectedPosts(prev => {
-      if (prev.includes(postId)) return prev.filter(id => id !== postId);
-      if (prev.length >= 2) return [prev[1], postId];
-      return [...prev, postId];
-    });
-  };
-
-  const getEngagementRate = (post) => {
-    if (!post || !post.reach_count) return 0;
-    return (((post.likes_count + post.comments_count + post.shares_count) / post.reach_count) * 100).toFixed(1);
-  };
 
   const handleExportCSV = () => {
     if (!filteredPosts || filteredPosts.length === 0) return;
@@ -469,12 +460,12 @@ export const BrandDetailPage = () => {
   };
 
   return (
-    <div className="page-container product-page-container">
+    <div className="brand-detail-page-container page-container product-page-container">
       {/* Breadcrumb & Back */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+      <div className="brand-detail-breadcrumb-bar" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <button
           onClick={handleBackToBrands}
-          className="btn-secondary"
+          className="btn-secondary brand-detail-back-btn"
           style={{ padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px', cursor: 'pointer' }}
           title="Back to Brands"
         >
@@ -501,10 +492,10 @@ export const BrandDetailPage = () => {
         <>
           {/* Hero Header with Overview Integrated */}
           <div className="card brand-detail-hero-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px', width: '100%', position: 'relative', zIndex: 1 }}>
+            <div className="brand-detail-hero-content" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', width: '100%', position: 'relative', zIndex: 1 }}>
 
               {/* Brand Info (Left) */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+              <div className="brand-detail-hero-info" style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
                 {detail.logos && detail.logos.length > 1 ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 14px', backgroundColor: 'white', borderRadius: '20px', boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0,0,0,0.02)' }}>
                     {detail.logos.map((lg, idx) => (
@@ -523,11 +514,12 @@ export const BrandDetailPage = () => {
                     ))}
                   </div>
                 ) : (
-                  <div style={{ padding: '8px', backgroundColor: 'white', borderRadius: '20px', boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0,0,0,0.02)' }}>
+                  <div className="brand-detail-logo-box" style={{ padding: '6px', backgroundColor: 'white', borderRadius: '16px', boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0,0,0,0.02)' }}>
                     <img
+                      className="brand-detail-logo-img"
                       src={detail.logo_url || detail.image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(detail.brand_name || 'Brand')}&background=e0e7ff&color=3730a3&bold=true&size=128`}
                       alt={detail.brand_name}
-                      style={{ width: '84px', height: '84px', borderRadius: '14px', objectFit: 'cover' }}
+                      style={{ width: '72px', height: '72px', borderRadius: '12px', objectFit: 'cover' }}
                     />
                   </div>
                 )}
@@ -548,22 +540,33 @@ export const BrandDetailPage = () => {
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '20px', color: '#64748b', fontSize: '14px', fontWeight: '500', flexWrap: 'wrap', marginTop: '6px' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Package size={16} color="#94a3b8" /> {detail.total_products} Linked Products
+                      <Package size={16} color="#94a3b8" /> {detail.total_products} Linked
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <BarChart2 size={16} color="#94a3b8" /> {detail.total_posts} Published Posts
+                      <BarChart2 size={16} color="#94a3b8" /> {detail.total_posts} Published
                     </span>
                   </div>
                 </div>
               </div>
 
               {/* Action Buttons (Right) */}
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '10px', fontWeight: '600', backgroundColor: 'white', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', cursor: 'pointer' }} onClick={() => setShowExportModal(true)}>
-                  <Download size={16} /> Export
+              <div className="brand-detail-hero-actions" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className="btn-secondary hero-action-btn"
+                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px 16px', borderRadius: '10px', fontWeight: '600', backgroundColor: 'white', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  onClick={() => setShowExportModal(true)}
+                >
+                  <Download size={16} /> <span>Export</span>
                 </button>
-                <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '10px', fontWeight: '600', backgroundColor: 'white', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', opacity: isSyncing ? 0.7 : 1, cursor: isSyncing ? 'not-allowed' : 'pointer' }} onClick={handleSync} disabled={isSyncing}>
-                  <RefreshCw size={16} className={isSyncing ? "spin-animation" : ""} /> {isSyncing ? 'Syncing...' : 'Sync Data'}
+                <button
+                  type="button"
+                  className="btn-secondary hero-action-btn"
+                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px 16px', borderRadius: '10px', fontWeight: '600', backgroundColor: 'white', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', opacity: isSyncing ? 0.7 : 1, cursor: isSyncing ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+                  onClick={handleSync}
+                  disabled={isSyncing}
+                >
+                  <RefreshCw size={16} className={isSyncing ? "spin-animation" : ""} /> <span>{isSyncing ? 'Syncing...' : 'Sync Data'}</span>
                 </button>
               </div>
 
@@ -593,6 +596,8 @@ export const BrandDetailPage = () => {
                   onCustomRangeChange={handleCustomRangeChange}
                   minWidth="145px"
                   align="left"
+                  isOpen={openDropdown === 'date'}
+                  onOpenChange={(open) => setOpenDropdown(open ? 'date' : null)}
                 />
 
                 {/* 2. Platform Dropdown */}
@@ -796,66 +801,106 @@ export const BrandDetailPage = () => {
             {/* Recharts Insights Component */}
             <BrandInsightsChart detail={detail} posts={filteredPosts} />
 
-            {/* Single Column Layout for Main Data */}
-            <div className="detail-main-col" style={{ marginTop: '32px' }}>
+          </div>
 
-              <div style={{ padding: 0 }}>
-                <div className="card-header" style={{ padding: '0 0 16px 0', margin: 0, borderBottom: '1px solid var(--border-color)' }}>
-                  <div>
-                    <h3 style={{ fontSize: '18px', margin: 0, fontWeight: '600' }}>Tracked Posts</h3>
-                    <span className="subtitle">Social media posts linked to this brand's products</span>
-                  </div>
+          {/* Top Performing Post Highlight (if available) */}
+          {topPost && (
+            <div className="top-performing-banner" style={{
+              backgroundColor: '#fef3c7',
+              borderRadius: '12px',
+              padding: '14px 20px',
+              border: '1px solid #fde68a',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '16px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={{ backgroundColor: '#fffbeb', width: '42px', height: '42px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fbbf24', flexShrink: 0 }}>
+                  <Trophy size={20} color="#d97706" />
                 </div>
+                <div>
+                  <h4 style={{ margin: '0 0 2px', fontSize: '14px', color: '#92400e', fontWeight: 600 }}>Top Performing Post</h4>
+                  <p style={{ margin: 0, fontSize: '12.5px', color: '#b45309' }}>
+                    <strong style={{ color: '#92400e' }}>{topPost.product_name}</strong> • {topPost.views_count?.toLocaleString() || 0} Views • {topPost.reach_count > 0 ? (((topPost.likes_count + topPost.comments_count + topPost.shares_count) / topPost.reach_count) * 100).toFixed(1) : 0}% Engagement
+                  </p>
+                </div>
+              </div>
+              <a
+                href={getFacebookPostUrl(topPost.fb_post_id, topPost.post_url, topPost.page_id || topPost.fb_page_id)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-primary"
+                style={{ backgroundColor: '#d97706', border: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', fontSize: '12.5px', fontWeight: 600, borderRadius: '8px', whiteSpace: 'nowrap', flexShrink: 0 }}
+              >
+                <ExternalLink size={13} />
+                <span>View Post</span>
+              </a>
+            </div>
+          )}
 
-                {topPost && (
-                  <div className="top-performing-banner" style={{ marginTop: '24px', marginBottom: '24px', backgroundColor: '#fef3c7', borderRadius: '12px', padding: '16px 24px', border: '1px solid #fde68a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                      <div style={{ backgroundColor: '#fffbeb', width: '48px', height: '48px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fbbf24' }}>
-                        <Trophy size={24} color="#d97706" />
-                      </div>
-                      <div>
-                        <h4 style={{ margin: '0 0 4px', fontSize: '15px', color: '#92400e', fontWeight: 600 }}>Top Performing Post</h4>
-                        <p style={{ margin: 0, fontSize: '13px', color: '#b45309' }}>
-                          <strong style={{ color: '#92400e' }}>{topPost.product_name}</strong> • {topPost.views_count?.toLocaleString() || 0} Views • {topPost.reach_count > 0 ? (((topPost.likes_count + topPost.comments_count + topPost.shares_count) / topPost.reach_count) * 100).toFixed(1) : 0}% Engagement
-                        </p>
-                      </div>
-                    </div>
-                    <a
-                      href={getFacebookPostUrl(topPost.fb_post_id, topPost.post_url, topPost.page_id || topPost.fb_page_id)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn-primary"
-                      style={{ backgroundColor: '#d97706', border: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}
-                    >
-                      <ExternalLink size={14} />
-                      View Post
-                    </a>
-                  </div>
-                )}
+          {/* Unified Table Card (Matching BrandStatsPage / Tasks Pic 2) */}
+          <div className="table-card brand-posts-table-card" style={{
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+            borderRadius: '12px',
+            border: '1px solid #e2e8f0',
+            backgroundColor: '#ffffff',
+            overflow: 'hidden'
+          }}>
+            {/* Toolbar Header Row inside table-card */}
+            <div className="toolbar-header-row" style={{
+              padding: '14px 20px',
+              borderBottom: '1px solid #e2e8f0',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '16px',
+              backgroundColor: '#ffffff'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <h3 style={{ fontSize: '15px', margin: 0, fontWeight: '700', color: '#0f172a', whiteSpace: 'nowrap' }}>
+                  Tracked Posts
+                </h3>
+                <span style={{
+                  fontSize: '11.5px',
+                  fontWeight: 600,
+                  backgroundColor: '#f1f5f9',
+                  color: '#475569',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {sortedPosts.length}
+                </span>
+              </div>
 
-                {/* Full Bleed Section for Search & Table */}
-                <div style={{ margin: '0 -24px' }}>
-                  {/* Search Toolbar for Table */}
-                  <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', backgroundColor: 'white', display: 'flex', justifyContent: 'center' }}>
-                    <div className="search-input-wrap" style={{ width: '400px', maxWidth: '100%', position: 'relative' }}>
-                      <Search size={14} className="search-icon" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                      <input
-                        type="text"
-                        placeholder="Search posts by product name..."
-                        value={searchTerm}
-                        onChange={(e) => setFilter('search', e.target.value)}
-                        className="toolbar-search-input"
-                        style={{ fontSize: '13px', width: '100%', padding: '10px 16px 10px 40px', borderRadius: '24px', border: '1px solid var(--border-color)' }}
-                      />
-                    </div>
-                  </div>
+              <div className="search-input-wrap" style={{ flex: 1, maxWidth: '360px', position: 'relative' }}>
+                <Search size={14} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="text"
+                  placeholder="Search posts by product name..."
+                  value={searchTerm}
+                  onChange={(e) => setFilter('search', e.target.value)}
+                  style={{
+                    fontSize: '13px',
+                    width: '100%',
+                    padding: '9px 14px 9px 38px',
+                    borderRadius: '24px',
+                    border: '1px solid #e2e8f0',
+                    outline: 'none',
+                    backgroundColor: '#ffffff',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            </div>
 
                   {/* Data Table */}
                   <div className="desktop-only" style={{ overflowX: 'auto', width: '100%' }}>
                     <table className="custom-table">
                       <thead>
                         <tr>
-                          <th style={{ width: '40px' }}></th>
                           <SortableHeader label="Linked Product" sortKey="product_name" currentSort={sortConfig} onSort={requestSort} />
                           <SortableHeader label="Channel & Page" sortKey="channel" currentSort={sortConfig} onSort={requestSort} />
                           <SortableHeader label="Format" sortKey="format" currentSort={sortConfig} onSort={requestSort} />
@@ -866,18 +911,10 @@ export const BrandDetailPage = () => {
                       </thead>
                       <tbody>
                         {sortedPosts.map((post) => (
-                          <tr key={post.id} style={{ backgroundColor: selectedPosts.includes(post.id) ? '#f8fafc' : 'transparent' }}>
-                            <td data-label="Select">
-                              <div
-                                onClick={() => handleSelectPost(post.id)}
-                                style={{ cursor: 'pointer', color: selectedPosts.includes(post.id) ? 'var(--color-primary)' : 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
-                              >
-                                {selectedPosts.includes(post.id) ? <CheckSquare size={16} /> : <Square size={16} />}
-                              </div>
-                            </td>
+                          <tr key={post.id}>
                             <td data-label="Linked Product">
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{ width: '32px', height: '32px', borderRadius: '6px', overflow: 'hidden', flexShrink: 0, border: '1px solid var(--border-color)' }}>
+                                <div style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, border: '1px solid var(--border-color)' }}>
                                   <img src={post.product_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.product_name || 'PR')}&background=c7d2fe&color=3730a3&rounded=false`} alt="product" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                 </div>
                                 <span className="product-table-name">{post.product_name}</span>
@@ -935,7 +972,7 @@ export const BrandDetailPage = () => {
                         ))}
                         {filteredPosts.length === 0 && (
                           <tr>
-                            <td colSpan="7" style={{ textAlign: 'center', padding: '64px', color: 'var(--text-muted)' }}>
+                            <td colSpan="6" style={{ textAlign: 'center', padding: '64px', color: 'var(--text-muted)' }}>
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                                 <Filter size={28} style={{ opacity: 0.3 }} />
                                 <span style={{ fontWeight: 600, fontSize: '15px' }}>
@@ -960,106 +997,119 @@ export const BrandDetailPage = () => {
                   </div>
 
                   {/* MOBILE CARD VIEW */}
-                  <div className="mobile-only" style={{ padding: '0 0 16px 0', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div className="mobile-only" style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '10px', backgroundColor: '#f8fafc' }}>
                     {sortedPosts.map((post) => (
-                      <div key={`mob-${post.id}`} style={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-                        {/* Header */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
-                          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                            <div
-                              onClick={() => handleSelectPost(post.id)}
-                              style={{ cursor: 'pointer', color: selectedPosts.includes(post.id) ? 'var(--color-primary)' : 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
-                            >
-                              {selectedPosts.includes(post.id) ? <CheckSquare size={20} /> : <Square size={20} />}
-                            </div>
-                            <div style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, border: '1px solid #e2e8f0' }}>
-                              <img src={post.product_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.product_name || 'PR')}&background=c7d2fe&color=3730a3&rounded=false`} alt="product" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            </div>
-                            <div>
-                              <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '16px' }}>{post.product_name}</div>
-                            </div>
+                      <div
+                        key={`mob-${post.id}`}
+                        style={{
+                          backgroundColor: 'white',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '10px',
+                          padding: '12px',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '10px'
+                        }}
+                      >
+                        {/* Header: Left = Larger Image (54x54), Right = 2 Rows (Title+Format, Page badge) */}
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                          {/* Larger Product Thumbnail */}
+                          <div style={{ width: '62px', height: '62px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <img
+                              src={post.product_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.product_name || 'PR')}&background=c7d2fe&color=3730a3&rounded=false`}
+                              alt="product"
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
                           </div>
-                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                            {getChannelBadge(post)}
-                            {getFormatBadge(post.media_type)}
-                          </div>
-                        </div>
 
-                        {/* Metrics Grid */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                          <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Calendar size={13} color="var(--text-muted)" />
-                            <span style={{ fontSize: '12px', color: '#64748b' }}>Published:</span>
-                            <span style={{ fontSize: '13px', fontWeight: 600, color: '#334155' }}>
-                              {post.published_time ? new Date(post.published_time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
-                            </span>
-                          </div>
-                          <div>
-                            <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Views</div>
-                            <div style={{ fontSize: '15px', fontWeight: 600, color: '#6366f1' }}>{post.views_count?.toLocaleString() || '-'}</div>
-                          </div>
-                          <div>
-                            <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Reach</div>
-                            <div style={{ fontSize: '15px', fontWeight: 600, color: '#0ea5e9' }}>{post.reach_count?.toLocaleString() || '-'}</div>
-                          </div>
-                          <div style={{ gridColumn: 'span 2' }}>
-                            <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Engagements</div>
-                            <div style={{ display: 'flex', gap: '12px', fontSize: '13px', color: '#334155', marginTop: '2px' }}>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Heart size={12} color="#f43f5e" /> {post.likes_count?.toLocaleString() || 0}</span>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MessageCircle size={12} color="#f59e0b" /> {post.comments_count?.toLocaleString() || 0}</span>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Share2 size={12} color="#10b981" /> {post.shares_count?.toLocaleString() || 0}</span>
+                          {/* Right: 2 Rows */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0, flex: 1, justifyContent: 'center' }}>
+                            {/* Row 1: Product Name & Format Badge */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                              <div
+                                style={{ fontWeight: 700, color: '#0f172a', fontSize: '15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                                title={post.product_name}
+                              >
+                                {post.product_name || 'Untitled Product'}
+                              </div>
+                              <div style={{ flexShrink: 0 }}>
+                                {getFormatBadge(post.media_type)}
+                              </div>
+                            </div>
+
+                            {/* Row 2: Connected Page Badge */}
+                            <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                              {getChannelBadge(post)}
                             </div>
                           </div>
                         </div>
 
-                        {/* Footer */}
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
+                        {/* Metrics Grid: 3-Column Compact */}
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(3, 1fr)',
+                          gap: '8px',
+                          backgroundColor: '#f8fafc',
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          border: '1px solid #f1f5f9'
+                        }}>
+                          <div>
+                            <div style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Views</div>
+                            <div style={{ fontSize: '14px', fontWeight: 700, color: '#6366f1', marginTop: '1px' }}>{post.views_count?.toLocaleString() || '-'}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Reach</div>
+                            <div style={{ fontSize: '14px', fontWeight: 700, color: '#0ea5e9', marginTop: '1px' }}>{post.reach_count?.toLocaleString() || '-'}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Engage</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: '#334155', marginTop: '2px' }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}><Heart size={11} color="#f43f5e" /> {post.likes_count?.toLocaleString() || 0}</span>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}><MessageCircle size={11} color="#f59e0b" /> {post.comments_count?.toLocaleString() || 0}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Footer Action Row: Date on Left, Compact View Post on Right */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: '1px solid #f1f5f9' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11.5px', color: '#64748b' }}>
+                            <Calendar size={12} color="#94a3b8" />
+                            {post.published_time ? new Date(post.published_time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not published'}
+                          </span>
+
                           <a
                             href={getFacebookPostUrl(post.fb_post_id, post.post_url, post.page_id || post.fb_page_id)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="btn-primary-soft"
-                            style={{ width: '100%', justifyContent: 'center', textDecoration: 'none', padding: '10px' }}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              padding: '5px 10px',
+                              fontSize: '11.5px',
+                              fontWeight: 600,
+                              borderRadius: '6px',
+                              textDecoration: 'none'
+                            }}
                           >
-                            <ExternalLink size={14} style={{ marginRight: '6px' }} />
                             <span>View Post</span>
+                            <ExternalLink size={12} />
                           </a>
                         </div>
                       </div>
                     ))}
                     {filteredPosts.length === 0 && (
-                      <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                      <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-muted)', fontSize: '13px' }}>
                         {hasActiveFilters ? 'No posts match the selected filters.' : (searchTerm ? 'No posts match your search.' : 'No posts have been tracked for this brand yet.')}
                       </div>
                     )}
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Floating Compare Action Bar */}
-      {selectedPosts.length > 0 && (
-        <div style={{ position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'white', padding: '12px 24px', borderRadius: '32px', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1)', display: 'flex', alignItems: 'center', gap: '16px', zIndex: 1000, border: '1px solid var(--border-color)' }}>
-          <span style={{ fontSize: '14px', fontWeight: 500 }}>{selectedPosts.length} post{selectedPosts.length > 1 ? 's' : ''} selected</span>
-          <button
-            className="btn-primary"
-            disabled={selectedPosts.length !== 2}
-            onClick={() => setShowCompareModal(true)}
-            style={{ borderRadius: '24px', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px', opacity: selectedPosts.length === 2 ? 1 : 0.5 }}
-          >
-            <BarChart size={14} /> Compare Posts
-          </button>
-          <button
-            onClick={() => setSelectedPosts([])}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', color: 'var(--text-muted)' }}
-          >
-            <X size={16} />
-          </button>
-        </div>
-      )}
+              </>
+            )}
 
       {/* Export Modal */}
       <ExportModal
@@ -1074,89 +1124,6 @@ export const BrandDetailPage = () => {
         clientLogo={detail?.logo_url || detail?.image_url}
         clientLogos={detail?.logos}
       />
-      {/* Compare Modal */}
-      {showCompareModal && selectedPosts.length === 2 && (() => {
-        const p1 = detail.posts.find(p => p.id === selectedPosts[0]);
-        const p2 = detail.posts.find(p => p.id === selectedPosts[1]);
-        if (!p1 || !p2) return null;
-
-        return (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div className="card" style={{ width: '800px', maxWidth: '90vw', padding: '32px', position: 'relative', overflowY: 'auto', maxHeight: '90vh' }}>
-              <button
-                onClick={() => setShowCompareModal(false)}
-                style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
-              >
-                <X size={20} />
-              </button>
-
-              <h2 style={{ margin: '0 0 24px', fontSize: '20px', fontWeight: 600 }}>Compare Posts</h2>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                {/* Post 1 */}
-                <div style={{ padding: '24px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                  <h3 style={{ margin: '0 0 16px', color: 'var(--color-primary)', fontSize: '16px' }}>{p1.product_name}</h3>
-                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-                    Published: {p1.published_time ? new Date(p1.published_time).toLocaleDateString() : 'N/A'}
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px solid #e2e8f0' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Views</span>
-                      <strong style={{ fontSize: '16px' }}>{p1.views_count?.toLocaleString() || 0}</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px solid #e2e8f0' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Reach</span>
-                      <strong style={{ fontSize: '16px' }}>{p1.reach_count?.toLocaleString() || 0}</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px solid #e2e8f0' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Likes</span>
-                      <strong style={{ fontSize: '16px' }}>{p1.likes_count?.toLocaleString() || 0}</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px solid #e2e8f0' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Engagement Rate</span>
-                      <strong style={{ fontSize: '16px', color: '#d97706' }}>{getEngagementRate(p1)}%</strong>
-                    </div>
-                  </div>
-                  <a href={getFacebookPostUrl(p1.fb_post_id, p1.post_url, p1.page_id || p1.fb_page_id)} target="_blank" rel="noopener noreferrer" className="btn-secondary" style={{ width: '100%', marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
-                    View Post 1
-                  </a>
-                </div>
-
-                {/* Post 2 */}
-                <div style={{ padding: '24px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                  <h3 style={{ margin: '0 0 16px', color: 'var(--color-primary)', fontSize: '16px' }}>{p2.product_name}</h3>
-                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-                    Published: {p2.published_time ? new Date(p2.published_time).toLocaleDateString() : 'N/A'}
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px solid #e2e8f0' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Views</span>
-                      <strong style={{ fontSize: '16px' }}>{p2.views_count?.toLocaleString() || 0}</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px solid #e2e8f0' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Reach</span>
-                      <strong style={{ fontSize: '16px' }}>{p2.reach_count?.toLocaleString() || 0}</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px solid #e2e8f0' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Likes</span>
-                      <strong style={{ fontSize: '16px' }}>{p2.likes_count?.toLocaleString() || 0}</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px solid #e2e8f0' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Engagement Rate</span>
-                      <strong style={{ fontSize: '16px', color: '#d97706' }}>{getEngagementRate(p2)}%</strong>
-                    </div>
-                  </div>
-                  <a href={getFacebookPostUrl(p2.fb_post_id, p2.post_url, p2.page_id || p2.fb_page_id)} target="_blank" rel="noopener noreferrer" className="btn-secondary" style={{ width: '100%', marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
-                    View Post 2
-                  </a>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
     </div>
   );
 };

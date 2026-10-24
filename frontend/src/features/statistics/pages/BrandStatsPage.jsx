@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useUrlFilters } from '../../../shared/hooks/useUrlFilters';
-import { BarChart2, Eye, Tag, Search, Layers, TrendingUp, Heart, RotateCcw, Flame, ChevronRight } from 'lucide-react';
+import { BarChart2, Eye, Tag, Search, Layers, TrendingUp, Heart, RotateCcw, ChevronRight } from 'lucide-react';
 import { BrandStatsTopBannerSkeleton, BrandStatsTableSkeleton, BrandStatsMobileSkeleton } from '../../../shared/components/skeletons';
 import { getBrandStats, getCachedBrandStats } from '../services/brandStatsService';
 import { SortableHeader } from '../../../shared/components/ui/SortableHeader';
@@ -216,25 +216,22 @@ export const BrandStatsPage = () => {
   const hasActiveFilters = (dateFilter !== 'this_month' || customRange.start !== '' || customRange.end !== '') || searchTerm.trim() !== '';
 
   return (
-    <div className="page-container product-page-container">
+    <div className="page-container product-page-container brand-stats-page-container">
       <div className="product-page-header">
         <div>
           <div className="page-breadcrumb">
             <span>Statistics</span> / <span>Brands</span>
           </div>
           <h1 className="page-title">Brand Statistics</h1>
-          <p className="page-subtitle">
-            Track social media content performance and audience engagement across all brands.
-          </p>
         </div>
       </div>
 
       {loading ? (
-        <div style={{ marginBottom: '24px' }}>
-          <BrandStatsTopBannerSkeleton count={5} />
+        <div style={{ marginBottom: '20px' }}>
+          <BrandStatsTopBannerSkeleton count={4} />
         </div>
       ) : (
-        <div className="card stat-card-group" style={{ marginBottom: '24px' }}>
+        <div className="card stat-card-group" style={{ marginBottom: '20px' }}>
           <div className="stat-item">
             <div className="stat-header">
               <Tag size={18} className="icon-blue" />
@@ -272,36 +269,45 @@ export const BrandStatsPage = () => {
             </div>
             <div className="stat-value" style={{ fontSize: '20px' }}>{stats.totalViews.toLocaleString()}</div>
           </div>
-
-          <div className="stat-divider" />
-
-          <div className="stat-item">
-            <div className="stat-header">
-              <Flame size={18} style={{ color: '#f59e0b' }} />
-              <span>Top Brand (Views)</span>
-            </div>
-            <div className="stat-value" style={{ fontSize: '18px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={stats.topBrandName}>
-              {stats.topBrandName}
-            </div>
-          </div>
         </div>
       )}
 
-      {/* TOOLBAR: Search + Date Range Filter + Reset */}
-      <div className="product-toolbar-card card" style={{ marginBottom: '24px' }}>
-        <div className="product-toolbar-top" style={{ borderBottom: 'none', paddingBottom: '0', display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <div className="search-input-wrap" style={{ flex: '1 1 280px' }}>
-            <Search size={16} className="search-icon" />
+      {error && (
+        <div className="alert-error-banner" style={{ marginBottom: '16px' }}>
+          <span>Error loading stats: {error}</span>
+        </div>
+      )}
+
+      {/* UNIFIED TABLE CARD WITH TOOLBAR HEADER (Like Tasks/Pic 2) */}
+      <div className="table-card" style={{
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+        borderRadius: '12px',
+        border: '1px solid #e2e8f0',
+        backgroundColor: '#ffffff',
+        overflow: 'hidden'
+      }}>
+        {/* Toolbar Header Row inside table-card */}
+        <div className="toolbar-header-row">
+          <div className="search-input-wrap" style={{ flex: 1, maxWidth: '400px', position: 'relative' }}>
+            <Search size={14} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input
               type="text"
               placeholder="Search brands by name..."
               value={searchTerm}
               onChange={(e) => setFilter('search', e.target.value)}
-              className="toolbar-search-input"
+              style={{
+                fontSize: '13px',
+                width: '100%',
+                padding: '10px 16px 10px 40px',
+                borderRadius: '24px',
+                border: '1px solid var(--border-color)',
+                outline: 'none',
+                backgroundColor: '#ffffff'
+              }}
             />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <div className="toolbar-filter-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <DateRangeFilter
               value={dateFilter}
               onChange={handleDateFilterChange}
@@ -336,16 +342,8 @@ export const BrandStatsPage = () => {
             )}
           </div>
         </div>
-      </div>
 
-      {error && (
-        <div className="alert-error-banner">
-          <span>Error loading stats: {error}</span>
-        </div>
-      )}
-
-      {/* TABLE SECTION */}
-      <div className="table-card product-table-card">
+        {/* Desktop Table Section */}
         <div className="desktop-only" style={{ overflowX: 'auto', width: '100%' }}>
           <table className="custom-table">
             <thead>
@@ -625,7 +623,7 @@ export const BrandStatsPage = () => {
 
       {/* FLOATING ACTION BAR FOR MULTI-SELECT */}
       {selectedBrandIds.length > 0 && (
-        <div style={{
+        <div className="brand-floating-selection-bar" style={{
           position: 'fixed',
           bottom: '24px',
           left: '50%',
