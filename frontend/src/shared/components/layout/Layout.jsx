@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Menu, Bell } from 'lucide-react';
@@ -7,8 +7,30 @@ export const Layout = ({ children }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const location = useLocation();
+  const contentScrollRef = useRef(null);
   const isDashboard = location.pathname === '/';
   const isPlanner = location.pathname === '/planner';
+
+  // Immediately scroll to top of both inner scroll container and window on route change
+  useEffect(() => {
+    const resetScroll = () => {
+      if (contentScrollRef.current) {
+        contentScrollRef.current.scrollTop = 0;
+        contentScrollRef.current.scrollLeft = 0;
+      }
+      window.scrollTo(0, 0);
+      if (document.documentElement) document.documentElement.scrollTop = 0;
+      if (document.body) document.body.scrollTop = 0;
+    };
+
+    resetScroll();
+    const rafId = requestAnimationFrame(resetScroll);
+    const timer = setTimeout(resetScroll, 30);
+    return () => {
+      cancelAnimationFrame(rafId);
+      clearTimeout(timer);
+    };
+  }, [location.pathname]);
 
   const toggleCollapse = () => setIsCollapsed(!isCollapsed);
   const toggleMobileOpen = () => setIsMobileOpen(!isMobileOpen);
@@ -63,7 +85,7 @@ export const Layout = ({ children }) => {
             </div>
           </div>
         </header>
-        <div className={`content-scroll ${isDashboard ? 'content-dashboard' : ''} ${isPlanner ? 'content-planner' : ''}`}>
+        <div ref={contentScrollRef} className={`content-scroll ${isDashboard ? 'content-dashboard' : ''} ${isPlanner ? 'content-planner' : ''}`}>
           {children}
         </div>
       </main>

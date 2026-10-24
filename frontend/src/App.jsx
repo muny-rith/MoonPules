@@ -11,11 +11,13 @@ import { BrandDetailPage } from './features/statistics/pages/BrandDetailPage';
 import { CreatePostPage } from './features/postTracker/pages/CreatePostPage';
 import { EditPostPage } from './features/postTracker/pages/EditPostPage';
 import { ErrorBoundary } from './shared/components/ErrorBoundary';
+import { ScrollToTop } from './shared/components/ScrollToTop';
 
 function App() {
   return (
     <ErrorBoundary>
       <BrowserRouter>
+        <ScrollToTop />
         <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route

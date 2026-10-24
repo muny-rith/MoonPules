@@ -21,6 +21,7 @@ import { SortableHeader } from '../../../shared/components/ui/SortableHeader';
 import { useSortableTable } from '../../../shared/hooks/useSortableTable';
 import { DateRangeFilter, isPostInDateRange, DATE_PRESETS } from '../../../shared/components/ui/DateRangeFilter';
 import { getFacebookPostUrl } from '../../../shared/utils/facebookUrl';
+import { SafeImage } from '../../../shared/components/ui/SafeImage';
 
 export const BrandDetailPage = () => {
   const { id } = useParams();
@@ -252,6 +253,24 @@ export const BrandDetailPage = () => {
   useEffect(() => {
     fetchDetail();
   }, [id, searchParams.get('ids'), timeFilter, customRange.start, customRange.end]);
+
+  // Ensure BrandDetailPage always opens at the top
+  useEffect(() => {
+    const resetScroll = () => {
+      window.scrollTo(0, 0);
+      const scrollEl = document.querySelector('.content-scroll');
+      if (scrollEl) {
+        scrollEl.scrollTop = 0;
+      }
+    };
+    resetScroll();
+    const rafId = requestAnimationFrame(resetScroll);
+    const timer = setTimeout(resetScroll, 30);
+    return () => {
+      cancelAnimationFrame(rafId);
+      clearTimeout(timer);
+    };
+  }, [id]);
 
   const resetAllFilters = () => {
     resetFilters();
@@ -914,8 +933,14 @@ export const BrandDetailPage = () => {
                           <tr key={post.id}>
                             <td data-label="Linked Product">
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, border: '1px solid var(--border-color)' }}>
-                                  <img src={post.product_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.product_name || 'PR')}&background=c7d2fe&color=3730a3&rounded=false`} alt="product" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                <div style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, border: '1px solid var(--border-color)', backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  <SafeImage
+                                    src={post.thumbnail_url || post.media_url || post.product_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.product_name || 'PR')}&background=c7d2fe&color=3730a3&rounded=false`}
+                                    poster={post.thumbnail_url}
+                                    alt={post.product_name || 'thumbnail'}
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    fallbackText=""
+                                  />
                                 </div>
                                 <span className="product-table-name">{post.product_name}</span>
                               </div>
@@ -1014,12 +1039,14 @@ export const BrandDetailPage = () => {
                       >
                         {/* Header: Left = Larger Image (54x54), Right = 2 Rows (Title+Format, Page badge) */}
                         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                          {/* Larger Product Thumbnail */}
+                          {/* Post Creative Thumbnail (matching Post Tracker) */}
                           <div style={{ width: '62px', height: '62px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <img
-                              src={post.product_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.product_name || 'PR')}&background=c7d2fe&color=3730a3&rounded=false`}
-                              alt="product"
+                            <SafeImage
+                              src={post.thumbnail_url || post.media_url || post.product_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.product_name || 'PR')}&background=c7d2fe&color=3730a3&rounded=false`}
+                              poster={post.thumbnail_url}
+                              alt={post.product_name || 'thumbnail'}
                               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              fallbackText=""
                             />
                           </div>
 
