@@ -132,7 +132,7 @@ export const EditPostPage = () => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [mediaSource, setMediaSource] = useState('product');
   const [mediaItems, setMediaItems] = useState([]); // [{ id, file, previewUrl, thumbUrl, isVideo, serverUrl, dimensions, uploading, error }]
-  const [mediaViewMode, setMediaViewMode] = useState('grid'); // 'grid' | 'list'
+  const [mediaViewMode, setMediaViewMode] = useState('list'); // 'grid' | 'list'
   const [lightboxIndex, setLightboxIndex] = useState(null);
   const [draggedMediaIndex, setDraggedMediaIndex] = useState(null);
   const [dragOverMediaIndex, setDragOverMediaIndex] = useState(null);
@@ -953,7 +953,13 @@ export const EditPostPage = () => {
                   value={pageId}
                   disabled
                   className="meta-page-select-input"
-                  style={{ opacity: 0.8, cursor: 'not-allowed' }}
+                  style={{
+                    opacity: 0.8,
+                    cursor: 'not-allowed',
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                    MozAppearance: 'none',
+                  }}
                 >
                   {pages.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -1091,21 +1097,21 @@ export const EditPostPage = () => {
                         <div className="bento-view-toggle">
                           <button
                             type="button"
-                            className={`bento-toggle-btn ${mediaViewMode === 'grid' ? 'active' : ''}`}
-                            onClick={() => setMediaViewMode('grid')}
-                            title="Grid gallery view"
-                          >
-                            <LayoutGrid size={13} />
-                            <span>Grid</span>
-                          </button>
-                          <button
-                            type="button"
                             className={`bento-toggle-btn ${mediaViewMode === 'list' ? 'active' : ''}`}
                             onClick={() => setMediaViewMode('list')}
                             title="List view"
                           >
                             <List size={13} />
                             <span>List</span>
+                          </button>
+                          <button
+                            type="button"
+                            className={`bento-toggle-btn ${mediaViewMode === 'grid' ? 'active' : ''}`}
+                            onClick={() => setMediaViewMode('grid')}
+                            title="Grid gallery view"
+                          >
+                            <LayoutGrid size={13} />
+                            <span>Grid</span>
                           </button>
                         </div>
                       </div>

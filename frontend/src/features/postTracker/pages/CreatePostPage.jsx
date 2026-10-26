@@ -44,7 +44,13 @@ import {
   Radio,
   GripVertical,
   Play,
-  Video
+  Video,
+  Star,
+  LayoutGrid,
+  List,
+  ZoomIn,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { MetaEmojiPicker } from '../components/MetaEmojiPicker';
 import { MetaSchedulePicker } from '../components/MetaSchedulePicker';
@@ -53,6 +59,7 @@ import { AddHashtagsModal } from '../components/AddHashtagsModal';
 import { VideoThumbnailPicker } from '../components/VideoThumbnailPicker';
 import { useWheelIsolation } from '../hooks/useWheelIsolation';
 import '../postTracker.css';
+import { SafeImage } from '../../../shared/components/ui/SafeImage';
 import { compressImageFile, getMediaMetadata, isVideoMedia, resolveMediaUrl } from '../../../shared/utils/mediaUrl';
 
 const PageAvatar = ({ page, size = 20, className = 'meta-page-avatar-img' }) => {
@@ -129,6 +136,8 @@ export const CreatePostPage = () => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [mediaSource, setMediaSource] = useState('upload'); // 'upload' | 'product' | 'none'
   const [mediaItems, setMediaItems] = useState([]); // [{ id, file, previewUrl, serverUrl, dimensions, uploading }]
+  const [mediaViewMode, setMediaViewMode] = useState('list'); // 'grid' | 'list' (default is 'list')
+  const [lightboxIndex, setLightboxIndex] = useState(null);
   const [videoCustomThumb, setVideoCustomThumb] = useState(null); // { url, file, type }
   const [draggedMediaIndex, setDraggedMediaIndex] = useState(null);
   const [dragOverMediaIndex, setDragOverMediaIndex] = useState(null);
@@ -602,6 +611,33 @@ export const CreatePostPage = () => {
     setDraggedMediaIndex(null);
     setDragOverMediaIndex(null);
   };
+
+  const handleMakeCover = (e, index) => {
+    e.stopPropagation();
+    if (index === 0) return;
+    setMediaItems((prev) => {
+      const items = [...prev];
+      const [target] = items.splice(index, 1);
+      items.unshift(target);
+      return items;
+    });
+  };
+
+  // Keyboard navigation for Lightbox
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setLightboxIndex(null);
+      if (e.key === 'ArrowLeft') {
+        setLightboxIndex((prev) => (prev > 0 ? prev - 1 : mediaItems.length - 1));
+      }
+      if (e.key === 'ArrowRight') {
+        setLightboxIndex((prev) => (prev < mediaItems.length - 1 ? prev + 1 : 0));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [lightboxIndex, mediaItems.length]);
 
   const handleInsertProductName = () => {
     if (!selectedProduct) return;
@@ -1243,10 +1279,195 @@ export const CreatePostPage = () => {
                 </div>
               )}
 
-              {/* Active Media: Custom Upload (Meta Multi-Upload List) */}
+              {/* Active Media: Custom Upload (Meta Multi-Upload List / Bento Grid) */}
               {mediaSource === 'upload' && (
                 <div>
+                  {/* Bento Header: Count + View Mode Switcher */}
                   {mediaItems.length > 0 && (
+                    <div className="bento-media-header">
+                      <div className="bento-media-count">
+                        <span>{mediaItems.length} {mediaItems.length === 1 ? 'photo/video' : 'photos'} attached</span>
+                        <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
+                          · Photo #1 is Facebook Feed Cover
+                        </span>
+                      </div>
+                      <div className="bento-view-toggle">
+                        <button
+                          type="button"
+                          className={`bento-toggle-btn ${mediaViewMode === 'list' ? 'active' : ''}`}
+                          onClick={() => setMediaViewMode('list')}
+                          title="List view"
+                        >
+                          <List size={13} />
+                          <span>List</span>
+                        </button>
+                        <button
+                          type="button"
+                          className={`bento-toggle-btn ${mediaViewMode === 'grid' ? 'active' : ''}`}
+                          onClick={() => setMediaViewMode('grid')}
+                          title="Grid gallery view"
+                        >
+                          <LayoutGrid size={13} />
+                          <span>Grid</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* View Mode 1: Bento Grid Gallery */}
+                  {mediaViewMode === 'grid' && mediaItems.length > 0 && (
+                    <div
+                      className="bento-media-grid"
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                      }}
+                      onDragLeave={(e) => {
+                        if (!e.currentTarget.contains(e.relatedTarget)) {
+                          dragOverItemIndexRef.current = null;
+                          setDragOverMediaIndex(null);
+                        }
+                      }}
+                    >
+                      {mediaItems.map((item, idx) => {
+                        const isDragging = draggedMediaIndex === idx;
+                        const isOver = dragOverMediaIndex === idx;
+                        const isCover = idx === 0;
+
+                        return (
+                          <div
+                            key={item.id}
+                            className={`bento-media-card ${isCover ? 'is-cover' : ''} ${isDragging ? 'is-dragging' : ''} ${isOver ? 'is-drag-over' : ''}`}
+                            draggable={true}
+                            onDragStart={(e) => handleMediaDragStart(e, idx)}
+                            onDragEnter={(e) => handleMediaDragEnter(e, idx)}
+                            onDragOver={(e) => handleMediaDragOver(e, idx)}
+                            onDrop={(e) => handleMediaDrop(e, idx)}
+                            onDragEnd={handleMediaDragEnd}
+                            title="Drag to reorder"
+                          >
+                            {/* Position Badge */}
+                            <div className={`bento-pos-badge ${isCover ? 'cover' : ''}`}>
+                              {isCover ? (
+                                <>
+                                  <Star size={11} fill="#ffffff" />
+                                  <span>Cover</span>
+                                </>
+                              ) : (
+                                <span>#{idx + 1}</span>
+                              )}
+                            </div>
+
+                            {/* Media Thumbnail */}
+                            {item.isVideo || isVideoMedia(item.previewUrl) ? (
+                              <div style={{ position: 'relative', width: '100%', height: '100%', background: '#0f172a' }}>
+                                {item.thumbUrl ? (
+                                  <img
+                                    src={item.thumbUrl}
+                                    alt="Video thumbnail"
+                                    className="bento-media-img"
+                                  />
+                                ) : (
+                                  <video
+                                    src={item.previewUrl}
+                                    muted
+                                    preload="metadata"
+                                    className="bento-media-img"
+                                  />
+                                )}
+                                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)' }}>
+                                  <Play size={22} fill="#ffffff" color="#ffffff" />
+                                </div>
+                              </div>
+                            ) : (
+                              <SafeImage
+                                src={item.serverUrl || item.previewUrl || item.thumbUrl}
+                                alt={`Media ${idx + 1}`}
+                                className="bento-media-img"
+                                fallbackText={`Photo #${idx + 1}`}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              />
+                            )}
+
+                            {/* Uploading / Error indicator */}
+                            {item.uploading && (
+                              <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontSize: '11px', fontWeight: 600 }}>
+                                Uploading...
+                              </div>
+                            )}
+                            {item.error && (
+                              <div style={{ position: 'absolute', inset: 0, background: 'rgba(220,38,38,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontSize: '11px', fontWeight: 600 }}>
+                                Failed
+                              </div>
+                            )}
+
+                            {/* Hover Overlay with Action Buttons */}
+                            <div className="bento-card-overlay" onMouseDown={(e) => e.stopPropagation()}>
+                              <div className="bento-overlay-top">
+                                <button
+                                  type="button"
+                                  className="bento-action-btn"
+                                  title="View full size"
+                                  onClick={() => setLightboxIndex(idx)}
+                                >
+                                  <ZoomIn size={14} />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="bento-action-btn"
+                                  title="Replace photo"
+                                  onClick={() => {
+                                    editItemIndexRef.current = idx;
+                                    fileInputRef.current?.click();
+                                  }}
+                                >
+                                  <Edit2 size={13} />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="bento-action-btn delete"
+                                  title="Delete photo"
+                                  onClick={() => handleRemoveMediaItem(item.id)}
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+
+                              <div className="bento-overlay-bottom">
+                                {!isCover && (
+                                  <button
+                                    type="button"
+                                    className="bento-action-btn cover-btn"
+                                    title="Set as Facebook cover photo (#1)"
+                                    onClick={(e) => handleMakeCover(e, idx)}
+                                  >
+                                    <Star size={11} fill="#2563eb" />
+                                    <span>Make Cover</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* Add Card Tile inside Grid */}
+                      <div
+                        className="bento-add-card"
+                        onClick={() => {
+                          editItemIndexRef.current = null;
+                          fileInputRef.current?.click();
+                        }}
+                        title="Upload more photos or videos"
+                      >
+                        <Images size={22} />
+                        <span style={{ fontSize: '12px', fontWeight: 600 }}>+ Add Photo</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* View Mode 2: Classic List */}
+                  {mediaViewMode === 'list' && mediaItems.length > 0 && (
                     <div
                       className={`meta-media-items-list ${draggedMediaIndex !== null ? 'is-reordering' : ''}`}
                       onDragOver={(e) => {
@@ -1327,12 +1548,13 @@ export const CreatePostPage = () => {
                                   </div>
                                 </div>
                               ) : (
-                                <img
-                                  src={item.previewUrl}
+                                <SafeImage
+                                  src={item.serverUrl || item.previewUrl || item.thumbUrl}
                                   alt="Media item"
                                   className="meta-media-square-thumb"
-                                  draggable={false}
-                                  style={{ pointerEvents: 'none', userSelect: 'none' }}
+                                  fallbackText={`Photo #${idx + 1}`}
+                                  style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '6px', cursor: 'pointer' }}
+                                  onClick={() => setLightboxIndex(idx)}
                                 />
                               )}
                               <div>
@@ -1350,6 +1572,15 @@ export const CreatePostPage = () => {
                             </div>
 
                             <div className="meta-media-row-actions" onMouseDown={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                className="meta-media-icon-btn"
+                                title="View full size"
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={() => setLightboxIndex(idx)}
+                              >
+                                <ZoomIn size={16} />
+                              </button>
                               <button
                                 type="button"
                                 className="meta-media-icon-btn"
@@ -1382,20 +1613,52 @@ export const CreatePostPage = () => {
                     </div>
                   )}
 
-                  {/* Add photo/video button */}
-                  <div style={{ marginTop: mediaItems.length > 0 ? '12px' : '6px' }}>
-                    <button
-                      type="button"
+                  {mediaItems.length === 0 && (
+                    <div
                       onClick={() => {
                         editItemIndexRef.current = null;
                         fileInputRef.current?.click();
                       }}
-                      className="meta-media-add-btn"
+                      style={{
+                        marginTop: '12px',
+                        padding: '16px',
+                        border: '2px dashed #cbd5e1',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        cursor: 'pointer',
+                        background: '#f8fafc'
+                      }}
                     >
-                      <Images size={16} />
-                      <span>Add photo/video</span>
-                    </button>
-                  </div>
+                      <Upload size={20} color="#64748b" />
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#1877f2' }}>
+                        Click to choose photos or video to upload
+                      </span>
+                      <span style={{ fontSize: '11px', color: '#64748b' }}>
+                        Supports multiple photos, MP4, MOV, JPG, PNG
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Add photo/video button for list mode */}
+                  {mediaViewMode === 'list' && (
+                    <div style={{ marginTop: mediaItems.length > 0 ? '12px' : '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          editItemIndexRef.current = null;
+                          fileInputRef.current?.click();
+                        }}
+                        className="meta-media-add-btn"
+                      >
+                        <Images size={16} />
+                        <span>Add photo/video</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1934,6 +2197,70 @@ export const CreatePostPage = () => {
           selectedProduct={selectedProduct}
           selectedBrand={selectedBrand}
         />
+      )}
+
+      {/* Lightbox Modal for inspecting photos full-screen */}
+      {lightboxIndex !== null && mediaItems[lightboxIndex] && (
+        <div className="bento-lightbox-backdrop" onClick={() => setLightboxIndex(null)}>
+          <div className="bento-lightbox-header" onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontSize: '14px', fontWeight: 600 }}>
+              Photo {lightboxIndex + 1} of {mediaItems.length}
+              {lightboxIndex === 0 && <span style={{ marginLeft: '8px', color: '#60a5fa' }}>(Facebook Cover)</span>}
+            </div>
+            <button
+              type="button"
+              onClick={() => setLightboxIndex(null)}
+              style={{ background: 'none', border: 'none', color: '#ffffff', cursor: 'pointer', padding: '6px' }}
+            >
+              <X size={22} />
+            </button>
+          </div>
+
+          <div className="bento-lightbox-img-wrap" onClick={(e) => e.stopPropagation()}>
+            {mediaItems[lightboxIndex].isVideo || isVideoMedia(mediaItems[lightboxIndex].previewUrl) ? (
+              <video
+                src={mediaItems[lightboxIndex].previewUrl}
+                controls
+                autoPlay
+                className="bento-lightbox-img"
+              />
+            ) : (
+              <SafeImage
+                src={mediaItems[lightboxIndex].serverUrl || mediaItems[lightboxIndex].previewUrl || mediaItems[lightboxIndex].thumbUrl}
+                alt={`Photo ${lightboxIndex + 1}`}
+                className="bento-lightbox-img"
+                style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain' }}
+              />
+            )}
+          </div>
+
+          {mediaItems.length > 1 && (
+            <>
+              <button
+                type="button"
+                className="bento-lightbox-nav prev"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxIndex((prev) => (prev > 0 ? prev - 1 : mediaItems.length - 1));
+                }}
+                title="Previous photo (Left arrow)"
+              >
+                <ChevronLeft size={24} />
+              </button>
+              <button
+                type="button"
+                className="bento-lightbox-nav next"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxIndex((prev) => (prev < mediaItems.length - 1 ? prev + 1 : 0));
+                }}
+                title="Next photo (Right arrow)"
+              >
+                <ChevronRight size={24} />
+              </button>
+            </>
+          )}
+        </div>
       )}
     </div>
   );

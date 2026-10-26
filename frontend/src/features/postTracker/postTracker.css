@@ -1036,7 +1036,7 @@
 
 .meta-page-select-input {
   width: 100%;
-  padding: 10px 14px 10px 42px;
+  padding: 10px 36px 10px 44px;
   border: 1px solid #ced0d4;
   border-radius: 8px;
   background: #ffffff;
@@ -1045,6 +1045,9 @@
   color: #050505;
   outline: none;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
 }
 
 /* Media Source Chips / Add Button */
