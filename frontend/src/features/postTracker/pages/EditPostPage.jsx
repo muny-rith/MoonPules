@@ -56,6 +56,7 @@ import { MetaSchedulePicker } from '../components/MetaSchedulePicker';
 import { ContactFooterModal } from '../components/ContactFooterModal';
 import { AddHashtagsModal } from '../components/AddHashtagsModal';
 import { VideoThumbnailPicker } from '../components/VideoThumbnailPicker';
+import { DeleteConfirmModal } from '../components/DeleteConfirmModal';
 import { useWheelIsolation } from '../hooks/useWheelIsolation';
 import '../postTracker.css';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
@@ -161,6 +162,7 @@ export const EditPostPage = () => {
 
   // Top-Right More Actions Menu (Vertical 3-Dots)
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const moreMenuRef = useRef(null);
 
   useEffect(() => {
@@ -752,6 +754,16 @@ export const EditPostPage = () => {
     }
   };
 
+  const handleDeletePost = async (postId) => {
+    try {
+      await api.deletePost(postId || id);
+      navigate(returnPath);
+    } catch (err) {
+      console.error('Delete post error:', err);
+      throw err;
+    }
+  };
+
   const loadContactFooter = async () => {
     try {
       const res = await api.fetchContactFooter();
@@ -924,6 +936,20 @@ export const EditPostPage = () => {
                 >
                   <Copy size={15} style={{ color: '#2563eb' }} />
                   <span>Duplicate as New Post</span>
+                </button>
+                <div className="meta-more-dropdown-divider" />
+                <button
+                  type="button"
+                  className="meta-more-dropdown-item danger"
+                  onClick={() => {
+                    setShowMoreMenu(false);
+                    setShowDeleteModal(true);
+                  }}
+                  disabled={submitting}
+                  title="Delete this post permanently"
+                >
+                  <Trash2 size={15} style={{ color: '#dc2626' }} />
+                  <span>Delete Post</span>
                 </button>
               </div>
             )}
@@ -1959,6 +1985,22 @@ export const EditPostPage = () => {
             </>
           )}
         </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <DeleteConfirmModal
+          isOpen={showDeleteModal}
+          onClose={() => setShowDeleteModal(false)}
+          post={originalPost ? {
+            ...originalPost,
+            id: originalPost.id || id,
+            product_name: selectedProduct?.product_name || originalPost.product_name,
+            product_image: selectedProduct?.image_url || originalPost.thumbnail_url || originalPost.media_url,
+            page_name: pageDisplayName,
+          } : { id, product_name: `Post #${id}`, page_name: pageDisplayName }}
+          onConfirm={handleDeletePost}
+        />
       )}
     </div>
   );
