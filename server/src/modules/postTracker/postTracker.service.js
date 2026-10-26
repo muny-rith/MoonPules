@@ -5,6 +5,26 @@ const publishScheduler = require('./publishScheduler.service');
 const storageService = require('../storage/supabaseStorage.service');
 const { getDateRangeBounds } = require('../../utils/filterUtils');
 
+const parseMediaUrls = (mediaUrl) => {
+  if (!mediaUrl) return [];
+  if (Array.isArray(mediaUrl)) return mediaUrl.filter(Boolean);
+  if (typeof mediaUrl === 'string' && mediaUrl.trim().startsWith('[')) {
+    try {
+      const parsed = JSON.parse(mediaUrl);
+      if (Array.isArray(parsed)) return parsed.filter(Boolean);
+    } catch { }
+  }
+  return [mediaUrl].filter(Boolean);
+};
+
+const areMediaUrlsEqual = (url1, url2) => {
+  if (url1 === url2) return true;
+  const list1 = parseMediaUrls(url1);
+  const list2 = parseMediaUrls(url2);
+  if (list1.length !== list2.length) return false;
+  return list1.every((u, i) => u === list2[i]);
+};
+
 const listPosts = async (filters = {}) => {
   const {
     range,
@@ -233,7 +253,18 @@ const markPost = async (postData) => {
     isPublished = false;
   }
 
-  const permanentMediaUrl = postData.media_url || pictureUrl || null;
+  let permanentMediaUrl = postData.media_url || pictureUrl || null;
+  if (permanentMediaUrl && permanentMediaUrl.includes('fbcdn.net')) {
+    try {
+      const synced = await storageService.syncImageFromUrl(
+        permanentMediaUrl,
+        `fb_${fb_post_id}_cover.jpg`
+      );
+      if (synced) permanentMediaUrl = synced;
+    } catch (cacheErr) {
+      console.warn(`[MarkPost] Could not cache FB image to Supabase:`, cacheErr.message);
+    }
+  }
 
   const now = new Date();
 
@@ -337,23 +368,9 @@ const editPostData = async (id, data) => {
     } catch (_) { }
   }
 
-  // If media_url is being replaced with a new image, delete the old image from Supabase Storage
-  if (data.media_url !== undefined && data.media_url !== existing.media_url && existing.media_url) {
-    storageService.deleteFileFromStorage(existing.media_url).catch((e) => {
-      console.warn(`[EditPost] Error cleaning up old media:`, e.message);
-    });
-  }
-
-  // If thumbnail_url is being replaced with a new thumbnail, delete the old thumbnail from Supabase Storage
-  if (data.thumbnail_url !== undefined && data.thumbnail_url !== existing.thumbnail_url && existing.thumbnail_url) {
-    storageService.deleteFileFromStorage(existing.thumbnail_url).catch((e) => {
-      console.warn(`[EditPost] Error cleaning up old thumbnail:`, e.message);
-    });
-  }
-
   // ── RESCHEDULING LOGIC FOR SCHEDULED POSTS ──
   if (existing.status === 'scheduled') {
-    const mediaChanged = data.media_url !== undefined && data.media_url !== existing.media_url;
+    const mediaChanged = data.media_url !== undefined && !areMediaUrlsEqual(data.media_url, existing.media_url);
     const thumbnailChanged = data.thumbnail_url !== undefined && data.thumbnail_url !== existing.thumbnail_url;
     const messageChanged = data.message !== undefined && data.message.trim() !== (existing.message || '').trim();
     const timeChanged = data.scheduled_time !== undefined &&
@@ -411,6 +428,36 @@ const editPostData = async (id, data) => {
   }
 
   const updated = await repository.updateTrackedPostData(id, data);
+
+  // Safe storage cleanup: ONLY delete files that were in existing.media_url but are NO LONGER present in data.media_url
+  if (data.media_url !== undefined && existing.media_url) {
+    const oldMediaUrls = parseMediaUrls(existing.media_url);
+    const newMediaUrls = parseMediaUrls(data.media_url);
+    const newThumbnailUrl = data.thumbnail_url !== undefined ? data.thumbnail_url : existing.thumbnail_url;
+
+    const removedMediaUrls = oldMediaUrls.filter((oldUrl) => {
+      if (!oldUrl || typeof oldUrl !== 'string') return false;
+      if (newMediaUrls.includes(oldUrl)) return false;
+      if (newThumbnailUrl === oldUrl) return false;
+      return true;
+    });
+
+    if (removedMediaUrls.length > 0) {
+      storageService.deleteFileFromStorage(removedMediaUrls).catch((e) => {
+        console.warn(`[EditPost] Error cleaning up removed media:`, e.message);
+      });
+    }
+  }
+
+  // If thumbnail_url is being replaced with a new thumbnail, delete the old thumbnail ONLY if not used in media
+  if (data.thumbnail_url !== undefined && data.thumbnail_url !== existing.thumbnail_url && existing.thumbnail_url) {
+    const currentMediaUrls = parseMediaUrls(data.media_url !== undefined ? data.media_url : existing.media_url);
+    if (!currentMediaUrls.includes(existing.thumbnail_url)) {
+      storageService.deleteFileFromStorage(existing.thumbnail_url).catch((e) => {
+        console.warn(`[EditPost] Error cleaning up old thumbnail:`, e.message);
+      });
+    }
+  }
 
   // Fetch fresh metrics asynchronously in background without delaying user edit response
   if (updated.fb_post_id && updated.status === 'published') {
@@ -485,13 +532,9 @@ const getPostById = async (id) => {
 
 const removePost = async (id) => {
   publishScheduler.cancelPostTimer(id);
+  let post = null;
   try {
-    const post = await repository.getTrackedPostById(id);
-    if (post?.media_url) {
-      storageService.deleteFileFromStorage(post.media_url).catch((e) => {
-        console.warn(`[DeletePost] Error removing media for post ${id}:`, e.message);
-      });
-    }
+    post = await repository.getTrackedPostById(id);
     // If post is scheduled and has an fb_post_id on Facebook, delete it from Facebook too!
     if (post?.status === 'scheduled' && post?.fb_post_id && post?.page_id) {
       console.log(`[DeletePost] Removing scheduled FB post ${post.fb_post_id} on page ${post.page_id}...`);
@@ -500,7 +543,27 @@ const removePost = async (id) => {
   } catch (err) {
     console.warn(`[DeletePost] Error cleaning up post ${id}:`, err.message);
   }
-  return await repository.deleteTrackedPost(id);
+
+  // 1. Delete post from DB first so reference checks reflect remaining active posts
+  const result = await repository.deleteTrackedPost(id);
+
+  // 2. Clean up media and thumbnail files ONLY if not referenced by any other post
+  const filesToCheck = [];
+  if (post?.media_url) {
+    const urls = parseMediaUrls(post.media_url);
+    filesToCheck.push(...urls);
+  }
+  if (post?.thumbnail_url && !filesToCheck.includes(post.thumbnail_url)) {
+    filesToCheck.push(post.thumbnail_url);
+  }
+
+  if (filesToCheck.length > 0) {
+    storageService.deleteFileFromStorage(filesToCheck).catch((e) => {
+      console.warn(`[DeletePost] Error removing media for post ${id}:`, e.message);
+    });
+  }
+
+  return result;
 };
 
 const updatePostCosts = async (id, contentCost, adSpend) => {

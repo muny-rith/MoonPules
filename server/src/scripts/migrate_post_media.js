@@ -28,9 +28,10 @@ async function migratePostMedia() {
     for (const post of posts) {
       const isLegacyUpload = post.media_url && (post.media_url.startsWith('/uploads/') || post.media_url.startsWith('["'));
       const isMissing = !post.media_url;
+      const isFbCdn = post.media_url && post.media_url.includes('fbcdn.net');
 
-      if (!isLegacyUpload && !isMissing && post.media_url.startsWith('http')) {
-        // Already has valid web URL
+      if (!isLegacyUpload && !isMissing && !isFbCdn && post.media_url.startsWith('http')) {
+        // Already has valid permanent web URL
         skippedCount++;
         continue;
       }

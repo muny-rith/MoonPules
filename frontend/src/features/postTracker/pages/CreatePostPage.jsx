@@ -407,38 +407,82 @@ export const CreatePostPage = () => {
     if (editItemIndexRef.current !== null) {
       const index = editItemIndexRef.current;
       editItemIndexRef.current = null;
-      const file = files[0];
-      const previewUrl = URL.createObjectURL(file);
-      const meta = await getMediaMetadata(file);
-      const itemId = `${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+
+      const firstFile = files[0];
+      const firstPreviewUrl = URL.createObjectURL(firstFile);
+      const firstMeta = await getMediaMetadata(firstFile);
+      const firstItemId = `${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+
+      const replacementItem = {
+        id: firstItemId,
+        file: firstFile,
+        previewUrl: firstPreviewUrl,
+        thumbUrl: firstMeta.thumbUrl || firstPreviewUrl,
+        isVideo: firstMeta.isVideo,
+        serverUrl: '',
+        dimensions: firstMeta.dimensions,
+        uploading: true,
+      };
+
+      const additionalItems = await Promise.all(
+        files.slice(1).map(async (file) => {
+          const previewUrl = URL.createObjectURL(file);
+          const meta = await getMediaMetadata(file);
+          return {
+            id: `${Date.now()}_${Math.random().toString(36).substr(2, 7)}`,
+            file,
+            previewUrl,
+            thumbUrl: meta.thumbUrl || previewUrl,
+            isVideo: meta.isVideo,
+            serverUrl: '',
+            dimensions: meta.dimensions,
+            uploading: true,
+          };
+        })
+      );
 
       setMediaItems((prev) => {
         const updated = [...prev];
-        updated[index] = {
-          id: itemId,
-          file,
-          previewUrl,
-          thumbUrl: meta.thumbUrl || previewUrl,
-          isVideo: meta.isVideo,
-          serverUrl: '',
-          dimensions: meta.dimensions,
-          uploading: true,
-        };
+        updated.splice(index, 1, replacementItem, ...additionalItems);
         return updated;
       });
 
-      try {
-        const res = await api.uploadPostImage(file);
-        setMediaItems((prev) =>
-          prev.map((it) => (it.id === itemId ? { ...it, serverUrl: res.url, previewUrl: res.url, thumbUrl: res.url, uploading: false } : it))
-        );
-      } catch (err) {
-        console.error('Failed to upload media:', err);
-        const errMsg = err?.response?.data?.error || err.message || 'Upload failed';
-        setMediaItems((prev) =>
-          prev.map((it) => (it.id === itemId ? { ...it, uploading: false, error: true, errorMessage: errMsg } : it))
-        );
+      // Upload replacement item
+      (async () => {
+        try {
+          const compressed = firstMeta.isVideo ? firstFile : await compressImageFile(firstFile, 1200, 0.85);
+          const res = await api.uploadPostImage(compressed);
+          setMediaItems((prev) =>
+            prev.map((it) => (it.id === firstItemId ? { ...it, serverUrl: res.url, previewUrl: res.url, thumbUrl: res.url, uploading: false } : it))
+          );
+        } catch (err) {
+          console.error('Failed to upload media:', err);
+          const errMsg = err?.response?.data?.error || err.message || 'Upload failed';
+          setMediaItems((prev) =>
+            prev.map((it) => (it.id === firstItemId ? { ...it, uploading: false, error: true, errorMessage: errMsg } : it))
+          );
+        }
+      })();
+
+      // Upload any additional items
+      for (const item of additionalItems) {
+        (async () => {
+          try {
+            const compressed = item.isVideo ? item.file : await compressImageFile(item.file, 1200, 0.85);
+            const res = await api.uploadPostImage(compressed);
+            setMediaItems((prev) =>
+              prev.map((it) => (it.id === item.id ? { ...it, serverUrl: res.url, previewUrl: res.url, thumbUrl: res.url, uploading: false } : it))
+            );
+          } catch (err) {
+            console.error('Failed to upload additional item', err);
+            const errMsg = err?.response?.data?.error || err.message || 'Upload failed';
+            setMediaItems((prev) =>
+              prev.map((it) => (it.id === item.id ? { ...it, uploading: false, error: true, errorMessage: errMsg } : it))
+            );
+          }
+        })();
       }
+
       return;
     }
 
@@ -1127,7 +1171,7 @@ export const CreatePostPage = () => {
               <div className="meta-media-chips">
                 <button
                   type="button"
-                  onClick={() => { setMediaSource('upload'); fileInputRef.current?.click(); }}
+                  onClick={() => { editItemIndexRef.current = null; setMediaSource('upload'); fileInputRef.current?.click(); }}
                   className={`meta-chip-btn ${mediaSource === 'upload' ? 'active' : ''}`}
                 >
                   <ImageIcon size={14} /> Custom Upload
@@ -1152,6 +1196,7 @@ export const CreatePostPage = () => {
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileSelect}
+                onCancel={() => { editItemIndexRef.current = null; }}
                 accept="image/*,video/*"
                 multiple
                 style={{ display: 'none' }}

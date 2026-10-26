@@ -935,7 +935,8 @@ export const BrandDetailPage = () => {
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <div style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, border: '1px solid var(--border-color)', backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                   <SafeImage
-                                    src={post.thumbnail_url || post.media_url || post.product_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.product_name || 'PR')}&background=c7d2fe&color=3730a3&rounded=false`}
+                                    src={post.thumbnail_url || post.media_url || post.product_image || (detail?.image_url) || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.product_name || 'PR')}&background=c7d2fe&color=3730a3&rounded=false`}
+                                    fallbackSrc={post.product_image || (detail?.image_url) || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.product_name || 'PR')}&background=c7d2fe&color=3730a3&rounded=false`}
                                     poster={post.thumbnail_url}
                                     alt={post.product_name || 'thumbnail'}
                                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
@@ -1042,7 +1043,8 @@ export const BrandDetailPage = () => {
                           {/* Post Creative Thumbnail (matching Post Tracker) */}
                           <div style={{ width: '62px', height: '62px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <SafeImage
-                              src={post.thumbnail_url || post.media_url || post.product_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.product_name || 'PR')}&background=c7d2fe&color=3730a3&rounded=false`}
+                              src={post.thumbnail_url || post.media_url || post.product_image || (detail?.image_url) || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.product_name || 'PR')}&background=c7d2fe&color=3730a3&rounded=false`}
+                              fallbackSrc={post.product_image || (detail?.image_url) || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.product_name || 'PR')}&background=c7d2fe&color=3730a3&rounded=false`}
                               poster={post.thumbnail_url}
                               alt={post.product_name || 'thumbnail'}
                               style={{ width: '100%', height: '100%', objectFit: 'cover' }}

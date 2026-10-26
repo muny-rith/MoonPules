@@ -4,6 +4,7 @@ import { resolveMediaUrl, isVideoMedia } from '../../utils/mediaUrl';
 
 export const SafeImage = ({
   src,
+  fallbackSrc = null,
   alt = 'Image',
   className = '',
   style = {},
@@ -14,9 +15,25 @@ export const SafeImage = ({
   poster = null,
   ...props
 }) => {
+  const [useFallback, setUseFallback] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const resolvedSrc = resolveMediaUrl(src);
+
+  React.useEffect(() => {
+    setUseFallback(false);
+    setHasError(false);
+  }, [src, fallbackSrc]);
+
+  const currentRaw = useFallback && fallbackSrc ? fallbackSrc : src;
+  const resolvedSrc = resolveMediaUrl(currentRaw);
   const isVid = isVideo || isVideoMedia(resolvedSrc);
+
+  const handleError = () => {
+    if (!useFallback && fallbackSrc && fallbackSrc !== src) {
+      setUseFallback(true);
+    } else {
+      setHasError(true);
+    }
+  };
 
   if (!resolvedSrc || hasError) {
     return (
@@ -67,7 +84,7 @@ export const SafeImage = ({
           playsInline
           className={className}
           style={{ width: '100%', maxHeight: '460px', objectFit: 'contain', backgroundColor: '#000', display: 'block', ...style }}
-          onError={() => setHasError(true)}
+          onError={handleError}
           {...props}
         />
       );
@@ -95,7 +112,7 @@ export const SafeImage = ({
             src={resolvedPoster}
             alt={alt}
             style={{ width: '100%', height: '100%', objectFit: style?.objectFit || 'cover', display: 'block' }}
-            onError={() => setHasError(true)}
+            onError={handleError}
           />
           <div
             style={{
@@ -138,7 +155,7 @@ export const SafeImage = ({
           playsInline
           preload="metadata"
           style={{ width: '100%', height: '100%', objectFit: style?.objectFit || 'cover', display: 'block' }}
-          onError={() => setHasError(true)}
+          onError={handleError}
           {...props}
         />
         <div
@@ -164,7 +181,7 @@ export const SafeImage = ({
       alt={alt}
       className={className}
       style={style}
-      onError={() => setHasError(true)}
+      onError={handleError}
       loading="lazy"
       {...props}
     />

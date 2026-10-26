@@ -3,6 +3,7 @@ const axios = require('axios');
 const path = require('path');
 const fs = require('fs');
 const env = require('../../config/env');
+const db = require('../../config/db');
 
 let supabase = null;
 if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -174,7 +175,9 @@ const deleteFileFromStorage = async (mediaUrl) => {
   if (!mediaUrl) return false;
 
   let urls = [];
-  if (typeof mediaUrl === 'string' && mediaUrl.trim().startsWith('[')) {
+  if (Array.isArray(mediaUrl)) {
+    urls = mediaUrl;
+  } else if (typeof mediaUrl === 'string' && mediaUrl.trim().startsWith('[')) {
     try {
       const parsed = JSON.parse(mediaUrl);
       if (Array.isArray(parsed)) urls = parsed;
@@ -189,6 +192,23 @@ const deleteFileFromStorage = async (mediaUrl) => {
   for (const urlItem of urls) {
     if (!urlItem || typeof urlItem !== 'string') continue;
 
+    // Safety check: ensure file is not still referenced by any active post in tb_post_tracker or tb_products
+    try {
+      const inUse = await db.query(
+        `SELECT id FROM tb_post_tracker WHERE (media_url LIKE $1 OR thumbnail_url = $2)
+         UNION ALL
+         SELECT id FROM tb_products WHERE image_url = $2
+         LIMIT 1`,
+        [`%${urlItem}%`, urlItem]
+      );
+      if (inUse.rows.length > 0) {
+        console.log(`[SupabaseStorage] ℹ️ Retaining file ${urlItem} (still referenced by active record #${inUse.rows[0].id})`);
+        continue;
+      }
+    } catch (dbErr) {
+      console.warn(`[SupabaseStorage] DB reference check error:`, dbErr.message);
+    }
+
     // 1. Supabase Storage deletion
     if (supabase && urlItem.includes(BUCKET_NAME)) {
       try {
@@ -196,6 +216,11 @@ const deleteFileFromStorage = async (mediaUrl) => {
         if (parts.length > 1) {
           const rawPath = parts[1].split('?')[0]; // strip query params
           const filePath = decodeURIComponent(rawPath);
+          // Safety guard: only delete uploads inside the posts/ directory
+          if (!filePath.startsWith('posts/')) {
+            console.log(`[SupabaseStorage] ℹ️ Skipping non-post path: ${filePath}`);
+            continue;
+          }
           console.log(`[SupabaseStorage] 🗑️ Removing old file: ${filePath}`);
           const { error } = await supabase.storage.from(BUCKET_NAME).remove([filePath]);
           if (error) {

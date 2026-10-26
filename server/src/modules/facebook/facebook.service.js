@@ -478,14 +478,25 @@ const publishPostToPage = async (pageId, { message, mediaUrl, scheduledTime, thu
           const photoRes = await fbClient.postFbData(`/${fb_page_id}/photos?published=false&temporary=true`, access_token, formData, formData.getHeaders());
           if (photoRes?.id) photoIds.push(photoRes.id);
         } else if (isRemoteUrl) {
-          const photoPayload = {
-            url: urlItem,
-            published: false,
-            temporary: true,
-          };
+          try {
+            const photoPayload = {
+              url: urlItem,
+              published: false,
+              temporary: true,
+            };
 
-          const photoRes = await fbClient.postFbData(`/${fb_page_id}/photos?published=false&temporary=true`, access_token, photoPayload);
-          if (photoRes?.id) photoIds.push(photoRes.id);
+            const photoRes = await fbClient.postFbData(`/${fb_page_id}/photos?published=false&temporary=true`, access_token, photoPayload);
+            if (photoRes?.id) photoIds.push(photoRes.id);
+          } catch (urlUploadErr) {
+            console.warn(`[FB Photos] Direct URL upload to Facebook failed for ${urlItem} (${urlUploadErr.message}). Retrying via buffer stream...`);
+            const imgRes = await axios.get(urlItem, { responseType: 'arraybuffer', timeout: 15000 });
+            const formData = new FormData();
+            formData.append('source', Buffer.from(imgRes.data), { filename: 'upload.jpg' });
+            formData.append('published', 'false');
+            formData.append('temporary', 'true');
+            const streamRes = await fbClient.postFbData(`/${fb_page_id}/photos?published=false&temporary=true`, access_token, formData, formData.getHeaders());
+            if (streamRes?.id) photoIds.push(streamRes.id);
+          }
         }
       } catch (uploadErr) {
         console.error(`Failed to upload media item ${urlItem} to Facebook:`, uploadErr);

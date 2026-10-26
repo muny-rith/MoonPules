@@ -1,12 +1,154 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useUrlFilters } from '../../../shared/hooks/useUrlFilters';
-import { BarChart2, Eye, Tag, Search, Layers, TrendingUp, Heart, RotateCcw, ChevronRight } from 'lucide-react';
+import { BarChart2, Eye, Tag, Search, Layers, TrendingUp, Heart, RotateCcw, ChevronRight, ChevronDown, Check, Filter } from 'lucide-react';
 import { BrandStatsTopBannerSkeleton, BrandStatsTableSkeleton, BrandStatsMobileSkeleton } from '../../../shared/components/skeletons';
 import { getBrandStats, getCachedBrandStats } from '../services/brandStatsService';
 import { SortableHeader } from '../../../shared/components/ui/SortableHeader';
 import { useSortableTable } from '../../../shared/hooks/useSortableTable';
 import { DateRangeFilter, isPostInDateRange } from '../../../shared/components/ui/DateRangeFilter';
+
+const BrandStatusFilterDropdown = ({ value, onChange, activeCount = 0, totalCount = 0, inactiveCount = 0, minWidth = '150px' }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  const options = [
+    {
+      value: 'active',
+      label: 'Active Brands',
+      count: activeCount,
+    },
+    {
+      value: 'inactive',
+      label: 'Inactive Brands',
+      count: inactiveCount,
+    },
+    {
+      value: 'all',
+      label: 'All Brands',
+      count: totalCount,
+    },
+  ];
+
+  const currentOption = options.find((o) => o.value === value) || options[0];
+  const isFiltered = value !== 'active';
+
+  return (
+    <div ref={dropdownRef} className="date-range-filter-container" style={{ position: 'relative' }}>
+      <button
+        type="button"
+        className="date-range-filter-btn"
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          padding: '8px 12px',
+          borderRadius: '8px',
+          border: isFiltered ? '1px solid #93c5fd' : '1px solid #e2e8f0',
+          fontSize: '13px',
+          backgroundColor: isFiltered ? '#eff6ff' : 'white',
+          color: isFiltered ? '#1d4ed8' : '#334155',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          minWidth,
+          justifyContent: 'space-between',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+          whiteSpace: 'nowrap',
+          fontWeight: isFiltered ? 600 : 500,
+          transition: 'all 0.15s ease',
+        }}
+        title="Filter brands by status"
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <Layers size={14} color={isFiltered ? '#2563eb' : '#64748b'} />
+          <span>
+            {currentOption.label} ({currentOption.count})
+          </span>
+        </div>
+        <ChevronDown
+          size={14}
+          style={{
+            color: isFiltered ? '#2563eb' : '#94a3b8',
+            transform: isOpen ? 'rotate(180deg)' : 'rotate(0)',
+            transition: 'transform 0.2s',
+          }}
+        />
+      </button>
+
+      {isOpen && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 6px)',
+            left: 0,
+            backgroundColor: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: '10px',
+            boxShadow: '0 15px 30px -5px rgba(0, 0, 0, 0.12), 0 8px 12px -4px rgba(0, 0, 0, 0.06)',
+            minWidth: '180px',
+            zIndex: 100,
+            overflow: 'hidden',
+            padding: '6px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '2px',
+          }}
+        >
+          {options.map((option) => {
+            const isSelected = value === option.value;
+            return (
+              <div
+                key={option.value}
+                onClick={() => {
+                  onChange(option.value);
+                  setIsOpen(false);
+                }}
+                style={{
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  color: isSelected ? '#1d4ed8' : '#334155',
+                  backgroundColor: isSelected ? '#eff6ff' : 'transparent',
+                  fontWeight: isSelected ? 600 : 400,
+                  transition: 'background-color 0.12s ease',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSelected) e.currentTarget.style.backgroundColor = '#f8fafc';
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>
+                    {option.label} ({option.count})
+                  </span>
+                </div>
+                {isSelected && <Check size={14} color="#2563eb" strokeWidth={2.5} />}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const BrandStatsPage = () => {
   const navigate = useNavigate();
@@ -17,6 +159,7 @@ export const BrandStatsPage = () => {
     start: '',
     end: '',
     search: '',
+    status: 'active',
   });
 
   const {
@@ -24,6 +167,7 @@ export const BrandStatsPage = () => {
     start: customStart,
     end: customEnd,
     search: searchTerm,
+    status: statusFilter = 'active',
   } = filters;
 
   const customRange = useMemo(() => ({
@@ -182,6 +326,7 @@ export const BrandStatsPage = () => {
   const stats = useMemo(() => {
     const totalBrands = brandsWithCalculatedMetrics.length;
     const activeBrands = brandsWithCalculatedMetrics.filter(b => (b.posts_count || 0) > 0).length;
+    const inactiveBrands = Math.max(0, totalBrands - activeBrands);
     const totalPosts = brandsWithCalculatedMetrics.reduce((sum, b) => sum + (b.posts_count || 0), 0);
     const totalViews = brandsWithCalculatedMetrics.reduce((sum, b) => sum + (b.views_count || 0), 0);
     const topBrand = [...brandsWithCalculatedMetrics].sort((a, b) => (b.views_count || 0) - (a.views_count || 0))[0];
@@ -189,6 +334,7 @@ export const BrandStatsPage = () => {
     return {
       totalBrands,
       activeBrands,
+      inactiveBrands,
       totalPosts,
       totalViews,
       topBrandName: topBrand && topBrand.posts_count > 0 ? topBrand.brand_name : 'N/A'
@@ -196,10 +342,18 @@ export const BrandStatsPage = () => {
   }, [brandsWithCalculatedMetrics]);
 
   const filteredBrands = useMemo(() => {
-    if (!searchTerm) return brandsWithCalculatedMetrics;
+    let result = brandsWithCalculatedMetrics;
+
+    if (statusFilter === 'active') {
+      result = result.filter(b => (b.posts_count || 0) > 0);
+    } else if (statusFilter === 'inactive') {
+      result = result.filter(b => (b.posts_count || 0) === 0);
+    }
+
+    if (!searchTerm) return result;
     const q = searchTerm.toLowerCase();
-    return brandsWithCalculatedMetrics.filter(b => (b.brand_name || '').toLowerCase().includes(q));
-  }, [brandsWithCalculatedMetrics, searchTerm]);
+    return result.filter(b => (b.brand_name || '').toLowerCase().includes(q));
+  }, [brandsWithCalculatedMetrics, statusFilter, searchTerm]);
 
   const { sortedItems: sortedBrands, sortConfig, requestSort } = useSortableTable(
     filteredBrands,
@@ -213,7 +367,12 @@ export const BrandStatsPage = () => {
     }
   );
 
-  const hasActiveFilters = (dateFilter !== 'this_month' || customRange.start !== '' || customRange.end !== '') || searchTerm.trim() !== '';
+  const hasActiveFilters =
+    dateFilter !== 'this_month' ||
+    customRange.start !== '' ||
+    customRange.end !== '' ||
+    searchTerm.trim() !== '' ||
+    statusFilter !== 'active';
 
   return (
     <div className="page-container product-page-container brand-stats-page-container">
@@ -245,7 +404,7 @@ export const BrandStatsPage = () => {
               <Layers size={18} style={{ color: '#10b981' }} />
               <span>Active Brands</span>
             </div>
-            <div className="stat-value">{stats.activeBrands}</div>
+            <div className="stat-value" style={{ color: '#10b981' }}>{stats.activeBrands}</div>
           </div>
 
           <div className="stat-divider" />
@@ -306,6 +465,15 @@ export const BrandStatsPage = () => {
           </div>
 
           <div className="toolbar-filter-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <BrandStatusFilterDropdown
+              value={statusFilter}
+              onChange={(val) => setFilter('status', val)}
+              activeCount={stats.activeBrands}
+              totalCount={stats.totalBrands}
+              inactiveCount={stats.inactiveBrands}
+              minWidth="160px"
+            />
+
             <DateRangeFilter
               value={dateFilter}
               onChange={handleDateFilterChange}
@@ -507,8 +675,31 @@ export const BrandStatsPage = () => {
               })}
               {!loading && sortedBrands.length === 0 && (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
-                    No brands found matching your criteria.
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
+                    <div style={{ fontSize: '14px', fontWeight: 500 }}>No brands found matching your criteria.</div>
+                    {statusFilter !== 'all' && (
+                      <div style={{ marginTop: '10px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setFilter('status', 'all')}
+                          style={{
+                            background: '#eff6ff',
+                            border: '1px solid #bfdbfe',
+                            color: '#2563eb',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            fontSize: '12.5px',
+                            padding: '6px 14px',
+                            borderRadius: '16px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                          }}
+                        >
+                          <span>Switch to All Brands ({stats.totalBrands})</span>
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               )}
@@ -612,8 +803,28 @@ export const BrandStatsPage = () => {
             );
           })}
           {!loading && sortedBrands.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
-              No brands found matching your criteria.
+            <div style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: '14px', fontWeight: 500 }}>No brands found matching your criteria.</div>
+              {statusFilter !== 'all' && (
+                <div style={{ marginTop: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setFilter('status', 'all')}
+                    style={{
+                      background: '#eff6ff',
+                      border: '1px solid #bfdbfe',
+                      color: '#2563eb',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      fontSize: '12.5px',
+                      padding: '6px 14px',
+                      borderRadius: '16px',
+                    }}
+                  >
+                    Switch to All Brands ({stats.totalBrands})
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
