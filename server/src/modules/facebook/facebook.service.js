@@ -214,11 +214,20 @@ const getInsights = async (postId, pageId) => {
 
       try {
         const vi = await fbClient.getFbData(`/${postIdStr}/video_insights`, access_token);
-        const reachItem = vi.data?.find((m) => m.name === 'post_impressions_unique');
+        const reachItem = vi.data?.find((m) =>
+          m.name === 'post_impressions_unique' ||
+          m.name === 'total_video_views_unique' ||
+          m.name === 'blue_reels_play_count' ||
+          m.name === 'post_total_media_view_unique'
+        );
         if (reachItem?.values?.[0]?.value != null) {
           reach = reachItem.values[0].value;
         }
-        const playsItem = vi.data?.find((m) => m.name === 'fb_reels_total_plays' || m.name === 'blue_reels_play_count');
+        const playsItem = vi.data?.find((m) =>
+          m.name === 'fb_reels_total_plays' ||
+          m.name === 'total_video_views' ||
+          m.name === 'blue_reels_play_count'
+        );
         if (views == null && playsItem?.values?.[0]?.value != null) {
           views = playsItem.values[0].value;
         }
@@ -243,10 +252,20 @@ const getInsights = async (postId, pageId) => {
       try {
         const vidData = await fbClient.getFbData(`/${postIdStr}?fields=views`, access_token);
         const vi = await fbClient.getFbData(`/${postIdStr}/video_insights`, access_token);
-        const reachItem = vi.data?.find((m) => m.name === 'post_impressions_unique');
+        const reachItem = vi.data?.find((m) =>
+          m.name === 'post_impressions_unique' ||
+          m.name === 'total_video_views_unique' ||
+          m.name === 'blue_reels_play_count' ||
+          m.name === 'post_total_media_view_unique'
+        );
+        const playsItem = vi.data?.find((m) =>
+          m.name === 'fb_reels_total_plays' ||
+          m.name === 'total_video_views' ||
+          m.name === 'blue_reels_play_count'
+        );
         return {
           data: [
-            { name: 'post_media_view', values: [{ value: vidData.views ?? null }] },
+            { name: 'post_media_view', values: [{ value: vidData.views ?? playsItem?.values?.[0]?.value ?? null }] },
             { name: 'post_total_media_view_unique', values: [{ value: reachItem?.values?.[0]?.value ?? null }] },
           ],
         };
@@ -268,9 +287,24 @@ const getPostMetrics = async (postId, pageId) => {
         `/${postIdStr}?fields=likes.summary(true),comments.summary(true)`,
         access_token
       );
-      const likes = data.likes?.summary?.total_count ?? 0;
-      const comments = data.comments?.summary?.total_count ?? 0;
-      return { likes, comments, shares: 0 };
+      let likes = data.likes?.summary?.total_count ?? 0;
+      let comments = data.comments?.summary?.total_count ?? 0;
+      let shares = 0;
+
+      try {
+        const vi = await fbClient.getFbData(`/${postIdStr}/video_insights`, access_token);
+        const rxItem = vi.data?.find((m) => m.name === 'post_video_likes_by_reaction_type');
+        if (rxItem?.values?.[0]?.value && typeof rxItem.values[0].value === 'object') {
+          const totalRx = Object.values(rxItem.values[0].value).reduce((a, b) => a + (Number(b) || 0), 0);
+          if (totalRx > likes) likes = totalRx;
+        }
+        const actionItem = vi.data?.find((m) => m.name === 'post_video_social_actions');
+        if (actionItem?.values?.[0]?.value?.SHARE != null) {
+          shares = Number(actionItem.values[0].value.SHARE) || 0;
+        }
+      } catch (_) {}
+
+      return { likes, comments, shares };
     } catch (err) {
       console.warn(`[getPostMetrics] Video metrics query failed for ${postIdStr}: ${err.message}`);
     }
@@ -569,6 +603,147 @@ const deletePostFromPage = async (pageId, fbPostId) => {
   }
 };
 
+const syncPostsBatchForPage = async (pageId, posts) => {
+  if (!posts || posts.length === 0) return [];
+  const { access_token } = await getPageCredentials(pageId);
+
+  const results = [];
+  // Chunk into groups of 25 posts (each post generates 2 requests: metrics + insights = 50 sub-requests max)
+  const chunkSize = 25;
+  for (let i = 0; i < posts.length; i += chunkSize) {
+    const chunk = posts.slice(i, i + chunkSize);
+    const batchOps = [];
+
+    chunk.forEach((p, idx) => {
+      const postIdStr = String(p.fb_post_id).trim();
+      const isVideoId = !postIdStr.includes('_');
+      if (isVideoId) {
+        batchOps.push({
+          method: 'GET',
+          relative_url: `${postIdStr}?fields=views,likes.summary(true),comments.summary(true)`,
+          name: `metrics_${idx}`,
+        });
+        batchOps.push({
+          method: 'GET',
+          relative_url: `${postIdStr}/video_insights`,
+          name: `insights_${idx}`,
+        });
+      } else {
+        batchOps.push({
+          method: 'GET',
+          relative_url: `${postIdStr}?fields=reactions.summary(true),likes.summary(true),comments.summary(true),shares,status_type,attachments{media_type,type,target{id}}`,
+          name: `metrics_${idx}`,
+        });
+        batchOps.push({
+          method: 'GET',
+          relative_url: `${postIdStr}/insights?metric=post_media_view,post_total_media_view_unique`,
+          name: `insights_${idx}`,
+        });
+      }
+    });
+
+    let batchRes = [];
+    try {
+      batchRes = await fbClient.postFbBatch(batchOps, access_token);
+    } catch (batchErr) {
+      console.warn(`[syncPostsBatchForPage] Batch call failed for page ${pageId}:`, batchErr.message);
+    }
+
+    // Process results for each post in chunk
+    chunk.forEach((p, idx) => {
+      const metricsRes = batchRes[idx * 2];
+      const insightsRes = batchRes[idx * 2 + 1];
+
+      const postIdStr = String(p.fb_post_id).trim();
+      const isVideoId = !postIdStr.includes('_');
+
+      let likes = p.likes_count || 0;
+      let comments = p.comments_count || 0;
+      let shares = p.shares_count || 0;
+      let views = p.views_count ?? null;
+      let reach = p.reach_count ?? null;
+      let mediaType = p.media_type || (isVideoId ? 'video' : 'photo');
+
+      if (metricsRes && metricsRes.code === 200 && metricsRes.data) {
+        const md = metricsRes.data;
+        if (isVideoId) {
+          likes = md.likes?.summary?.total_count ?? likes;
+          comments = md.comments?.summary?.total_count ?? comments;
+          if (md.views != null) views = md.views;
+        } else {
+          likes = md.reactions?.summary?.total_count ?? md.likes?.summary?.total_count ?? likes;
+          comments = md.comments?.summary?.total_count ?? comments;
+          shares = md.shares?.count ?? shares;
+
+          const attMedia = md.attachments?.data?.[0]?.media_type?.toLowerCase();
+          const statusType = md.status_type?.toLowerCase();
+          if (statusType === 'live_video_broadcast') {
+            mediaType = 'live';
+          } else if (attMedia === 'video' || statusType === 'added_video') {
+            mediaType = 'video';
+          } else {
+            mediaType = 'photo';
+          }
+        }
+      }
+
+      if (insightsRes && insightsRes.code === 200 && insightsRes.data) {
+        const id = insightsRes.data;
+        if (isVideoId) {
+          const reachItem = id.data?.find((m) =>
+            m.name === 'post_impressions_unique' ||
+            m.name === 'total_video_views_unique' ||
+            m.name === 'blue_reels_play_count' ||
+            m.name === 'post_total_media_view_unique'
+          );
+          if (reachItem?.values?.[0]?.value != null) {
+            reach = reachItem.values[0].value;
+          }
+          const playsItem = id.data?.find((m) =>
+            m.name === 'fb_reels_total_plays' ||
+            m.name === 'total_video_views' ||
+            m.name === 'blue_reels_play_count'
+          );
+          if (views == null && playsItem?.values?.[0]?.value != null) {
+            views = playsItem.values[0].value;
+          }
+
+          const rxItem = id.data?.find((m) => m.name === 'post_video_likes_by_reaction_type');
+          if (rxItem?.values?.[0]?.value && typeof rxItem.values[0].value === 'object') {
+            const totalRx = Object.values(rxItem.values[0].value).reduce((a, b) => a + (Number(b) || 0), 0);
+            if (totalRx > likes) likes = totalRx;
+          }
+          const actionItem = id.data?.find((m) => m.name === 'post_video_social_actions');
+          if (actionItem?.values?.[0]?.value?.SHARE != null) {
+            shares = Number(actionItem.values[0].value.SHARE) || 0;
+          }
+        } else {
+          const viewsData = id.data?.find(m => m.name === 'post_media_view');
+          const reachData = id.data?.find(m => m.name === 'post_total_media_view_unique');
+          if (viewsData?.values?.[0]?.value != null) views = viewsData.values[0].value;
+          if (reachData?.values?.[0]?.value != null) reach = reachData.values[0].value;
+        }
+      }
+
+      results.push({
+        post: p,
+        likes,
+        comments,
+        shares,
+        views,
+        reach,
+        mediaType,
+      });
+    });
+
+    if (i + chunkSize < posts.length) {
+      await new Promise(r => setTimeout(r, 200));
+    }
+  }
+
+  return results;
+};
+
 module.exports = {
   getPageCredentials,
   getScheduledPosts,
@@ -581,4 +756,5 @@ module.exports = {
   getPages,
   publishPostToPage,
   deletePostFromPage,
+  syncPostsBatchForPage,
 };

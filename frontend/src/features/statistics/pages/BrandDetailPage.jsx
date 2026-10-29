@@ -15,7 +15,7 @@ import {
   clearBrandCache
 } from '../services/brandStatsService';
 import { BrandInsightsChart } from '../components/BrandInsightsChart';
-import { syncPosts } from '../../postTracker/api/postTrackerApi';
+import { syncPosts, refreshPostById } from '../../postTracker/api/postTrackerApi';
 import { ExportModal } from '../components/ExportModal';
 import { SortableHeader } from '../../../shared/components/ui/SortableHeader';
 import { useSortableTable } from '../../../shared/hooks/useSortableTable';
@@ -73,6 +73,7 @@ export const BrandDetailPage = () => {
   }), [customStart, customEnd]);
 
   const [isSyncing, setIsSyncing] = useState(false);
+  const [refreshingPostId, setRefreshingPostId] = useState(null);
   const [showExportModal, setShowExportModal] = useState(false);
 
   // Multi-Filter States
@@ -240,13 +241,30 @@ export const BrandDetailPage = () => {
   const handleSync = async () => {
     try {
       setIsSyncing(true);
-      await syncPosts();
+      await syncPosts({
+        brandId: id !== 'combined' ? id : undefined,
+        startDate: customRange?.start || undefined,
+        endDate: customRange?.end || undefined,
+      });
       clearBrandCache();
       await fetchDetail(true);
     } catch (err) {
       console.error('Failed to sync posts', err);
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const handleRefreshSinglePost = async (postId) => {
+    try {
+      setRefreshingPostId(postId);
+      await refreshPostById(postId);
+      clearBrandCache();
+      await fetchDetail(true);
+    } catch (err) {
+      console.error('Failed to refresh post', err);
+    } finally {
+      setRefreshingPostId(null);
     }
   };
 
@@ -982,17 +1000,42 @@ export const BrandDetailPage = () => {
                               </div>
                             </td>
                             <td data-label="Actions" style={{ textAlign: 'right' }}>
-                              <a
-                                href={getFacebookPostUrl(post.fb_post_id, post.post_url, post.page_id || post.fb_page_id)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="btn-secondary"
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontSize: '12px', padding: '6px 12px' }}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <ExternalLink size={12} />
-                                <span>View Post</span>
-                              </a>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                <button
+                                  type="button"
+                                  className="btn-secondary"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    fontSize: '12px',
+                                    padding: '6px 10px',
+                                    cursor: refreshingPostId === post.id ? 'not-allowed' : 'pointer',
+                                    opacity: refreshingPostId === post.id ? 0.7 : 1,
+                                    borderRadius: '6px',
+                                  }}
+                                  disabled={refreshingPostId === post.id}
+                                  title="Refresh metrics for this post directly from Facebook"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    await handleRefreshSinglePost(post.id);
+                                  }}
+                                >
+                                  <RefreshCw size={12} className={refreshingPostId === post.id ? "spin-animation" : ""} />
+                                  <span>{refreshingPostId === post.id ? 'Refreshing...' : 'Refresh'}</span>
+                                </button>
+                                <a
+                                  href={getFacebookPostUrl(post.fb_post_id, post.post_url, post.page_id || post.fb_page_id)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="btn-secondary"
+                                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontSize: '12px', padding: '6px 12px' }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <ExternalLink size={12} />
+                                  <span>View Post</span>
+                                </a>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -1108,25 +1151,49 @@ export const BrandDetailPage = () => {
                             {post.published_time ? new Date(post.published_time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not published'}
                           </span>
 
-                          <a
-                            href={getFacebookPostUrl(post.fb_post_id, post.post_url, post.page_id || post.fb_page_id)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn-primary-soft"
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '5px',
-                              padding: '5px 10px',
-                              fontSize: '11.5px',
-                              fontWeight: 600,
-                              borderRadius: '6px',
-                              textDecoration: 'none'
-                            }}
-                          >
-                            <span>View Post</span>
-                            <ExternalLink size={12} />
-                          </a>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                            <button
+                              type="button"
+                              className="btn-secondary"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                padding: '5px 8px',
+                                fontSize: '11px',
+                                borderRadius: '6px',
+                                cursor: refreshingPostId === post.id ? 'not-allowed' : 'pointer',
+                                opacity: refreshingPostId === post.id ? 0.7 : 1,
+                              }}
+                              disabled={refreshingPostId === post.id}
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                await handleRefreshSinglePost(post.id);
+                              }}
+                            >
+                              <RefreshCw size={11} className={refreshingPostId === post.id ? "spin-animation" : ""} />
+                              <span>{refreshingPostId === post.id ? 'Syncing...' : 'Sync'}</span>
+                            </button>
+                            <a
+                              href={getFacebookPostUrl(post.fb_post_id, post.post_url, post.page_id || post.fb_page_id)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="btn-primary-soft"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                padding: '5px 10px',
+                                fontSize: '11.5px',
+                                fontWeight: 600,
+                                borderRadius: '6px',
+                                textDecoration: 'none'
+                              }}
+                            >
+                              <span>View Post</span>
+                              <ExternalLink size={12} />
+                            </a>
+                          </div>
                         </div>
                       </div>
                     ))}

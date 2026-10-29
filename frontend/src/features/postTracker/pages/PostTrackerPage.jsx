@@ -204,8 +204,9 @@ export const PostTrackerPage = () => {
     };
   }, [dateFilter, customDateRange]);
 
-  const { posts, loading, error, updatePost, deletePost, publishNow, reload, triggerSync } = usePostTracker(queryParams);
+  const { posts, loading, error, updatePost, deletePost, publishNow, reload, triggerSync, refreshSinglePost } = usePostTracker(queryParams);
   const [publishingId, setPublishingId] = useState(null);
+  const [refreshingId, setRefreshingId] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [postToDelete, setPostToDelete] = useState(null);
   const [postToPublish, setPostToPublish] = useState(null);
@@ -256,6 +257,18 @@ export const PostTrackerPage = () => {
       await publishNow(postId);
     } finally {
       setPublishingId(null);
+    }
+  };
+
+  const handleRefreshSinglePost = async (e, postId) => {
+    e.stopPropagation();
+    try {
+      setRefreshingId(postId);
+      await refreshSinglePost(postId);
+    } catch (err) {
+      console.error('Failed to refresh single post:', err);
+    } finally {
+      setRefreshingId(null);
     }
   };
 
@@ -740,6 +753,28 @@ export const PostTrackerPage = () => {
                             <ExternalLink size={14} />
                           </a>
                         )}
+                        {post.status === POST_STATUS.PUBLISHED && (
+                          <button
+                            title="Refresh Metrics from Facebook"
+                            onClick={(e) => handleRefreshSinglePost(e, post.id)}
+                            disabled={refreshingId === post.id}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '28px',
+                              height: '28px',
+                              borderRadius: '6px',
+                              color: '#0891b2',
+                              backgroundColor: '#ecfeff',
+                              border: '1px solid #a5f3fc',
+                              cursor: refreshingId === post.id ? 'not-allowed' : 'pointer',
+                              transition: 'all 0.2s',
+                            }}
+                          >
+                            <RefreshCw size={13} className={refreshingId === post.id ? 'spin-animation' : ''} />
+                          </button>
+                        )}
                         <button
                           title="Edit Post"
                           onClick={(e) => {
@@ -979,6 +1014,17 @@ export const PostTrackerPage = () => {
                       <a href={getFacebookPostUrl(post.fb_post_id, post.post_url, post.page_id || post.fb_page_id)} target="_blank" rel="noopener noreferrer" className="btn-icon-action" title="View on FB" onClick={(e) => e.stopPropagation()}>
                         <ExternalLink size={14} />
                       </a>
+                    )}
+                    {post.status === POST_STATUS.PUBLISHED && (
+                      <button
+                        onClick={(e) => handleRefreshSinglePost(e, post.id)}
+                        disabled={refreshingId === post.id}
+                        className="btn-icon-action"
+                        title="Refresh Facebook Metrics"
+                        style={{ color: '#0891b2', backgroundColor: '#ecfeff' }}
+                      >
+                        <RefreshCw size={14} className={refreshingId === post.id ? 'spin-animation' : ''} />
+                      </button>
                     )}
                     <button onClick={(e) => { e.stopPropagation(); navigate(`/tasks/edit/${post.id}`, { state: { from: location.pathname + location.search } }); }} className="btn-icon-action" title="Edit Post">
                       <Edit2 size={14} />

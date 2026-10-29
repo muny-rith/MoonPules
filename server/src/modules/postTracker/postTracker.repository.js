@@ -144,6 +144,107 @@ const getTrackedPostsByStatus = async (status) => {
   return result.rows;
 };
 
+/**
+ * HOT TIER: Posts published within the last 3 days, OR active boosted posts (ad_spend > 0)
+ * Checked frequently (e.g. every 30 minutes)
+ */
+const getHotPublishedPosts = async (days = 3) => {
+  const result = await db.query(`
+    SELECT pt.*, fp.page_name, fp.fb_page_id, fp.access_token 
+    FROM tb_post_tracker pt
+    JOIN tb_fb_page fp ON pt.page_id = fp.id
+    WHERE pt.status = 'published'
+      AND pt.fb_post_id IS NOT NULL
+      AND (
+        pt.published_time >= CURRENT_TIMESTAMP - ($1 || ' days')::INTERVAL
+        OR COALESCE(pt.ad_spend, 0) > 0
+      )
+    ORDER BY pt.published_time DESC
+  `, [days]);
+  return result.rows;
+};
+
+/**
+ * WARM TIER: Posts published between 4 and 14 days ago (no active ads)
+ * Checked 2x daily (morning & night)
+ */
+const getWarmPublishedPosts = async (startDays = 3, endDays = 14) => {
+  const result = await db.query(`
+    SELECT pt.*, fp.page_name, fp.fb_page_id, fp.access_token 
+    FROM tb_post_tracker pt
+    JOIN tb_fb_page fp ON pt.page_id = fp.id
+    WHERE pt.status = 'published'
+      AND pt.fb_post_id IS NOT NULL
+      AND COALESCE(pt.ad_spend, 0) = 0
+      AND pt.published_time < CURRENT_TIMESTAMP - ($1 || ' days')::INTERVAL
+      AND pt.published_time >= CURRENT_TIMESTAMP - ($2 || ' days')::INTERVAL
+    ORDER BY pt.published_time DESC
+  `, [startDays, endDays]);
+  return result.rows;
+};
+
+/**
+ * COOL TIER: Posts published between 15 and 30 days ago (no active ads)
+ * Checked 1x weekly
+ */
+const getCoolPublishedPosts = async (startDays = 14, endDays = 30) => {
+  const result = await db.query(`
+    SELECT pt.*, fp.page_name, fp.fb_page_id, fp.access_token 
+    FROM tb_post_tracker pt
+    JOIN tb_fb_page fp ON pt.page_id = fp.id
+    WHERE pt.status = 'published'
+      AND pt.fb_post_id IS NOT NULL
+      AND COALESCE(pt.ad_spend, 0) = 0
+      AND pt.published_time < CURRENT_TIMESTAMP - ($1 || ' days')::INTERVAL
+      AND pt.published_time >= CURRENT_TIMESTAMP - ($2 || ' days')::INTERVAL
+    ORDER BY pt.published_time DESC
+  `, [startDays, endDays]);
+  return result.rows;
+};
+
+/**
+ * SCOPED SYNC: Fetch posts targeted specifically by user UI action
+ * (e.g. clicking "Sync Data" on a Brand page or refreshing 1 single post)
+ */
+const getPostsForScopedSync = async (filters = {}) => {
+  const { brandId, postId, startDate, endDate } = filters;
+  const conditions = ["pt.status = 'published'", "pt.fb_post_id IS NOT NULL"];
+  const values = [];
+
+  if (postId) {
+    values.push(postId);
+    conditions.push(`pt.id = $${values.length}`);
+  }
+  if (brandId && brandId !== 'all') {
+    values.push(brandId);
+    conditions.push(`pt.brand_id = $${values.length}`);
+  }
+  if (startDate) {
+    values.push(startDate);
+    conditions.push(`pt.published_time >= $${values.length}`);
+  }
+  if (endDate) {
+    values.push(endDate);
+    conditions.push(`pt.published_time <= $${values.length}`);
+  }
+
+  // If no filters provided at all, limit to last 7 days to protect from full table scans
+  if (!postId && !brandId && !startDate && !endDate) {
+    conditions.push(`pt.published_time >= CURRENT_TIMESTAMP - INTERVAL '7 days'`);
+  }
+
+  const query = `
+    SELECT pt.*, fp.page_name, fp.fb_page_id, fp.access_token 
+    FROM tb_post_tracker pt
+    JOIN tb_fb_page fp ON pt.page_id = fp.id
+    WHERE ${conditions.join(' AND ')}
+    ORDER BY pt.published_time DESC
+  `;
+  const result = await db.query(query, values);
+  return result.rows;
+};
+
+
 const createTrackedPost = async (postData) => {
   const {
     product_id,
@@ -416,6 +517,10 @@ module.exports = {
   getAllTrackedPosts,
   getTrackedPostsSummary,
   getTrackedPostsByStatus,
+  getHotPublishedPosts,
+  getWarmPublishedPosts,
+  getCoolPublishedPosts,
+  getPostsForScopedSync,
   getTrackedPostById,
   getDueScheduledPosts,
   getDueScheduledFbPosts,

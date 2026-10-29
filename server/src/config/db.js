@@ -1,3 +1,8 @@
+const dns = require('dns');
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+} catch (_) {}
+
 const { Pool } = require('pg');
 const env = require('./env');
 

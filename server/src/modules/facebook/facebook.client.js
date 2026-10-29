@@ -94,8 +94,49 @@ const deleteFbData = async (endpoint, accessToken) => {
   }
 };
 
+const postFbBatch = async (batchArray, accessToken) => {
+  if (!batchArray || batchArray.length === 0) return [];
+  try {
+    const params = new URLSearchParams({
+      access_token: accessToken,
+      batch: JSON.stringify(batchArray),
+    });
+    const response = await fbClient.post('/', params, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    });
+    return (response.data || []).map((item) => {
+      let parsedBody = null;
+      try {
+        parsedBody = item?.body ? JSON.parse(item.body) : null;
+      } catch (_) {
+        parsedBody = item?.body;
+      }
+      return {
+        code: item.code,
+        headers: item.headers,
+        data: parsedBody,
+      };
+    });
+  } catch (error) {
+    const fbError = error.response?.data?.error;
+    console.error('FB API Error on Batch:', fbError || error.message);
+    if (fbError?.code === 190) {
+      const err = new Error('Facebook access token is invalid or expired — this Page needs to be reconnected.');
+      err.isTokenExpired = true;
+      throw err;
+    }
+    const message = fbError?.error_user_msg || fbError?.message || error.message || 'Error executing Facebook Graph API Batch';
+    const err = new Error(message);
+    err.fbError = fbError;
+    throw err;
+  }
+};
+
 module.exports = {
   getFbData,
   postFbData,
   deleteFbData,
+  postFbBatch,
 };

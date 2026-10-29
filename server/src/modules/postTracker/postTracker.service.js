@@ -332,6 +332,23 @@ const getPublishedPosts = async () => {
   return await repository.getTrackedPostsByStatus('published');
 };
 
+const getHotPublishedPosts = async (days = 3) => {
+  return await repository.getHotPublishedPosts(days);
+};
+
+const getWarmPublishedPosts = async (startDays = 3, endDays = 14) => {
+  return await repository.getWarmPublishedPosts(startDays, endDays);
+};
+
+const getCoolPublishedPosts = async (startDays = 14, endDays = 30) => {
+  return await repository.getCoolPublishedPosts(startDays, endDays);
+};
+
+const getPostsForScopedSync = async (filters = {}) => {
+  return await repository.getPostsForScopedSync(filters);
+};
+
+
 const setPostPublished = async (id, publishedTime) => {
   return await repository.updateTrackedPostStatus(id, 'published', publishedTime || new Date());
 };
@@ -579,6 +596,10 @@ module.exports = {
   publishNow,
   getScheduledPosts,
   getPublishedPosts,
+  getHotPublishedPosts,
+  getWarmPublishedPosts,
+  getCoolPublishedPosts,
+  getPostsForScopedSync,
   setPostPublished,
   updatePost,
   updateMetrics,

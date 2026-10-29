@@ -64,14 +64,30 @@ export const usePostTracker = (initialParams = { range: 'this_month' }) => {
     }
   };
 
-  const triggerSync = async () => {
+  const triggerSync = async (customParams = null) => {
     try {
       setLoading(true);
-      await api.syncPosts();
+      const syncFilter = customParams || paramsRef.current || {};
+      await api.syncPosts({
+        brandId: syncFilter.brandId || syncFilter.brand_id,
+        startDate: syncFilter.startDate,
+        endDate: syncFilter.endDate,
+      });
       await loadPosts(paramsRef.current, true);
     } catch (err) {
       setError(err.message);
       setLoading(false);
+    }
+  };
+
+  const refreshSinglePost = async (id) => {
+    try {
+      const updated = await api.refreshPostById(id);
+      setPosts((prev) => prev.map(p => (p.id === id ? { ...p, ...updated } : p)));
+      return updated;
+    } catch (err) {
+      setError(err.message);
+      throw err;
     }
   };
 
@@ -93,6 +109,6 @@ export const usePostTracker = (initialParams = { range: 'this_month' }) => {
     loadPosts(initialParams);
   }, [loadPosts]);
 
-  return { posts, loading, error, addPost, updatePost, deletePost, publishNow, reload: loadPosts, triggerSync };
+  return { posts, loading, error, addPost, updatePost, deletePost, publishNow, reload: loadPosts, triggerSync, refreshSinglePost };
 };
 

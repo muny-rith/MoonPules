@@ -217,8 +217,27 @@ const updatePostCosts = async (req, res, next) => {
 
 const triggerSync = async (req, res, next) => {
   try {
-    await syncPostStatus();
-    res.json({ message: 'Sync completed successfully' });
+    const { brandId, brand_id, postId, post_id, startDate, endDate } = { ...req.query, ...req.body };
+    const filters = {
+      brandId: brandId || brand_id || null,
+      postId: postId || post_id || null,
+      startDate: startDate || null,
+      endDate: endDate || null,
+    };
+    const result = await syncPostStatus(filters);
+    res.json({ message: 'Sync completed successfully', count: result?.count ?? 0 });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const refreshSinglePost = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    await syncPostStatus({ postId: id });
+    const updated = await service.getPostById(id);
+    if (!updated) return res.status(404).json({ error: 'Post not found' });
+    res.json(updated);
   } catch (error) {
     next(error);
   }
@@ -236,4 +255,5 @@ module.exports = {
   deletePost,
   updatePostCosts,
   triggerSync,
+  refreshSinglePost,
 };

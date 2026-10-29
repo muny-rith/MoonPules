@@ -12,6 +12,7 @@ const statisticsRoutes = require('./modules/statistics/statistics.routes');
 const profitRoutes = require('./modules/profit/profit.routes');
 const settingsRoutes = require('./modules/settings/settings.routes');
 const hashtagsRoutes = require('./modules/hashtags/hashtags.routes');
+const webhookRoutes = require('./modules/webhook/webhook.routes');
 
 const path = require('path');
 
@@ -30,6 +31,9 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/api/health', (req, res) => {
     res.json({ message: 'OK' });
 });
+
+// Webhook receiver (unauthenticated — called directly by Meta servers)
+app.use('/api/webhooks', webhookRoutes);
 
 // Login route (unauthenticated — must come before requireAuth)
 app.use('/api/auth', authRoutes);

@@ -6,7 +6,8 @@ const upload = require('../../middleware/upload.middleware');
 router.get('/', controller.getPosts);
 router.get('/summary', controller.getSummary);
 router.get('/:id', controller.getPostById);
-router.post('/sync', controller.triggerSync); // Manual sync
+router.post('/sync', controller.triggerSync); // Scoped or manual sync
+router.post('/:id/refresh', controller.refreshSinglePost); // Single post on-demand refresh
 router.post('/', controller.createPost);
 router.post('/upload-image', upload.single('image'), controller.uploadImage);
 router.post('/:id/publish-now', controller.publishNow); // Immediate publication

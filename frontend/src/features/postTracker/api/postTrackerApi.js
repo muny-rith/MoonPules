@@ -128,11 +128,18 @@ export const updatePostData = async (id, data) => {
   return response.data;
 };
 
-export const syncPosts = async () => {
+export const syncPosts = async (params = {}) => {
   clearPostsCache();
-  const response = await apiClient.post('/post-tracker/sync');
+  const response = await apiClient.post('/post-tracker/sync', params);
   return response.data;
 };
+
+export const refreshPostById = async (id) => {
+  clearPostsCache();
+  const response = await apiClient.post(`/post-tracker/${id}/refresh`);
+  return response.data;
+};
+
 
 export const publishPostNow = async (id) => {
   clearPostsCache();
