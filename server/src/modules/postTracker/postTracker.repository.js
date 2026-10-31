@@ -207,18 +207,61 @@ const getCoolPublishedPosts = async (startDays = 14, endDays = 30) => {
  * (e.g. clicking "Sync Data" on a Brand page or refreshing 1 single post)
  */
 const getPostsForScopedSync = async (filters = {}) => {
-  const { brandId, postId, startDate, endDate } = filters;
+  const { brandId, brandIds, postId, postIds, productIds, pageId, platform, startDate, endDate, isAllTime } = filters;
   const conditions = ["pt.status = 'published'", "pt.fb_post_id IS NOT NULL"];
   const values = [];
 
-  if (postId) {
-    values.push(postId);
+  // 1. Post ID targeting
+  if (postIds && Array.isArray(postIds) && postIds.length > 0) {
+    values.push(postIds.map(Number).filter(Boolean));
+    conditions.push(`pt.id = ANY($${values.length}::int[])`);
+  } else if (postId) {
+    values.push(Number(postId));
     conditions.push(`pt.id = $${values.length}`);
   }
-  if (brandId && brandId !== 'all') {
-    values.push(brandId);
-    conditions.push(`pt.brand_id = $${values.length}`);
+
+  // 2. Brand & Product targeting
+  const targetBrandIds = (brandIds && Array.isArray(brandIds) && brandIds.length > 0)
+    ? brandIds.map(Number).filter(Boolean)
+    : (brandId && brandId !== 'all' ? [Number(brandId)].filter(Boolean) : null);
+
+  const targetProductIds = (productIds && Array.isArray(productIds) && productIds.length > 0)
+    ? productIds.map(Number).filter(Boolean)
+    : null;
+
+  if (!postIds || postIds.length === 0) {
+    if (targetBrandIds && targetBrandIds.length > 0) {
+      if (targetProductIds && targetProductIds.length > 0) {
+        values.push(targetBrandIds);
+        const bIdx = values.length;
+        values.push(targetProductIds);
+        const pIdx = values.length;
+        conditions.push(`(pt.brand_id = ANY($${bIdx}::int[]) OR pt.product_id = ANY($${pIdx}::int[]))`);
+      } else {
+        values.push(targetBrandIds);
+        conditions.push(`pt.brand_id = ANY($${values.length}::int[])`);
+      }
+    } else if (targetProductIds && targetProductIds.length > 0) {
+      values.push(targetProductIds);
+      conditions.push(`pt.product_id = ANY($${values.length}::int[])`);
+    }
   }
+
+  // 3. Page targeting
+  if (pageId && pageId !== 'all') {
+    values.push(pageId);
+    conditions.push(`pt.page_id = $${values.length}`);
+  }
+
+  // 4. Platform targeting (only Facebook pages exist currently in Post Tracker)
+  if (platform && platform !== 'all') {
+    const plat = platform.toLowerCase();
+    if (plat !== 'facebook' && plat !== 'fb') {
+      return [];
+    }
+  }
+
+  // 5. Date range filters
   if (startDate) {
     values.push(startDate);
     conditions.push(`pt.published_time >= $${values.length}`);
@@ -228,8 +271,17 @@ const getPostsForScopedSync = async (filters = {}) => {
     conditions.push(`pt.published_time <= $${values.length}`);
   }
 
-  // If no filters provided at all, limit to last 7 days to protect from full table scans
-  if (!postId && !brandId && !startDate && !endDate) {
+  // 6. Fallback safeguard: ONLY limit to last 7 days if no target is specified at all
+  const hasTarget = (postIds && postIds.length > 0) ||
+    postId ||
+    (targetBrandIds && targetBrandIds.length > 0) ||
+    (targetProductIds && targetProductIds.length > 0) ||
+    pageId ||
+    startDate ||
+    endDate ||
+    isAllTime;
+
+  if (!hasTarget) {
     conditions.push(`pt.published_time >= CURRENT_TIMESTAMP - INTERVAL '7 days'`);
   }
 
@@ -243,7 +295,6 @@ const getPostsForScopedSync = async (filters = {}) => {
   const result = await db.query(query, values);
   return result.rows;
 };
-
 
 const createTrackedPost = async (postData) => {
   const {

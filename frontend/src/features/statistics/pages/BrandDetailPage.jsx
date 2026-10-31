@@ -203,7 +203,7 @@ export const BrandDetailPage = () => {
           const data = await getBrandDetail(brandIds[0], filterParams, force);
           setDetail(data);
         } else {
-          const combinedData = await getCombinedBrandDetail(brandIds, force);
+          const combinedData = await getCombinedBrandDetail(brandIds, filterParams, force);
           setDetail(combinedData);
         }
       } else {
@@ -241,10 +241,22 @@ export const BrandDetailPage = () => {
   const handleSync = async () => {
     try {
       setIsSyncing(true);
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Phnom_Penh';
+      const idsParam = searchParams.get('ids');
+      const targetBrandIds = (id === 'combined' || idsParam)
+        ? (idsParam ? idsParam.split(',').map(s => s.trim()).filter(Boolean) : [])
+        : (id && id !== 'all' ? [id] : []);
+
       await syncPosts({
-        brandId: id !== 'combined' ? id : undefined,
+        brandIds: targetBrandIds,
+        brandId: targetBrandIds.length === 1 ? targetBrandIds[0] : (id !== 'combined' ? id : undefined),
+        range: timeFilter,
         startDate: customRange?.start || undefined,
         endDate: customRange?.end || undefined,
+        platform: platformFilter !== 'all' ? platformFilter : undefined,
+        pageId: pageFilter !== 'all' ? pageFilter : undefined,
+        productIds: productFilter !== 'all' ? [productFilter] : undefined,
+        timezone: tz,
       });
       clearBrandCache();
       await fetchDetail(true);
@@ -330,7 +342,8 @@ export const BrandDetailPage = () => {
     if (formatFilter !== 'all') {
       posts = posts.filter(p => {
         const m = (p.media_type || 'photo').toLowerCase();
-        if (formatFilter === 'video') return m === 'video' || m === 'reel';
+        if (formatFilter === 'live') return m === 'live' || m.includes('live');
+        if (formatFilter === 'video') return (m === 'video' || m === 'reel') && m !== 'live' && !m.includes('live');
         return m === formatFilter.toLowerCase();
       });
     }
@@ -354,7 +367,12 @@ export const BrandDetailPage = () => {
     {
       product_name: (p) => (p.product_name || '').toLowerCase(),
       channel: (p) => (p.page_name || '').toLowerCase(),
-      format: (p) => (p.media_type || 'photo').toLowerCase(),
+      format: (p) => {
+        const m = (p.media_type || 'photo').toLowerCase();
+        if (m === 'live' || m.includes('live')) return 'live';
+        if (m === 'video' || m === 'reel') return 'video';
+        return 'photo';
+      },
       published_time: (p) => (p.published_time ? new Date(p.published_time).getTime() : (p.scheduled_time ? new Date(p.scheduled_time).getTime() : 0)),
       engagement: (p) => (Number(p.views_count) || 0) + (Number(p.reach_count) || 0) + (Number(p.likes_count) || 0) + (Number(p.comments_count) || 0) + (Number(p.shares_count) || 0),
     }
@@ -444,11 +462,11 @@ export const BrandDetailPage = () => {
 
   const getFormatBadge = (mediaType) => {
     const m = (mediaType || 'photo').toLowerCase();
+    if (m === 'live' || m.includes('live')) {
+      return <span className="format-pill-tag format-live"><Radio size={11} /> Live</span>;
+    }
     if (m === 'video' || m === 'reel') {
       return <span className="format-pill-tag format-video"><Video size={11} /> Video</span>;
-    }
-    if (m === 'live') {
-      return <span className="format-pill-tag format-live"><Radio size={11} /> Live</span>;
     }
     return <span className="format-pill-tag format-photo"><Image size={11} /> Photo</span>;
   };

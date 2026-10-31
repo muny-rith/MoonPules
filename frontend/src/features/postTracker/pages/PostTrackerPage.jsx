@@ -200,9 +200,10 @@ export const PostTrackerPage = () => {
       range: dateFilter,
       startDate: customDateRange.start || undefined,
       endDate: customDateRange.end || undefined,
+      platform: platformFilter !== 'all' ? platformFilter : undefined,
       timezone: tz
     };
-  }, [dateFilter, customDateRange]);
+  }, [dateFilter, customDateRange, platformFilter]);
 
   const { posts, loading, error, updatePost, deletePost, publishNow, reload, triggerSync, refreshSinglePost } = usePostTracker(queryParams);
   const [publishingId, setPublishingId] = useState(null);

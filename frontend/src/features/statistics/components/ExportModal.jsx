@@ -131,7 +131,7 @@ const formatCell = (post, col) => {
         let typeStr = 'Photo';
         if (m === 'video') typeStr = 'Video';
         if (m === 'reel') typeStr = 'Reel';
-        if (m === 'live') typeStr = 'Live';
+        if (m === 'live' || m.includes('live')) typeStr = 'Live';
         return typeStr;
     }
     // 2-Brand column
@@ -163,8 +163,8 @@ const formatCell = (post, col) => {
 
 const prepareGroupData = (groupPosts, activeColumns) => {
     const sorted = [...groupPosts].sort((a, b) => {
-        const isLiveA = (a.media_type || a.format || a.type || '').toLowerCase() === 'live' ? 1 : 0;
-        const isLiveB = (b.media_type || b.format || b.type || '').toLowerCase() === 'live' ? 1 : 0;
+        const isLiveA = (a.media_type || a.format || a.type || '').toLowerCase().includes('live') ? 1 : 0;
+        const isLiveB = (b.media_type || b.format || b.type || '').toLowerCase().includes('live') ? 1 : 0;
 
         if (isLiveA !== isLiveB) {
             return isLiveA - isLiveB;
@@ -179,8 +179,8 @@ const prepareGroupData = (groupPosts, activeColumns) => {
         return (a.product_name || '').localeCompare(b.product_name || '');
     });
 
-    const regular = sorted.filter((p) => (p.media_type || p.format || p.type || '').toLowerCase() !== 'live');
-    const live = sorted.filter((p) => (p.media_type || p.format || p.type || '').toLowerCase() === 'live');
+    const regular = sorted.filter((p) => !(p.media_type || p.format || p.type || '').toLowerCase().includes('live'));
+    const live = sorted.filter((p) => (p.media_type || p.format || p.type || '').toLowerCase().includes('live'));
 
     const calc = (list) => [
         list.reduce((sum, p) => sum + (Number(p.likes_count) || 0), 0),

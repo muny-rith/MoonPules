@@ -69,6 +69,9 @@ export const usePostTracker = (initialParams = { range: 'this_month' }) => {
       setLoading(true);
       const syncFilter = customParams || paramsRef.current || {};
       await api.syncPosts({
+        range: syncFilter.range,
+        timezone: syncFilter.timezone,
+        platform: syncFilter.platform,
         brandId: syncFilter.brandId || syncFilter.brand_id,
         startDate: syncFilter.startDate,
         endDate: syncFilter.endDate,

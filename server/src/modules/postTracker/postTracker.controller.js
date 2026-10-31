@@ -217,10 +217,50 @@ const updatePostCosts = async (req, res, next) => {
 
 const triggerSync = async (req, res, next) => {
   try {
-    const { brandId, brand_id, postId, post_id, startDate, endDate } = { ...req.query, ...req.body };
+    const {
+      brandId,
+      brand_id,
+      brandIds,
+      brand_ids,
+      postId,
+      post_id,
+      postIds,
+      post_ids,
+      pageId,
+      page_id,
+      productIds,
+      product_ids,
+      range,
+      timezone,
+      platform,
+      startDate,
+      endDate,
+    } = { ...req.query, ...req.body };
+    const rawBrandIds = brandIds || brand_ids || (brandId || brand_id ? [brandId || brand_id] : null);
+    const parsedBrandIds = Array.isArray(rawBrandIds)
+      ? rawBrandIds.map(String).filter(Boolean)
+      : (typeof rawBrandIds === 'string' ? rawBrandIds.split(',').map(s => s.trim()).filter(Boolean) : null);
+
+    const rawPostIds = postIds || post_ids || (postId || post_id ? [postId || post_id] : null);
+    const parsedPostIds = Array.isArray(rawPostIds)
+      ? rawPostIds.map(Number).filter(Boolean)
+      : (typeof rawPostIds === 'string' ? rawPostIds.split(',').map(s => Number(s.trim())).filter(Boolean) : null);
+
+    const rawProductIds = productIds || product_ids || null;
+    const parsedProductIds = Array.isArray(rawProductIds)
+      ? rawProductIds.map(Number).filter(Boolean)
+      : (typeof rawProductIds === 'string' ? rawProductIds.split(',').map(s => Number(s.trim())).filter(Boolean) : null);
+
     const filters = {
       brandId: brandId || brand_id || null,
+      brandIds: parsedBrandIds,
       postId: postId || post_id || null,
+      postIds: parsedPostIds,
+      pageId: pageId || page_id || null,
+      productIds: parsedProductIds,
+      range: range || null,
+      timezone: timezone || null,
+      platform: platform || null,
       startDate: startDate || null,
       endDate: endDate || null,
     };

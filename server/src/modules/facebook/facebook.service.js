@@ -33,6 +33,22 @@ const getRecentPosts = async (pageId) => {
   );
 };
 
+const isLiveStatus = (val) => {
+  if (!val) return false;
+  const s = String(val).toUpperCase();
+  return s === 'VOD' || s === 'LIVE' || s === 'LIVE_STOPPED' || s === 'PROCESSING';
+};
+
+const isLivePostSignal = (statusType, attType) => {
+  const st = String(statusType || '').toLowerCase();
+  const at = String(attType || '').toLowerCase();
+  return st === 'live_video_broadcast' ||
+         st === 'live_video_scheduled' ||
+         st.includes('live') ||
+         at === 'live_video' ||
+         at === 'video_broadcast';
+};
+
 const checkPublished = async (postId, pageId) => {
   const { access_token } = await getPageCredentials(pageId);
   const postIdStr = String(postId).trim();
@@ -41,16 +57,17 @@ const checkPublished = async (postId, pageId) => {
   if (isVideoId) {
     try {
       const data = await fbClient.getFbData(
-        `/${postIdStr}?fields=id,published,status,created_time,picture,description,permalink_url`,
+        `/${postIdStr}?fields=id,published,status,created_time,picture,description,permalink_url,live_status`,
         access_token
       );
       const isPublished = data.published === true || data.status?.publishing_phase?.publish_status === 'published';
       const publishTimeStr = data.status?.publishing_phase?.publish_time || data.created_time;
       const createdDate = publishTimeStr ? new Date(publishTimeStr) : null;
+      const isLive = isLiveStatus(data.live_status);
       return {
         is_published: isPublished,
         created_time: createdDate,
-        media_type: 'video',
+        media_type: isLive ? 'live' : 'video',
         picture_url: data.picture || null,
       };
     } catch (err) {
@@ -69,17 +86,18 @@ const checkPublished = async (postId, pageId) => {
 
     let mediaType = 'photo';
     const attMedia = data.attachments?.data?.[0]?.media_type?.toLowerCase();
+    const attType = data.attachments?.data?.[0]?.type?.toLowerCase();
     const statusType = data.status_type?.toLowerCase();
     const targetId = data.attachments?.data?.[0]?.target?.id || postIdStr.split('_')[1];
 
-    if (statusType === 'live_video_broadcast') {
+    if (isLivePostSignal(statusType, attType)) {
       mediaType = 'live';
     } else if (attMedia === 'video' || statusType === 'added_video') {
       mediaType = 'video';
       if (targetId) {
         try {
           const vid = await fbClient.getFbData(`/${targetId}?fields=live_status`, access_token);
-          if (vid.live_status === 'VOD' || vid.live_status === 'LIVE') {
+          if (isLiveStatus(vid?.live_status)) {
             mediaType = 'live';
           }
         } catch (_) {}
@@ -98,16 +116,17 @@ const checkPublished = async (postId, pageId) => {
     if (feedErr.message?.includes('is_published') || feedErr.message?.includes('status_type') || feedErr.message?.includes('nonexisting field')) {
       try {
         const data = await fbClient.getFbData(
-          `/${postIdStr}?fields=id,published,status,created_time,picture,description,permalink_url`,
+          `/${postIdStr}?fields=id,published,status,created_time,picture,description,permalink_url,live_status`,
           access_token
         );
         const isPublished = data.published === true || data.status?.publishing_phase?.publish_status === 'published';
         const publishTimeStr = data.status?.publishing_phase?.publish_time || data.created_time;
         const createdDate = publishTimeStr ? new Date(publishTimeStr) : null;
+        const isLive = isLiveStatus(data.live_status);
         return {
           is_published: isPublished,
           created_time: createdDate,
-          media_type: 'video',
+          media_type: isLive ? 'live' : 'video',
           picture_url: data.picture || null,
         };
       } catch (_) {}
@@ -163,24 +182,32 @@ const getPostMedia = async (postId, pageId) => {
 
 const getPostMediaType = async (postId, pageId) => {
   const postIdStr = String(postId).trim();
+  const { access_token } = await getPageCredentials(pageId);
+
   if (!postIdStr.includes('_')) {
+    try {
+      const vid = await fbClient.getFbData(`/${postIdStr}?fields=live_status`, access_token);
+      if (isLiveStatus(vid?.live_status)) {
+        return 'live';
+      }
+    } catch (_) {}
     return 'video';
   }
   try {
-    const { access_token } = await getPageCredentials(pageId);
     const data = await fbClient.getFbData(`/${postIdStr}?fields=status_type,attachments{media_type,type,target{id}}`, access_token);
     const attMedia = data.attachments?.data?.[0]?.media_type?.toLowerCase();
+    const attType = data.attachments?.data?.[0]?.type?.toLowerCase();
     const statusType = data.status_type?.toLowerCase();
     const targetId = data.attachments?.data?.[0]?.target?.id || postIdStr.split('_')[1];
 
-    if (statusType === 'live_video_broadcast') {
+    if (isLivePostSignal(statusType, attType)) {
       return 'live';
     }
     if (attMedia === 'video' || statusType === 'added_video') {
       if (targetId) {
         try {
           const vid = await fbClient.getFbData(`/${targetId}?fields=live_status`, access_token);
-          if (vid.live_status === 'VOD' || vid.live_status === 'LIVE') {
+          if (isLiveStatus(vid?.live_status)) {
             return 'live';
           }
         } catch (_) {}
@@ -620,7 +647,7 @@ const syncPostsBatchForPage = async (pageId, posts) => {
       if (isVideoId) {
         batchOps.push({
           method: 'GET',
-          relative_url: `${postIdStr}?fields=views,likes.summary(true),comments.summary(true)`,
+          relative_url: `${postIdStr}?fields=views,likes.summary(true),comments.summary(true),live_status`,
           name: `metrics_${idx}`,
         });
         batchOps.push({
@@ -650,6 +677,9 @@ const syncPostsBatchForPage = async (pageId, posts) => {
     }
 
     // Process results for each post in chunk
+    const interimResults = [];
+    const targetIdCheckIndices = [];
+
     chunk.forEach((p, idx) => {
       const metricsRes = batchRes[idx * 2];
       const insightsRes = batchRes[idx * 2 + 1];
@@ -662,7 +692,9 @@ const syncPostsBatchForPage = async (pageId, posts) => {
       let shares = p.shares_count || 0;
       let views = p.views_count ?? null;
       let reach = p.reach_count ?? null;
-      let mediaType = p.media_type || (isVideoId ? 'video' : 'photo');
+      const wasAlreadyLive = String(p.media_type || '').toLowerCase() === 'live';
+      let mediaType = wasAlreadyLive ? 'live' : (p.media_type || (isVideoId ? 'video' : 'photo'));
+      let candidateTargetId = null;
 
       if (metricsRes && metricsRes.code === 200 && metricsRes.data) {
         const md = metricsRes.data;
@@ -670,21 +702,35 @@ const syncPostsBatchForPage = async (pageId, posts) => {
           likes = md.likes?.summary?.total_count ?? likes;
           comments = md.comments?.summary?.total_count ?? comments;
           if (md.views != null) views = md.views;
+
+          if (isLiveStatus(md.live_status) || wasAlreadyLive) {
+            mediaType = 'live';
+          } else {
+            mediaType = 'video';
+          }
         } else {
           likes = md.reactions?.summary?.total_count ?? md.likes?.summary?.total_count ?? likes;
           comments = md.comments?.summary?.total_count ?? comments;
           shares = md.shares?.count ?? shares;
 
           const attMedia = md.attachments?.data?.[0]?.media_type?.toLowerCase();
+          const attType = md.attachments?.data?.[0]?.type?.toLowerCase();
           const statusType = md.status_type?.toLowerCase();
-          if (statusType === 'live_video_broadcast') {
+          const targetId = md.attachments?.data?.[0]?.target?.id || postIdStr.split('_')[1];
+
+          if (wasAlreadyLive || isLivePostSignal(statusType, attType)) {
             mediaType = 'live';
           } else if (attMedia === 'video' || statusType === 'added_video') {
             mediaType = 'video';
+            if (targetId) {
+              candidateTargetId = targetId;
+            }
           } else {
             mediaType = 'photo';
           }
         }
+      } else if (wasAlreadyLive) {
+        mediaType = 'live';
       }
 
       if (insightsRes && insightsRes.code === 200 && insightsRes.data) {
@@ -725,7 +771,7 @@ const syncPostsBatchForPage = async (pageId, posts) => {
         }
       }
 
-      results.push({
+      interimResults.push({
         post: p,
         likes,
         comments,
@@ -733,7 +779,37 @@ const syncPostsBatchForPage = async (pageId, posts) => {
         views,
         reach,
         mediaType,
+        candidateTargetId,
       });
+
+      if (candidateTargetId && mediaType !== 'live') {
+        targetIdCheckIndices.push(idx);
+      }
+    });
+
+    // Check targetIds for candidate videos to see if they are live streams
+    if (targetIdCheckIndices.length > 0) {
+      const liveCheckOps = targetIdCheckIndices.map((idx) => ({
+        method: 'GET',
+        relative_url: `${interimResults[idx].candidateTargetId}?fields=live_status`,
+      }));
+
+      try {
+        const liveBatchRes = await fbClient.postFbBatch(liveCheckOps, access_token);
+        targetIdCheckIndices.forEach((chunkIdx, opIdx) => {
+          const res = liveBatchRes[opIdx];
+          if (res && res.code === 200 && res.data && isLiveStatus(res.data.live_status)) {
+            interimResults[chunkIdx].mediaType = 'live';
+          }
+        });
+      } catch (liveErr) {
+        console.warn(`[syncPostsBatchForPage] Live status verification failed:`, liveErr.message);
+      }
+    }
+
+    interimResults.forEach((r) => {
+      delete r.candidateTargetId;
+      results.push(r);
     });
 
     if (i + chunkSize < posts.length) {

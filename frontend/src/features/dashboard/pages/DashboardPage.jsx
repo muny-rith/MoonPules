@@ -274,7 +274,12 @@ export const DashboardPage = () => {
   const handleSync = async () => {
     try {
       setIsSyncing(true);
-      await syncPosts();
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Phnom_Penh';
+      await syncPosts({
+        range: dateRange,
+        platform: platform !== 'all' ? platform : undefined,
+        timezone: tz,
+      });
       clearDashboardCache();
       await Promise.all([fetchDashboard(dateRange, platform, true), fetchProfit(dateRange, platform, true)]);
     } catch (err) {

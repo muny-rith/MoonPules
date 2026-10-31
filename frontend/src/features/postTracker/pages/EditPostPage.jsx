@@ -110,6 +110,7 @@ export const EditPostPage = () => {
   const [loadingPost, setLoadingPost] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [originalPost, setOriginalPost] = useState(null);
+  const [postFormat, setPostFormat] = useState('auto'); // 'auto' | 'photo' | 'video' | 'live'
 
   // Shared state
   const [pages, setPages] = useState([]);
@@ -232,6 +233,8 @@ export const EditPostPage = () => {
       setAdSpend(post.ad_spend !== undefined && post.ad_spend !== null ? parseFloat(post.ad_spend) : '');
       setAttributionWindow(post.attribution_window_days || 7);
       setFbPostId(post.fb_post_id || '');
+      const initialFormat = (post.media_type || '').toLowerCase();
+      setPostFormat(initialFormat === 'live' ? 'live' : (initialFormat === 'video' || initialFormat === 'reel' ? 'video' : (initialFormat === 'photo' ? 'photo' : 'auto')));
 
       if (post.media_url) {
         let rawUrls = [];
@@ -668,7 +671,9 @@ export const EditPostPage = () => {
         message: message.trim(),
         media_url: finalMediaUrl,
         thumbnail_url: finalThumbnailUrl,
-        media_type: isVideo ? 'video' : (finalMediaUrl ? 'photo' : 'status'),
+        media_type: postFormat !== 'auto'
+          ? postFormat
+          : (originalPost?.media_type === 'live' ? 'live' : (isVideo ? 'video' : (finalMediaUrl ? 'photo' : (originalPost?.media_type || 'status')))),
         content_cost: parseFloat(contentCost) || 0,
         ad_spend: parseFloat(adSpend) || 0,
         attribution_window_days: parseInt(attributionWindow, 10) || 7,
@@ -739,7 +744,9 @@ export const EditPostPage = () => {
         message: message ? message.trim() : (originalPost?.message || ''),
         media_url: finalMediaUrl,
         thumbnail_url: finalThumbnailUrl,
-        media_type: isVideo ? 'video' : (finalMediaUrl ? 'photo' : (originalPost?.media_type || 'status')),
+        media_type: postFormat !== 'auto'
+          ? postFormat
+          : (originalPost?.media_type === 'live' ? 'live' : (isVideo ? 'video' : (finalMediaUrl ? 'photo' : (originalPost?.media_type || 'status')))),
         scheduled_time: scheduledDateTime ? new Date(scheduledDateTime).toISOString() : originalPost?.scheduled_time,
         content_cost: parseFloat(contentCost) || 0,
         ad_spend: parseFloat(adSpend) || 0,
@@ -1044,6 +1051,37 @@ export const EditPostPage = () => {
                 />
               </div>
             )}
+          </div>
+
+          {/* 2.5 Card: Content Format */}
+          <div className="meta-card">
+            <div className="meta-card-header">
+              <h3 className="meta-card-title">Content Format</h3>
+              <p className="meta-card-desc">Format classification for tracking and analytics</p>
+            </div>
+            <div className="meta-target-switcher">
+              <button
+                type="button"
+                className={`meta-target-btn ${postFormat === 'photo' ? 'active' : ''}`}
+                onClick={() => setPostFormat('photo')}
+              >
+                <ImageIcon size={15} /> Photo / Album
+              </button>
+              <button
+                type="button"
+                className={`meta-target-btn ${postFormat === 'video' ? 'active' : ''}`}
+                onClick={() => setPostFormat('video')}
+              >
+                <Video size={15} /> Video / Reel
+              </button>
+              <button
+                type="button"
+                className={`meta-target-btn ${postFormat === 'live' ? 'active' : ''}`}
+                onClick={() => setPostFormat('live')}
+              >
+                <Radio size={15} /> Live Stream
+              </button>
+            </div>
           </div>
 
           {/* 3. Card: Media */}

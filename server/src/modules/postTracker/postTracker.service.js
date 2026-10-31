@@ -241,13 +241,15 @@ const markPost = async (postData) => {
 
   let isPublished = false;
   let createdTime = null;
-  let mediaType = 'photo';
+  let mediaType = postData.media_type || 'photo';
   let pictureUrl = null;
   try {
     const fbStatus = await facebookService.checkPublished(fb_post_id, page_id);
     isPublished = fbStatus.is_published;
     createdTime = fbStatus.created_time;
-    mediaType = fbStatus.media_type || 'photo';
+    if (!postData.media_type) {
+      mediaType = fbStatus.media_type || 'photo';
+    }
     pictureUrl = fbStatus.picture_url || null;
   } catch (err) {
     isPublished = false;
@@ -345,6 +347,30 @@ const getCoolPublishedPosts = async (startDays = 14, endDays = 30) => {
 };
 
 const getPostsForScopedSync = async (filters = {}) => {
+  const rawBrandIds = filters.brandIds || (filters.brandId && filters.brandId !== 'all' ? [filters.brandId] : null);
+  if (rawBrandIds && Array.isArray(rawBrandIds) && rawBrandIds.length > 0 && !filters.productIds) {
+    try {
+      const productsService = require('../products/products.service');
+      const products = await productsService.listProducts();
+      const numBrandIds = rawBrandIds.map(String);
+      const matchingProductIds = products
+        .filter((p) => p.brand_id && numBrandIds.includes(String(p.brand_id)))
+        .map((p) => p.id);
+      filters.productIds = matchingProductIds;
+    } catch (_) {}
+  }
+
+  // Handle range if passed (e.g. from Dashboard or statistics filters)
+  if (filters.range) {
+    if (filters.range === 'all_time' || filters.range === 'all') {
+      filters.isAllTime = true;
+    } else {
+      const bounds = getDateRangeBounds(filters.range, filters.timezone, filters.startDate, filters.endDate);
+      if (bounds.start) filters.startDate = bounds.start.toISOString();
+      if (bounds.end) filters.endDate = bounds.end.toISOString();
+    }
+  }
+
   return await repository.getPostsForScopedSync(filters);
 };
 

@@ -91,24 +91,63 @@ export const getBrandDetail = async (id, params = {}, forceRefresh = false) => {
 /**
  * Fetch combined brand details with caching
  */
-export const getCombinedBrandDetail = async (brandIds, forceRefresh = false) => {
-  const sortedIds = [...brandIds].sort();
-  const cacheKey = `brand_detail_combined_${sortedIds.join(',')}`;
+export const getCombinedBrandDetail = async (brandIds, params = {}, forceRefresh = false) => {
+  let actualParams = params;
+  let force = forceRefresh;
+  if (typeof params === 'boolean') {
+    force = params;
+    actualParams = {};
+  }
 
-  if (!forceRefresh) {
+  const sortedIds = [...brandIds].sort();
+  const cacheKey = getCacheKey(`brand_detail_combined_${sortedIds.join(',')}`, actualParams);
+
+  if (!force) {
     const cached = brandCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
       return cached.data;
     }
   }
 
-  // Fetch details for all selected brands in parallel (each utilizing its own cache)
-  const allDetails = await Promise.all(sortedIds.map((bId) => getBrandDetail(bId, forceRefresh)));
+  // Fetch details for all selected brands in parallel with actualParams and force flag
+  const allDetails = await Promise.all(sortedIds.map((bId) => getBrandDetail(bId, actualParams, force)));
   const validDetails = allDetails.filter(Boolean);
 
   if (validDetails.length === 0) {
     throw new Error('No brand details found for selected IDs');
   }
+
+  // Deduplicate products across combined brands by ID
+  const productMap = new Map();
+  validDetails.forEach((d) => {
+    (d.products || []).forEach((prod) => {
+      if (!productMap.has(String(prod.id))) {
+        productMap.set(String(prod.id), prod);
+      }
+    });
+  });
+  const combinedProducts = Array.from(productMap.values());
+
+  // Deduplicate posts across combined brands by ID
+  const postMap = new Map();
+  validDetails.forEach((d) => {
+    (d.posts || []).forEach((p) => {
+      if (!postMap.has(p.id)) {
+        postMap.set(p.id, {
+          ...p,
+          brand_name: p.brand_name || d.brand_name,
+          brand_id: p.brand_id || d.brand_id,
+        });
+      }
+    });
+  });
+  const combinedPosts = Array.from(postMap.values());
+
+  const totalLikes = combinedPosts.reduce((sum, p) => sum + (p.likes_count || 0), 0);
+  const totalComments = combinedPosts.reduce((sum, p) => sum + (p.comments_count || 0), 0);
+  const totalShares = combinedPosts.reduce((sum, p) => sum + (p.shares_count || 0), 0);
+  const totalViews = combinedPosts.reduce((sum, p) => sum + (p.views_count || 0), 0);
+  const totalReach = combinedPosts.reduce((sum, p) => sum + (p.reach_count || 0), 0);
 
   const combinedDetail = {
     brand_id: 'combined',
@@ -120,21 +159,15 @@ export const getCombinedBrandDetail = async (brandIds, forceRefresh = false) => 
       name: d.brand_name,
       url: d.logo_url || d.image_url,
     })),
-    total_products: validDetails.reduce((sum, d) => sum + (d.total_products || 0), 0),
-    total_posts: validDetails.reduce((sum, d) => sum + (d.total_posts || 0), 0),
-    total_likes: validDetails.reduce((sum, d) => sum + (d.total_likes || 0), 0),
-    total_comments: validDetails.reduce((sum, d) => sum + (d.total_comments || 0), 0),
-    total_shares: validDetails.reduce((sum, d) => sum + (d.total_shares || 0), 0),
-    total_views: validDetails.reduce((sum, d) => sum + (d.total_views || 0), 0),
-    total_reach: validDetails.reduce((sum, d) => sum + (d.total_reach || 0), 0),
-    products: validDetails.flatMap((d) => d.products || []),
-    posts: validDetails.flatMap((d) =>
-      (d.posts || []).map((p) => ({
-        ...p,
-        brand_name: p.brand_name || d.brand_name,
-        brand_id: p.brand_id || d.brand_id,
-      }))
-    ),
+    total_products: combinedProducts.length,
+    total_posts: combinedPosts.length,
+    total_likes: totalLikes,
+    total_comments: totalComments,
+    total_shares: totalShares,
+    total_views: totalViews,
+    total_reach: totalReach,
+    products: combinedProducts,
+    posts: combinedPosts,
   };
 
   brandCache.set(cacheKey, { data: combinedDetail, timestamp: Date.now() });

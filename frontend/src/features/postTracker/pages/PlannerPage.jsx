@@ -65,8 +65,8 @@ const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 // Helper to determine a post's content type
 const getPostContentType = (post) => {
   if (!post) return 'photo';
-  const m = (post.media_type || '').toLowerCase();
-  if (m === 'live') return 'live';
+  const m = (post.media_type || post.format || '').toLowerCase();
+  if (m === 'live' || m.includes('live')) return 'live';
   if (m === 'video' || m === 'reel') return 'video';
   if (m === 'photo') return 'photo';
   if (m === 'status' || m === 'text') return 'status';
