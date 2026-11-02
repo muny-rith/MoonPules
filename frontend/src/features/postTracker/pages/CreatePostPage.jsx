@@ -120,6 +120,8 @@ export const CreatePostPage = () => {
   const [productsList, setProductsList] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
 
+  const [postFormat, setPostFormat] = useState('auto'); // 'auto' | 'photo' | 'video' | 'live'
+
   // Attribution Target: 'product' | 'brand'
   const [trackingTarget, setTrackingTarget] = useState('product');
   const [brandId, setBrandId] = useState('');
