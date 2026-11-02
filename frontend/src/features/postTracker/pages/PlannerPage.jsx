@@ -19,11 +19,15 @@ import {
   Image,
   Video,
   Radio,
-  FileText
+  FileText,
+  Target
 } from 'lucide-react';
 import { FaFacebook } from 'react-icons/fa';
 import { usePostTracker } from '../hooks/usePostTracker';
 import * as api from '../api/postTrackerApi';
+import { fetchBrands } from '../../product/services/productService';
+import * as missionApi from '../../missions/api/missionApi';
+import { MissionProgressCard, SetMissionModal } from '../../missions';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
 import { resolveAllMediaUrls, isVideoMedia } from '../../../shared/utils/mediaUrl';
 import { getFacebookPostUrl } from '../../../shared/utils/facebookUrl';
@@ -89,6 +93,7 @@ export const PlannerPage = () => {
   const { filters, setFilter } = useUrlFilters({
     view: 'week',
     page_id: '',
+    brand_id: '',
     type: 'all',
     search: '',
   }, {
@@ -99,12 +104,20 @@ export const PlannerPage = () => {
 
   const viewMode = filters.view || 'week';
   const selectedPageFilter = filters.page_id || '';
+  const brandFilter = filters.brand_id || '';
   const contentTypeFilter = filters.type || 'all';
   const searchQuery = filters.search || '';
 
   const setViewMode = (mode) => setFilter('view', mode);
+  const setBrandFilter = (bId) => setFilter('brand_id', bId);
   const setContentTypeFilter = (type) => setFilter('type', type);
   const setSearchQuery = (q) => setFilter('search', q);
+
+  // Brand and Mission Blueprint states
+  const [brands, setBrands] = useState([]);
+  const [activeMission, setActiveMission] = useState(null);
+  const [calendarSlots, setCalendarSlots] = useState([]);
+  const [isMissionModalOpen, setIsMissionModalOpen] = useState(false);
 
   // Navigation states
   const [currentWeekStart, setCurrentWeekStart] = useState(() => getWeekMonday(new Date()));
@@ -275,6 +288,12 @@ export const PlannerPage = () => {
         if (type !== contentTypeFilter) return false;
       }
 
+      // Brand filter
+      if (brandFilter && brandFilter !== 'all') {
+        const postBrandId = post.brand_id ? String(post.brand_id) : '';
+        if (postBrandId !== String(brandFilter)) return false;
+      }
+
       // Search query
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
@@ -376,6 +395,85 @@ export const PlannerPage = () => {
       return { title, range: '' };
     }
   }, [viewMode, weekDays, currentMonthDate]);
+
+  // Load brands list on mount
+  useEffect(() => {
+    let isMounted = true;
+    fetchBrands().then((list) => {
+      if (isMounted) setBrands(list || []);
+    }).catch(console.error);
+    return () => { isMounted = false; };
+  }, []);
+
+  const activeMonthNumber = useMemo(() => {
+    if (viewMode === 'week' && weekDays[0]?.date) {
+      return weekDays[0].date.getMonth() + 1;
+    }
+    return currentMonthDate.getMonth() + 1;
+  }, [viewMode, weekDays, currentMonthDate]);
+
+  const activeYearNumber = useMemo(() => {
+    if (viewMode === 'week' && weekDays[0]?.date) {
+      return weekDays[0].date.getFullYear();
+    }
+    return currentMonthDate.getFullYear();
+  }, [viewMode, weekDays, currentMonthDate]);
+
+  const activeMonthName = useMemo(() => {
+    const d = new Date(activeYearNumber, activeMonthNumber - 1, 1);
+    return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  }, [activeMonthNumber, activeYearNumber]);
+
+  const selectedBrand = useMemo(() => {
+    return brands.find((b) => String(b.brand_id || b.id) === String(brandFilter)) || null;
+  }, [brands, brandFilter]);
+
+  const brandLabel = useMemo(() => {
+    if (selectedBrand) return selectedBrand.brand_name || selectedBrand.name;
+    if (brandFilter && brandFilter !== 'all') return `Brand #${brandFilter}`;
+    return 'All Brands';
+  }, [selectedBrand, brandFilter]);
+
+  // Load mission & slots whenever month, year, or brand changes
+  const loadMissionData = async () => {
+    try {
+      const slotsData = await missionApi.getCalendarSlots(brandFilter || 'all', activeMonthNumber, activeYearNumber);
+      setCalendarSlots(slotsData || []);
+
+      if (brandFilter && brandFilter !== 'all') {
+        const m = await missionApi.getMission(brandFilter, activeMonthNumber, activeYearNumber);
+        setActiveMission(m);
+      } else {
+        if (brands.length > 0) {
+          const kfree = brands.find((b) => (b.brand_name || b.name || '').toUpperCase().includes('FREE'));
+          const targetId = kfree ? (kfree.brand_id || kfree.id) : (brands[0].brand_id || brands[0].id);
+          const m = await missionApi.getMission(targetId, activeMonthNumber, activeYearNumber);
+          setActiveMission(m);
+        } else {
+          setActiveMission(null);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load mission data:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadMissionData();
+  }, [brandFilter, activeMonthNumber, activeYearNumber, brands]);
+
+  // Group slots by planned_date_str
+  const slotsByDate = useMemo(() => {
+    const map = new Map();
+    calendarSlots.forEach((slot) => {
+      const key = slot.planned_date_str;
+      if (key) {
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(slot);
+      }
+    });
+    return map;
+  }, [calendarSlots]);
 
   return (
     <div className="page-container planner-container">
@@ -535,6 +633,66 @@ export const PlannerPage = () => {
             )}
           </div>
 
+          {/* Brand Filter Dropdown */}
+          <div className="planner-dropdown-group">
+            <button
+              type="button"
+              onClick={() => setOpenDropdown(openDropdown === 'brand' ? null : 'brand')}
+              className={`planner-dropdown-btn ${brandFilter && brandFilter !== 'all' ? 'active-filter' : ''}`}
+              title="Filter by Brand"
+            >
+              <Tag size={13} color="#2563eb" className="planner-dropdown-btn-icon" />
+              <span className="planner-dropdown-label">{brandLabel}</span>
+              <ChevronDown
+                size={13}
+                className="planner-dropdown-chevron"
+                style={{
+                  transform: openDropdown === 'brand' ? 'rotate(180deg)' : 'none',
+                }}
+              />
+            </button>
+
+            {openDropdown === 'brand' && (
+              <div className="planner-dropdown-menu">
+                <div
+                  onClick={() => {
+                    setBrandFilter('');
+                    setOpenDropdown(null);
+                  }}
+                  className={`planner-dropdown-item ${!brandFilter || brandFilter === 'all' ? 'selected' : ''}`}
+                >
+                  <Tag size={13} className="planner-dropdown-item-icon" />
+                  <span className="planner-dropdown-item-text">All Brands</span>
+                  {(!brandFilter || brandFilter === 'all') && <Check size={14} className="planner-dropdown-check" />}
+                </div>
+
+                {brands.length > 0 && <div className="planner-dropdown-divider" />}
+
+                {brands.map((b) => {
+                  const bId = String(b.brand_id || b.id);
+                  const bName = b.brand_name || b.name || `Brand #${bId}`;
+                  const isSelected = String(brandFilter) === bId;
+
+                  return (
+                    <div
+                      key={bId}
+                      onClick={() => {
+                        setBrandFilter(bId);
+                        setOpenDropdown(null);
+                      }}
+                      className={`planner-dropdown-item ${isSelected ? 'selected' : ''}`}
+                      title={bName}
+                    >
+                      <Tag size={13} color="#2563eb" className="planner-dropdown-item-icon" />
+                      <span className="planner-dropdown-item-text">{bName}</span>
+                      {isSelected && <Check size={14} className="planner-dropdown-check" />}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           {/* Content Type Filter Dropdown */}
           <div className="planner-dropdown-group">
             <button
@@ -583,6 +741,14 @@ export const PlannerPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Brand Mission & Schedule Blueprint Banner */}
+      <MissionProgressCard
+        mission={activeMission}
+        brandName={brandLabel}
+        monthName={activeMonthName}
+        onOpenModal={() => setIsMissionModalOpen(true)}
+      />
 
       {/* ====================================================================
           WEEK VIEW: 7 Unified Columns with Pinned Sticky Headers (Full Page Scroll)
@@ -646,6 +812,8 @@ export const PlannerPage = () => {
             <div className="planner-week-body-grid">
               {weekDays.map((day) => {
                 const dayPosts = postsByDate.get(day.dateKey) || [];
+                const daySlots = slotsByDate.get(day.dateKey) || [];
+                const uncompletedSlots = daySlots.filter((s) => s.computed_status !== 'completed');
 
                 return (
                   <div
@@ -658,7 +826,7 @@ export const PlannerPage = () => {
                         <div className="planner-skeleton-thumb" />
                         <div className="planner-skeleton-line" />
                       </div>
-                    ) : dayPosts.length === 0 ? (
+                    ) : (dayPosts.length === 0 && uncompletedSlots.length === 0) ? (
                       <div
                         className="planner-empty-day"
                         onClick={() => navigate(`/planner/create?date=${day.dateKey}`, { state: { from: location.pathname + location.search } })}
@@ -667,7 +835,65 @@ export const PlannerPage = () => {
                         <span>Schedule post</span>
                       </div>
                     ) : (
-                      dayPosts.map((post) => {
+                      <>
+                        {/* Planned Blueprint Slots for this day */}
+                        {uncompletedSlots.map((slot, sIdx) => {
+                          const isMissed = slot.computed_status === 'missed';
+                          return (
+                            <div
+                              key={`planned-${slot.id || sIdx}`}
+                              style={{
+                                border: `2px dashed ${isMissed ? '#fca5a5' : '#93c5fd'}`,
+                                backgroundColor: isMissed ? '#fef2f2' : '#f0f9ff',
+                                borderRadius: '8px',
+                                padding: '8px 10px',
+                                marginBottom: '8px',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                              onClick={() => navigate(`/planner/create?date=${day.dateKey}`, {
+                                state: {
+                                  from: location.pathname + location.search,
+                                  prefillBrandId: slot.brand_id,
+                                  prefillDate: slot.planned_date_str,
+                                  prefillType: slot.content_type,
+                                }
+                              })}
+                              title="Click to create post for this planned day"
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: '11px', fontWeight: '800', color: isMissed ? '#b91c1c' : '#0369a1', textTransform: 'uppercase' }}>
+                                  🎯 {slot.brand_name || 'Planned'} {slot.content_type === 'live' ? 'Live Stream' : (slot.content_type === 'video' ? 'Video' : 'Poster')}
+                                </span>
+                                <span style={{
+                                  fontSize: '10px',
+                                  fontWeight: '700',
+                                  color: isMissed ? '#dc2626' : '#0284c7',
+                                  backgroundColor: isMissed ? '#fee2e2' : '#e0f2fe',
+                                  padding: '1px 5px',
+                                  borderRadius: '4px'
+                                }}>
+                                  {isMissed ? 'Missed' : 'Planned'}
+                                </span>
+                              </div>
+                              {slot.time_window && (
+                                <div style={{ fontSize: '11px', fontWeight: '600', color: '#475569', marginTop: '3px' }}>
+                                  ⏰ {slot.time_window}
+                                </div>
+                              )}
+                              {slot.notes && (
+                                <div style={{ fontSize: '11px', color: '#64748b', fontStyle: 'italic', marginTop: '2px' }}>
+                                  "{slot.notes}"
+                                </div>
+                              )}
+                              <div style={{ fontSize: '11px', fontWeight: '700', color: '#2563eb', marginTop: '5px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                <Plus size={12} /> Create post
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {dayPosts.map((post) => {
                         const allMedia = resolveAllMediaUrls(post.media_url);
                         const postDateStr = post.published_time || post.scheduled_time || post.created_at;
                         const timeStr = formatTime(postDateStr);
@@ -767,7 +993,8 @@ export const PlannerPage = () => {
                             </div>
                           </div>
                         );
-                      })
+                      })}
+                      </>
                     )}
                   </div>
                 );
@@ -793,6 +1020,8 @@ export const PlannerPage = () => {
           <div className="planner-month-grid">
             {monthDays.map((cell, idx) => {
               const cellPosts = postsByDate.get(cell.dateKey) || [];
+              const cellSlots = slotsByDate.get(cell.dateKey) || [];
+              const uncompletedCellSlots = cellSlots.filter((s) => s.computed_status !== 'completed');
 
               return (
                 <div
@@ -802,14 +1031,46 @@ export const PlannerPage = () => {
                 >
                   <div className="planner-month-cell-header">
                     <span className="planner-month-day-num">{cell.dayNumber}</span>
-                    {cellPosts.length > 0 && (
+                    {(cellPosts.length > 0 || uncompletedCellSlots.length > 0) && (
                       <span className="planner-day-count-badge">
-                        {cellPosts.length}
+                        {cellPosts.length + uncompletedCellSlots.length}
                       </span>
                     )}
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto', maxHeight: '110px' }}>
+                    {/* Uncompleted Planned Target Slots in Month View */}
+                    {uncompletedCellSlots.map((slot, sIdx) => {
+                      const isMissed = slot.computed_status === 'missed';
+                      return (
+                        <div
+                          key={`month-slot-${slot.id || sIdx}`}
+                          className="planner-month-post-chip"
+                          style={{
+                            backgroundColor: isMissed ? '#fef2f2' : '#eff6ff',
+                            border: `1px dashed ${isMissed ? '#f87171' : '#60a5fa'}`,
+                            color: isMissed ? '#b91c1c' : '#1d4ed8',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => navigate(`/planner/create?date=${cell.dateKey}`, {
+                            state: {
+                              from: location.pathname + location.search,
+                              prefillBrandId: slot.brand_id,
+                              prefillDate: slot.planned_date_str,
+                              prefillType: slot.content_type,
+                            }
+                          })}
+                          title={`Planned ${slot.content_type}: Click to create post`}
+                        >
+                          <Target size={11} style={{ flexShrink: 0, color: isMissed ? '#ef4444' : '#2563eb' }} />
+                          <span className="planner-chip-text" style={{ fontWeight: '700' }}>
+                            🎯 {slot.content_type === 'live' ? 'Live' : (slot.content_type === 'video' ? 'Video' : 'Poster')}
+                            {slot.time_window ? ` (${slot.time_window})` : ''}
+                          </span>
+                        </div>
+                      );
+                    })}
+
                     {cellPosts.slice(0, 3).map((post) => {
                       const allMedia = resolveAllMediaUrls(post.media_url);
                       const thumb = post.thumbnail_url || allMedia[0] || post.product_image;
@@ -859,6 +1120,18 @@ export const PlannerPage = () => {
           </div>
         </div>
       )}
+
+      {/* Set Mission & Blueprint Modal */}
+      <SetMissionModal
+        isOpen={isMissionModalOpen}
+        onClose={() => setIsMissionModalOpen(false)}
+        initialMonth={activeMonthNumber}
+        initialYear={activeYearNumber}
+        initialBrandId={brandFilter || (brands[0] ? String(brands[0].brand_id || brands[0].id) : '')}
+        onSaved={() => {
+          loadMissionData();
+        }}
+      />
     </div>
   );
 };

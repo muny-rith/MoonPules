@@ -7,6 +7,7 @@ import { getBrandStats, getCachedBrandStats } from '../services/brandStatsServic
 import { SortableHeader } from '../../../shared/components/ui/SortableHeader';
 import { useSortableTable } from '../../../shared/hooks/useSortableTable';
 import { DateRangeFilter, isPostInDateRange } from '../../../shared/components/ui/DateRangeFilter';
+import { MonthlyMissionAuditTable } from '../../missions';
 
 const BrandStatusFilterDropdown = ({ value, onChange, activeCount = 0, totalCount = 0, inactiveCount = 0, minWidth = '150px' }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -434,6 +435,9 @@ export const BrandStatsPage = () => {
           <span>Error loading stats: {error}</span>
         </div>
       )}
+
+      {/* End-of-Month Brand Mission Audit Section */}
+      <MonthlyMissionAuditTable />
 
       {/* UNIFIED TABLE CARD WITH TOOLBAR HEADER (Like Tasks/Pic 2) */}
       <div className="table-card" style={{

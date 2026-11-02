@@ -13,6 +13,7 @@ const profitRoutes = require('./modules/profit/profit.routes');
 const settingsRoutes = require('./modules/settings/settings.routes');
 const hashtagsRoutes = require('./modules/hashtags/hashtags.routes');
 const webhookRoutes = require('./modules/webhook/webhook.routes');
+const missionsRoutes = require('./modules/missions/missions.routes');
 
 const path = require('path');
 
@@ -49,6 +50,7 @@ app.use('/api/statistics', statisticsRoutes);
 app.use('/api/profit', profitRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/hashtags', hashtagsRoutes);
+app.use('/api/missions', missionsRoutes);
 
 // Error Handling
 app.use(errorHandler);

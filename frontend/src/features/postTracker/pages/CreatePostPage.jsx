@@ -120,8 +120,8 @@ export const CreatePostPage = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
 
     // Attribution Target: 'product' | 'brand'
-  const [trackingTarget, setTrackingTarget] = useState('product');
-  const [brandId, setBrandId] = useState('');
+  const [trackingTarget, setTrackingTarget] = useState(() => (location.state?.prefillBrandId ? 'brand' : 'product'));
+  const [brandId, setBrandId] = useState(() => (location.state?.prefillBrandId ? String(location.state.prefillBrandId) : ''));
   const [selectedBrand, setSelectedBrand] = useState(null);
 
   // Costs
@@ -143,8 +143,9 @@ export const CreatePostPage = () => {
   const dragItemIndexRef = useRef(null);
   const dragOverItemIndexRef = useRef(null);
   const editItemIndexRef = useRef(null);
-  const [publishMode, setPublishMode] = useState(() => (dateParam || isFromPlanner ? 'schedule' : 'now'));
-  const [scheduledDateTime, setScheduledDateTime] = useState(() => (dateParam ? `${dateParam}T09:00` : ''));
+  const initialDateStr = dateParam || location.state?.prefillDate || '';
+  const [publishMode, setPublishMode] = useState(() => (initialDateStr || isFromPlanner ? 'schedule' : 'now'));
+  const [scheduledDateTime, setScheduledDateTime] = useState(() => (initialDateStr ? (initialDateStr.length === 10 ? `${initialDateStr}T09:00` : initialDateStr.slice(0, 16)) : ''));
   const fileInputRef = useRef(null);
 
   // Legacy FB Post tracking
