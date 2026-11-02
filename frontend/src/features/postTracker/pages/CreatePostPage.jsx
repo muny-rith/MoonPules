@@ -41,7 +41,6 @@ import {
   Copy,
   Package,
   Award,
-  Radio,
   GripVertical,
   Play,
   Video,
@@ -120,9 +119,7 @@ export const CreatePostPage = () => {
   const [productsList, setProductsList] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
 
-  const [postFormat, setPostFormat] = useState('auto'); // 'auto' | 'photo' | 'video' | 'live'
-
-  // Attribution Target: 'product' | 'brand'
+    // Attribution Target: 'product' | 'brand'
   const [trackingTarget, setTrackingTarget] = useState('product');
   const [brandId, setBrandId] = useState('');
   const [selectedBrand, setSelectedBrand] = useState(null);
@@ -826,9 +823,7 @@ export const CreatePostPage = () => {
           }
         }
         const hasVideo = mediaSource === 'upload' && mediaItems.some((m) => m.isVideo || isVideoMedia(m.previewUrl) || isVideoMedia(m.serverUrl));
-        const finalMediaType = postFormat !== 'auto'
-          ? postFormat
-          : (trackingTarget === 'brand' && hasVideo ? 'live' : (hasVideo ? 'video' : (finalMediaUrl ? 'photo' : 'status')));
+        const finalMediaType = hasVideo ? 'video' : (finalMediaUrl ? 'photo' : 'status');
 
         let finalThumbnailUrl = null;
         if (hasVideo && videoCustomThumb) {
@@ -888,7 +883,7 @@ export const CreatePostPage = () => {
           brand_id: targetBrandId,
           page_id: parseInt(targetPageId, 10),
           fb_post_id: fbPostId,
-          media_type: postFormat !== 'auto' ? postFormat : (trackingTarget === 'brand' ? 'live' : undefined),
+          
           content_cost: parseFloat(contentCost) || 0,
           ad_spend: parseFloat(adSpend) || 0,
           attribution_window_days: parseInt(attributionWindow, 10) || 7,
@@ -1198,44 +1193,6 @@ export const CreatePostPage = () => {
                 />
               </div>
             )}
-          </div>
-
-          {/* 3.5 Card: Content Format */}
-          <div className="meta-card">
-            <div className="meta-card-header">
-              <h3 className="meta-card-title">Content Format</h3>
-              <p className="meta-card-desc">Format classification for tracking and analytics (defaults to Auto-Detect)</p>
-            </div>
-            <div className="meta-target-switcher">
-              <button
-                type="button"
-                className={`meta-target-btn ${postFormat === 'auto' ? 'active' : ''}`}
-                onClick={() => setPostFormat('auto')}
-              >
-                <Layers size={15} /> Auto Detect
-              </button>
-              <button
-                type="button"
-                className={`meta-target-btn ${postFormat === 'photo' ? 'active' : ''}`}
-                onClick={() => setPostFormat('photo')}
-              >
-                <ImageIcon size={15} /> Photo / Album
-              </button>
-              <button
-                type="button"
-                className={`meta-target-btn ${postFormat === 'video' ? 'active' : ''}`}
-                onClick={() => setPostFormat('video')}
-              >
-                <Video size={15} /> Video / Reel
-              </button>
-              <button
-                type="button"
-                className={`meta-target-btn ${postFormat === 'live' ? 'active' : ''}`}
-                onClick={() => setPostFormat('live')}
-              >
-                <Radio size={15} /> Live Stream
-              </button>
-            </div>
           </div>
 
           {/* 4. Card: Media */}
