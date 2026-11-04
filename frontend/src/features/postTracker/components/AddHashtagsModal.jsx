@@ -11,6 +11,7 @@ import {
   Edit3,
 } from 'lucide-react';
 import * as api from '../api/postTrackerApi';
+import { Modal, Button, Input } from '../../../shared/components/ui';
 
 export const AddHashtagsModal = ({
   isOpen,
@@ -247,128 +248,21 @@ export const AddHashtagsModal = ({
   ];
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        backdropFilter: 'blur(3px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 9999,
-        padding: '16px',
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '12px',
-          width: '100%',
-          maxWidth: '460px',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          maxHeight: '90vh',
-          border: '1px solid #e2e8f0',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div
-          style={{
-            padding: '16px 20px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            borderBottom: '1px solid #f1f5f9',
-            position: 'relative',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '0 auto' }}>
-            <Hash size={18} style={{ color: '#0284c7' }} />
-            <h3
-              style={{
-                margin: 0,
-                fontSize: '17px',
-                fontWeight: 700,
-                color: '#0f172a',
-              }}
-            >
-              Add Hashtags
-            </h3>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              border: 'none',
-              background: 'transparent',
-              cursor: 'pointer',
-              color: '#64748b',
-              padding: '4px',
-              borderRadius: '6px',
-              position: 'absolute',
-              right: '18px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <X size={20} />
-          </button>
-        </div>
+    <Modal isOpen={isOpen} onClose={onClose} size="md">
+      <Modal.Header title="Add Hashtags" onClose={onClose} />
 
+      <Modal.Body style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column' }}>
         {/* Search Bar Input */}
-        <div style={{ padding: '14px 20px 10px 20px' }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              border: '1.5px solid #0284c7',
-              borderRadius: '8px',
-              padding: '8px 12px',
-              background: '#ffffff',
-            }}
-          >
-            <Search size={18} style={{ color: '#64748b', flexShrink: 0 }} />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search hashtags or notes..."
-              style={{
-                border: 'none',
-                outline: 'none',
-                width: '100%',
-                fontSize: '14px',
-                color: '#0f172a',
-              }}
-              autoFocus
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                style={{
-                  border: 'none',
-                  background: 'transparent',
-                  cursor: 'pointer',
-                  color: '#94a3b8',
-                  padding: '2px',
-                  display: 'flex',
-                }}
-              >
-                <X size={16} />
-              </button>
-            )}
-          </div>
+        <div style={{ marginBottom: '14px' }}>
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onClear={() => setSearchQuery('')}
+            isClearable
+            leadIcon={<Search size={16} />}
+            placeholder="Search hashtags or notes..."
+            autoFocus
+          />
         </div>
 
         {/* 3 Option Tabs: All | Recent | Saved */}
@@ -377,7 +271,8 @@ export const AddHashtagsModal = ({
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            padding: '0 20px 12px 20px',
+            marginBottom: '12px',
+            paddingBottom: '12px',
             borderBottom: '1px solid #f1f5f9',
           }}
         >
@@ -703,54 +598,26 @@ export const AddHashtagsModal = ({
           )}
         </div>
 
-        {/* Modal Footer */}
-        <div
-          style={{
-            padding: '14px 20px',
-            borderTop: '1px solid #f1f5f9',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: '10px',
-            background: '#ffffff',
-          }}
+      </Modal.Body>
+
+      {/* Modal Footer */}
+      <Modal.Footer>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onClose}
         >
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              padding: '8px 18px',
-              borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              background: '#ffffff',
-              color: '#334155',
-              fontSize: '14px',
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleAddSelected}
-            disabled={selectedTags.length === 0}
-            style={{
-              padding: '8px 24px',
-              borderRadius: '6px',
-              border: 'none',
-              background: selectedTags.length > 0 ? '#1877f2' : '#bfdbfe',
-              color: '#ffffff',
-              fontSize: '14px',
-              fontWeight: 600,
-              cursor: selectedTags.length > 0 ? 'pointer' : 'not-allowed',
-              transition: 'background 0.15s ease',
-            }}
-          >
-            {selectedTags.length > 0 ? `Add (${selectedTags.length})` : 'Add'}
-          </button>
-        </div>
-      </div>
-    </div>
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          variant="primary"
+          onClick={handleAddSelected}
+          disabled={selectedTags.length === 0}
+        >
+          {selectedTags.length > 0 ? `Add (${selectedTags.length})` : 'Add'}
+        </Button>
+      </Modal.Footer>
+    </Modal>
   );
 };

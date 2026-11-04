@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Plus, Trash2, Calendar, Clock, Tag, Sparkles, Check, AlertCircle } from 'lucide-react';
 import * as productService from '../../product/services/productService';
 import * as missionApi from '../api/missionApi';
+import { Modal, Button, Select, Input } from '../../../shared/components/ui';
 
 export const SetMissionModal = ({
   isOpen,
@@ -42,6 +43,28 @@ export const SetMissionModal = ({
     if (isOpen) load();
     return () => { isMounted = false; };
   }, [isOpen]);
+
+  const brandOptions = useMemo(() => {
+    return brands.map((b) => ({
+      value: String(b.brand_id || b.id),
+      label: b.brand_name || b.name || `Brand #${b.brand_id || b.id}`,
+    }));
+  }, [brands]);
+
+  const monthOptions = useMemo(() => [
+    { value: '1', label: 'January' },
+    { value: '2', label: 'February' },
+    { value: '3', label: 'March' },
+    { value: '4', label: 'April' },
+    { value: '5', label: 'May' },
+    { value: '6', label: 'June' },
+    { value: '7', label: 'July' },
+    { value: '8', label: 'August' },
+    { value: '9', label: 'September' },
+    { value: '10', label: 'October' },
+    { value: '11', label: 'November' },
+    { value: '12', label: 'December' },
+  ], []);
 
   // Load existing mission for selected brand + month + year
   useEffect(() => {
@@ -242,72 +265,44 @@ export const SetMissionModal = ({
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
                   Target Brand
                 </label>
-                <select
+                <Select
                   value={selectedBrandId}
-                  onChange={(e) => setSelectedBrandId(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '9px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '13px',
-                    backgroundColor: '#fff',
-                    outline: 'none'
+                  options={brandOptions}
+                  onChange={(e) => {
+                    const val = e && typeof e === 'object' && 'target' in e ? e.target.value : e;
+                    setSelectedBrandId(val);
                   }}
-                  required
-                >
-                  <option value="" disabled>Select Brand...</option>
-                  {brands.map((b) => {
-                    const id = String(b.brand_id || b.id);
-                    const name = b.brand_name || b.name || `Brand #${id}`;
-                    return <option key={id} value={id}>{name}</option>;
-                  })}
-                </select>
+                  placeholder="Select Brand..."
+                />
               </div>
 
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
                   Month
                 </label>
-                <select
-                  value={month}
-                  onChange={(e) => setMonth(parseInt(e.target.value, 10))}
-                  style={{
-                    width: '100%',
-                    padding: '9px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '13px',
-                    backgroundColor: '#fff'
+                <Select
+                  value={String(month)}
+                  options={monthOptions}
+                  onChange={(e) => {
+                    const val = e && typeof e === 'object' && 'target' in e ? e.target.value : e;
+                    setMonth(parseInt(val, 10));
                   }}
-                >
-                  {[
-                    'January', 'February', 'March', 'April', 'May', 'June',
-                    'July', 'August', 'September', 'October', 'November', 'December'
-                  ].map((mName, i) => (
-                    <option key={i + 1} value={i + 1}>{mName}</option>
-                  ))}
-                </select>
+                  placeholder="Select Month..."
+                />
               </div>
 
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
                   Year
                 </label>
-                <input
+                <Input
                   type="number"
                   value={year}
                   onChange={(e) => setYear(parseInt(e.target.value, 10))}
                   min="2024"
                   max="2030"
-                  style={{
-                    width: '100%',
-                    padding: '9px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '13px',
-                    boxSizing: 'border-box'
-                  }}
+                  className="m-0"
+                  style={{ height: '38px' }}
                 />
               </div>
             </div>
@@ -326,26 +321,15 @@ export const SetMissionModal = ({
               <span style={{ fontSize: '12.5px', color: '#64748b' }}>
                 Need the 7-day schedule like your photo?
               </span>
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="sm"
+                startIcon={<Sparkles size={14} color="#0284c7" />}
                 onClick={handleLoadOctoberPreset}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  backgroundColor: '#f1f5f9',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '6px',
-                  padding: '6px 12px',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  color: '#1e293b',
-                  cursor: 'pointer'
-                }}
+                style={{ height: '32px', fontSize: '12px' }}
               >
-                <Sparkles size={14} color="#0284c7" />
                 Fill October K-FREE Calendar
-              </button>
+              </Button>
             </div>
 
             {/* Slots List */}
@@ -354,25 +338,15 @@ export const SetMissionModal = ({
                 <span style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>
                   Planned Posting Days ({slots.length} slots)
                 </span>
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  startIcon={<Plus size={14} />}
                   onClick={handleAddSlot}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '5px 10px',
-                    backgroundColor: '#eff6ff',
-                    color: '#2563eb',
-                    border: '1px solid #bfdbfe',
-                    borderRadius: '6px',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
+                  style={{ height: '30px', fontSize: '12px', padding: '0 10px' }}
                 >
-                  <Plus size={14} /> Add Planned Day
-                </button>
+                  Add Planned Day
+                </Button>
               </div>
 
               {slots.length === 0 ? (
@@ -512,42 +486,21 @@ export const SetMissionModal = ({
             gap: '10px',
             backgroundColor: '#f8fafc'
           }}>
-            <button
-              type="button"
+            <Button
+              variant="outline"
               onClick={onClose}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: '#ffffff',
-                color: '#475569',
-                fontSize: '13px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              disabled={saving}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
+              variant="primary"
+              loading={saving}
               disabled={saving}
-              style={{
-                padding: '8px 20px',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: '#2563eb',
-                color: '#ffffff',
-                fontSize: '13px',
-                fontWeight: '600',
-                cursor: saving ? 'not-allowed' : 'pointer',
-                opacity: saving ? 0.7 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
             >
-              {saving ? 'Saving...' : 'Save Schedule Blueprint'}
-            </button>
+              Save Schedule Blueprint
+            </Button>
           </div>
         </form>
       </div>

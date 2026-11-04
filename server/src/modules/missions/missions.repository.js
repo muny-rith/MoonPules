@@ -155,6 +155,97 @@ const saveMissionSlots = async (missionId, slots = []) => {
 };
 
 /**
+ * Get slot by ID with mission info
+ */
+const getSlotById = async (slotId) => {
+  const result = await db.query(
+    `SELECT s.*, m.brand_id, m.month, m.year 
+     FROM tb_brand_mission_slot s
+     JOIN tb_brand_mission m ON m.id = s.mission_id
+     WHERE s.id = $1`,
+    [slotId]
+  );
+  return result.rows[0] || null;
+};
+
+/**
+ * Recalculate master mission target counts based on current slots
+ */
+const recalculateMissionTargets = async (missionId) => {
+  await db.query(
+    `UPDATE tb_brand_mission m
+     SET target_posters = (SELECT COUNT(*) FROM tb_brand_mission_slot WHERE mission_id = m.id AND content_type = 'photo'),
+         target_live_streams = (SELECT COUNT(*) FROM tb_brand_mission_slot WHERE mission_id = m.id AND content_type = 'live'),
+         target_videos = (SELECT COUNT(*) FROM tb_brand_mission_slot WHERE mission_id = m.id AND content_type = 'video'),
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = $1`,
+    [missionId]
+  );
+};
+
+/**
+ * Update single slot fields (date, type, notes, etc.)
+ */
+const updateSlot = async (slotId, data) => {
+  const fields = [];
+  const values = [];
+  let idx = 1;
+
+  if (data.planned_date !== undefined) {
+    fields.push(`planned_date = $${idx++}`);
+    values.push(data.planned_date);
+  }
+  if (data.content_type !== undefined) {
+    fields.push(`content_type = $${idx++}`);
+    values.push(data.content_type);
+  }
+  if (data.time_window !== undefined) {
+    fields.push(`time_window = $${idx++}`);
+    values.push(data.time_window);
+  }
+  if (data.notes !== undefined) {
+    fields.push(`notes = $${idx++}`);
+    values.push(data.notes);
+  }
+  if (data.slot_status !== undefined) {
+    fields.push(`slot_status = $${idx++}`);
+    values.push(data.slot_status);
+  }
+
+  if (fields.length === 0) return getSlotById(slotId);
+
+  values.push(slotId);
+  const queryStr = `UPDATE tb_brand_mission_slot SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`;
+  const result = await db.query(queryStr, values);
+  return result.rows[0] || null;
+};
+
+/**
+ * Create a single deliverable slot
+ */
+const createSlot = async (missionId, { planned_date, content_type = 'photo', time_window = null, notes = null }) => {
+  const result = await db.query(
+    `INSERT INTO tb_brand_mission_slot (mission_id, planned_date, content_type, time_window, notes, slot_status)
+     VALUES ($1, $2, $3, $4, $5, 'planned')
+     RETURNING *`,
+    [missionId, planned_date, content_type, time_window, notes]
+  );
+  await recalculateMissionTargets(missionId);
+  return result.rows[0];
+};
+
+/**
+ * Delete a single deliverable slot
+ */
+const deleteSlot = async (slotId) => {
+  const slot = await getSlotById(slotId);
+  if (!slot) return null;
+  await db.query(`DELETE FROM tb_brand_mission_slot WHERE id = $1`, [slotId]);
+  await recalculateMissionTargets(slot.mission_id);
+  return slot;
+};
+
+/**
  * Get published/scheduled posts for brand in given month/year
  */
 const getBrandPostsForMonth = async (brandId, month, year) => {
@@ -185,6 +276,11 @@ module.exports = {
   getSlotsByMissionId,
   getSlotsForBrandAndMonth,
   saveMissionSlots,
-  getBrandPostsForMonth
+  getBrandPostsForMonth,
+  getSlotById,
+  updateSlot,
+  createSlot,
+  deleteSlot,
+  recalculateMissionTargets,
 };
 

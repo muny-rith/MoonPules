@@ -239,20 +239,23 @@ const markPost = async (postData) => {
     throw err;
   }
 
-  let isPublished = false;
+  let isPublished = true; // By definition, tracking an existing post means it is already published on Facebook
   let createdTime = null;
   let mediaType = postData.media_type || 'photo';
   let pictureUrl = null;
   try {
     const fbStatus = await facebookService.checkPublished(fb_post_id, page_id);
-    isPublished = fbStatus.is_published;
-    createdTime = fbStatus.created_time;
-    if (!postData.media_type) {
-      mediaType = fbStatus.media_type || 'photo';
+    if (fbStatus && typeof fbStatus.is_published === 'boolean') {
+      isPublished = fbStatus.is_published;
     }
-    pictureUrl = fbStatus.picture_url || null;
+    createdTime = fbStatus?.created_time || null;
+    if (!postData.media_type && fbStatus?.media_type) {
+      mediaType = fbStatus.media_type;
+    }
+    pictureUrl = fbStatus?.picture_url || null;
   } catch (err) {
-    isPublished = false;
+    console.warn(`[markPost] FB check failed (${err.message}). Defaulting to published.`);
+    isPublished = true;
   }
 
   let permanentMediaUrl = postData.media_url || pictureUrl || null;
@@ -269,6 +272,7 @@ const markPost = async (postData) => {
   }
 
   const now = new Date();
+  const effectivePublishedTime = createdTime || (postData.published_time ? new Date(postData.published_time) : now);
 
   const trackedPost = await repository.createTrackedPost({
     ...postData,
@@ -276,8 +280,8 @@ const markPost = async (postData) => {
     brand_id: hasBrand ? parseInt(brand_id, 10) : null,
     tracking_type: tracking_type || (hasBrand && !hasProduct ? 'brand' : 'product'),
     status: isPublished ? 'published' : 'scheduled',
-    scheduled_time: isPublished ? (createdTime || now) : (postData.scheduled_time ? new Date(postData.scheduled_time) : now),
-    published_time: isPublished ? (createdTime || now) : null,
+    scheduled_time: isPublished ? effectivePublishedTime : (postData.scheduled_time ? new Date(postData.scheduled_time) : now),
+    published_time: isPublished ? effectivePublishedTime : null,
     media_type: mediaType,
     media_url: permanentMediaUrl,
   });

@@ -10,6 +10,7 @@ import html2canvas from 'html2canvas';
 import './ExportModal.css';
 import logo from "../../../assets/logo.png";
 import { getFacebookPostUrl } from '../../../shared/utils/facebookUrl';
+import { Button } from '../../../shared/components/ui';
 
 // Optional configurable columns
 const OPTIONAL_COLUMNS_CONFIG = [
@@ -1092,11 +1093,22 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
 
                         <div className="export-controls-divider"></div>
 
-                        <div className="export-actions">
-                            <button onClick={onClose} className="btn-secondary" disabled={isGeneratingPDF}>Cancel</button>
-                            <button onClick={handleExport} className="btn-primary" disabled={totalPostsCount === 0 || isGeneratingPDF} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                {isGeneratingPDF ? 'Generating PDF...' : 'Download'}
-                            </button>
+                        <div className="export-actions" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                            <Button
+                                variant="outline"
+                                onClick={onClose}
+                                disabled={isGeneratingPDF}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                variant="primary"
+                                onClick={handleExport}
+                                loading={isGeneratingPDF}
+                                disabled={totalPostsCount === 0}
+                            >
+                                Download
+                            </Button>
                         </div>
                     </div>
                 </div>

@@ -5,6 +5,7 @@ import { ProtectedRoute } from './shared/components/ProtectedRoute';
 import { LoginPage } from './features/auth/pages/LoginPage';
 import { DashboardPage } from './features/dashboard/pages/DashboardPage';
 import { PostTrackerPage, PlannerPage } from './features/postTracker';
+import { BrandCalendarPage } from './features/calendar';
 import { Product } from './features/product/page/Product';
 import { BrandStatsPage } from './features/statistics/pages/BrandStatsPage';
 import { BrandDetailPage } from './features/statistics/pages/BrandDetailPage';
@@ -19,29 +20,24 @@ function App() {
       <BrowserRouter>
         <ScrollToTop />
         <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route
-          path="/*"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <Routes>
-                  <Route path="/" element={<DashboardPage />} />
-                  <Route path="/tasks" element={<PostTrackerPage />} />
-                  <Route path="/planner" element={<PlannerPage />} />
-                  <Route path="/tasks/create" element={<CreatePostPage />} />
-                  <Route path="/tasks/edit/:id" element={<EditPostPage />} />
-                  <Route path="/planner/create" element={<CreatePostPage />} />
-                  <Route path="/planner/edit/:id" element={<EditPostPage />} />
-                  <Route path="/product" element={<Product />} />
-                  <Route path="/stats/brands" element={<BrandStatsPage />} />
-                  <Route path="/stats/brands/:id" element={<BrandDetailPage />} />
-                  <Route path="*" element={<div className="page-placeholder">Page under construction</div>} />
-                </Routes>
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
+          <Route path="/login" element={<LoginPage />} />
+          <Route element={<ProtectedRoute />}>
+            <Route element={<Layout />}>
+              <Route path="/" element={<DashboardPage />} />
+              <Route path="/tasks" element={<PostTrackerPage />} />
+              <Route path="/planner" element={<PlannerPage />} />
+              <Route path="/calendar" element={<BrandCalendarPage />} />
+              <Route path="/planner/calendar" element={<BrandCalendarPage />} />
+              <Route path="/tasks/create" element={<CreatePostPage />} />
+              <Route path="/tasks/edit/:id" element={<EditPostPage />} />
+              <Route path="/planner/create" element={<CreatePostPage />} />
+              <Route path="/planner/edit/:id" element={<EditPostPage />} />
+              <Route path="/product" element={<Product />} />
+              <Route path="/stats/brands" element={<BrandStatsPage />} />
+              <Route path="/stats/brands/:id" element={<BrandDetailPage />} />
+              <Route path="*" element={<div className="page-placeholder">Page under construction</div>} />
+            </Route>
+          </Route>
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>

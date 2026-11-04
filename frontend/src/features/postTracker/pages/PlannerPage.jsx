@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -20,15 +20,15 @@ import {
   Video,
   Radio,
   FileText,
-  Target
+  Target,
+  Sparkles
 } from 'lucide-react';
 import { FaFacebook } from 'react-icons/fa';
 import { usePostTracker } from '../hooks/usePostTracker';
 import * as api from '../api/postTrackerApi';
 import { fetchBrands } from '../../product/services/productService';
-import * as missionApi from '../../missions/api/missionApi';
-import { MissionProgressCard, SetMissionModal } from '../../missions';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
+import { Select, Input, Button } from '../../../shared/components/ui';
 import { resolveAllMediaUrls, isVideoMedia } from '../../../shared/utils/mediaUrl';
 import { getFacebookPostUrl } from '../../../shared/utils/facebookUrl';
 import { useUrlFilters } from '../../../shared/hooks/useUrlFilters';
@@ -113,11 +113,8 @@ export const PlannerPage = () => {
   const setContentTypeFilter = (type) => setFilter('type', type);
   const setSearchQuery = (q) => setFilter('search', q);
 
-  // Brand and Mission Blueprint states
+  // Brand list for brand filter
   const [brands, setBrands] = useState([]);
-  const [activeMission, setActiveMission] = useState(null);
-  const [calendarSlots, setCalendarSlots] = useState([]);
-  const [isMissionModalOpen, setIsMissionModalOpen] = useState(false);
 
   // Navigation states
   const [currentWeekStart, setCurrentWeekStart] = useState(() => getWeekMonday(new Date()));
@@ -161,6 +158,53 @@ export const PlannerPage = () => {
     { value: 'live', label: 'Live Video', icon: Radio, color: '#dc2626' },
     { value: 'status', label: 'Text / Status', icon: FileText, color: '#64748b' },
   ], []);
+
+  const pageOptions = useMemo(() => {
+    const list = pages.map((p) => ({
+      value: String(p.id),
+      label: p.page_name,
+      icon: <FaFacebook size={13} color="#1877F2" />,
+    }));
+    return [
+      {
+        value: 'all',
+        label: pages.length > 0 ? `All Pages (${pages.length})` : 'All Pages',
+        icon: <Layers size={13} color="#64748b" />,
+      },
+      ...list,
+    ];
+  }, [pages]);
+
+  const brandOptions = useMemo(() => {
+    const list = brands.map((b) => {
+      const bId = String(b.brand_id || b.id);
+      const bName = b.brand_name || b.name || `Brand #${bId}`;
+      return {
+        value: bId,
+        label: bName,
+        icon: <Tag size={13} color="#2563eb" />,
+      };
+    });
+    return [
+      {
+        value: 'all',
+        label: 'All Brands',
+        icon: <Tag size={13} color="#64748b" />,
+      },
+      ...list,
+    ];
+  }, [brands]);
+
+  const contentTypeOptions = useMemo(() => {
+    return CONTENT_TYPE_OPTIONS.map((opt) => {
+      const IconComp = opt.icon;
+      return {
+        value: opt.value,
+        label: opt.label,
+        icon: <IconComp size={13} color={opt.color} />,
+      };
+    });
+  }, [CONTENT_TYPE_OPTIONS]);
 
   const selectedPage = useMemo(
     () => pages.find((p) => String(p.id) === String(selectedPageId)),
@@ -405,25 +449,6 @@ export const PlannerPage = () => {
     return () => { isMounted = false; };
   }, []);
 
-  const activeMonthNumber = useMemo(() => {
-    if (viewMode === 'week' && weekDays[0]?.date) {
-      return weekDays[0].date.getMonth() + 1;
-    }
-    return currentMonthDate.getMonth() + 1;
-  }, [viewMode, weekDays, currentMonthDate]);
-
-  const activeYearNumber = useMemo(() => {
-    if (viewMode === 'week' && weekDays[0]?.date) {
-      return weekDays[0].date.getFullYear();
-    }
-    return currentMonthDate.getFullYear();
-  }, [viewMode, weekDays, currentMonthDate]);
-
-  const activeMonthName = useMemo(() => {
-    const d = new Date(activeYearNumber, activeMonthNumber - 1, 1);
-    return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  }, [activeMonthNumber, activeYearNumber]);
-
   const selectedBrand = useMemo(() => {
     return brands.find((b) => String(b.brand_id || b.id) === String(brandFilter)) || null;
   }, [brands, brandFilter]);
@@ -433,47 +458,6 @@ export const PlannerPage = () => {
     if (brandFilter && brandFilter !== 'all') return `Brand #${brandFilter}`;
     return 'All Brands';
   }, [selectedBrand, brandFilter]);
-
-  // Load mission & slots whenever month, year, or brand changes
-  const loadMissionData = async () => {
-    try {
-      const slotsData = await missionApi.getCalendarSlots(brandFilter || 'all', activeMonthNumber, activeYearNumber);
-      setCalendarSlots(slotsData || []);
-
-      if (brandFilter && brandFilter !== 'all') {
-        const m = await missionApi.getMission(brandFilter, activeMonthNumber, activeYearNumber);
-        setActiveMission(m);
-      } else {
-        if (brands.length > 0) {
-          const kfree = brands.find((b) => (b.brand_name || b.name || '').toUpperCase().includes('FREE'));
-          const targetId = kfree ? (kfree.brand_id || kfree.id) : (brands[0].brand_id || brands[0].id);
-          const m = await missionApi.getMission(targetId, activeMonthNumber, activeYearNumber);
-          setActiveMission(m);
-        } else {
-          setActiveMission(null);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load mission data:', err);
-    }
-  };
-
-  useEffect(() => {
-    loadMissionData();
-  }, [brandFilter, activeMonthNumber, activeYearNumber, brands]);
-
-  // Group slots by planned_date_str
-  const slotsByDate = useMemo(() => {
-    const map = new Map();
-    calendarSlots.forEach((slot) => {
-      const key = slot.planned_date_str;
-      if (key) {
-        if (!map.has(key)) map.set(key, []);
-        map.get(key).push(slot);
-      }
-    });
-    return map;
-  }, [calendarSlots]);
 
   return (
     <div className="page-container planner-container">
@@ -487,22 +471,25 @@ export const PlannerPage = () => {
         </div>
 
         <div className="planner-header-actions">
-          <button
-            className="planner-btn-secondary"
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleSync}
-            disabled={isSyncing}
+            loading={isSyncing}
+            icon={<RefreshCw size={14} className={isSyncing ? 'spin-animation' : ''} />}
             title="Sync latest post metrics with Facebook"
           >
-            <RefreshCw size={15} className={isSyncing ? 'spin-animation' : ''} />
             {isSyncing ? 'Syncing...' : 'Sync Now'}
-          </button>
+          </Button>
 
-          <button
-            className="planner-btn-primary"
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<Plus size={16} />}
             onClick={() => navigate('/planner/create', { state: { from: location.pathname + location.search } })}
           >
-            <Plus size={16} /> Schedule Post
-          </button>
+            Schedule Post
+          </Button>
         </div>
       </div>
 
@@ -549,206 +536,52 @@ export const PlannerPage = () => {
           </div>
 
           {/* Search Box */}
-          <div className="planner-search-wrap">
-            <Search size={14} className="planner-search-icon" />
-            <input
-              type="text"
+          <div style={{ width: '220px' }}>
+            <Input
+              type="search"
               placeholder="Search post content..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="planner-search-input"
+              isClearable
+              onClear={() => setSearchQuery('')}
             />
-            {searchQuery && (
-              <button
-                type="button"
-                className="planner-search-clear"
-                onClick={() => setSearchQuery('')}
-                title="Clear search"
-              >
-                <X size={12} />
-              </button>
-            )}
           </div>
 
-          {/* Facebook Page Filter Dropdown */}
-          <div className="planner-dropdown-group">
-            <button
-              type="button"
-              onClick={() => setOpenDropdown(openDropdown === 'page' ? null : 'page')}
-              className={`planner-dropdown-btn ${selectedPageId !== 'all' && selectedPageId !== 'loading' ? 'active-filter' : ''}`}
-              title="Filter by Facebook Page"
-            >
-              {selectedPageId === 'loading' ? (
-                <RefreshCw size={13} className="planner-dropdown-btn-icon spin-animation" />
-              ) : selectedPageId !== 'all' ? (
-                <FaFacebook size={13} color="#1877F2" className="planner-dropdown-btn-icon" />
-              ) : (
-                <Layers size={13} className="planner-dropdown-btn-icon" />
-              )}
-              <span className="planner-dropdown-label">{pageLabel}</span>
-              <ChevronDown
-                size={13}
-                className="planner-dropdown-chevron"
-                style={{
-                  transform: openDropdown === 'page' ? 'rotate(180deg)' : 'none',
-                }}
-              />
-            </button>
-
-            {openDropdown === 'page' && (
-              <div className="planner-dropdown-menu">
-                {pages.map((p) => (
-                  <div
-                    key={p.id}
-                    onClick={() => {
-                      userSelectedPageRef.current = true;
-                      setFilter('page_id', p.id);
-                      setOpenDropdown(null);
-                    }}
-                    className={`planner-dropdown-item ${String(selectedPageId) === String(p.id) ? 'selected' : ''}`}
-                    title={p.page_name}
-                  >
-                    <FaFacebook size={13} color="#1877F2" className="planner-dropdown-item-icon" />
-                    <span className="planner-dropdown-item-text">{p.page_name}</span>
-                    {String(selectedPageId) === String(p.id) && <Check size={14} className="planner-dropdown-check" />}
-                  </div>
-                ))}
-
-                {pages.length > 0 && <div className="planner-dropdown-divider" />}
-
-                <div
-                  onClick={() => {
-                    userSelectedPageRef.current = true;
-                    setFilter('page_id', 'all');
-                    setOpenDropdown(null);
-                  }}
-                  className={`planner-dropdown-item ${selectedPageId === 'all' ? 'selected' : ''}`}
-                >
-                  <Layers size={13} className="planner-dropdown-item-icon" />
-                  <span className="planner-dropdown-item-text">All Pages</span>
-                  {pages.length > 0 && <span className="planner-dropdown-badge">{pages.length}</span>}
-                  {selectedPageId === 'all' && <Check size={14} className="planner-dropdown-check" />}
-                </div>
-              </div>
-            )}
+          {/* Facebook Page Filter */}
+          <div style={{ minWidth: '170px' }}>
+            <Select
+              value={selectedPageId}
+              options={pageOptions}
+              onChange={(val) => {
+                userSelectedPageRef.current = true;
+                setFilter('page_id', val);
+              }}
+              placeholder="All Pages"
+            />
           </div>
 
-          {/* Brand Filter Dropdown */}
-          <div className="planner-dropdown-group">
-            <button
-              type="button"
-              onClick={() => setOpenDropdown(openDropdown === 'brand' ? null : 'brand')}
-              className={`planner-dropdown-btn ${brandFilter && brandFilter !== 'all' ? 'active-filter' : ''}`}
-              title="Filter by Brand"
-            >
-              <Tag size={13} color="#2563eb" className="planner-dropdown-btn-icon" />
-              <span className="planner-dropdown-label">{brandLabel}</span>
-              <ChevronDown
-                size={13}
-                className="planner-dropdown-chevron"
-                style={{
-                  transform: openDropdown === 'brand' ? 'rotate(180deg)' : 'none',
-                }}
-              />
-            </button>
-
-            {openDropdown === 'brand' && (
-              <div className="planner-dropdown-menu">
-                <div
-                  onClick={() => {
-                    setBrandFilter('');
-                    setOpenDropdown(null);
-                  }}
-                  className={`planner-dropdown-item ${!brandFilter || brandFilter === 'all' ? 'selected' : ''}`}
-                >
-                  <Tag size={13} className="planner-dropdown-item-icon" />
-                  <span className="planner-dropdown-item-text">All Brands</span>
-                  {(!brandFilter || brandFilter === 'all') && <Check size={14} className="planner-dropdown-check" />}
-                </div>
-
-                {brands.length > 0 && <div className="planner-dropdown-divider" />}
-
-                {brands.map((b) => {
-                  const bId = String(b.brand_id || b.id);
-                  const bName = b.brand_name || b.name || `Brand #${bId}`;
-                  const isSelected = String(brandFilter) === bId;
-
-                  return (
-                    <div
-                      key={bId}
-                      onClick={() => {
-                        setBrandFilter(bId);
-                        setOpenDropdown(null);
-                      }}
-                      className={`planner-dropdown-item ${isSelected ? 'selected' : ''}`}
-                      title={bName}
-                    >
-                      <Tag size={13} color="#2563eb" className="planner-dropdown-item-icon" />
-                      <span className="planner-dropdown-item-text">{bName}</span>
-                      {isSelected && <Check size={14} className="planner-dropdown-check" />}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+          {/* Brand Filter */}
+          <div style={{ minWidth: '160px' }}>
+            <Select
+              value={brandFilter || 'all'}
+              options={brandOptions}
+              onChange={(val) => setBrandFilter(val === 'all' ? '' : val)}
+              placeholder="All Brands"
+              isSearchable
+            />
           </div>
 
-          {/* Content Type Filter Dropdown */}
-          <div className="planner-dropdown-group">
-            <button
-              type="button"
-              onClick={() => setOpenDropdown(openDropdown === 'contentType' ? null : 'contentType')}
-              className={`planner-dropdown-btn ${contentTypeFilter !== 'all' ? 'active-filter' : ''}`}
-              title="Filter by content type"
-            >
-              <currentContentType.icon size={13} color={currentContentType.color} className="planner-dropdown-btn-icon" />
-              <span className="planner-dropdown-label">{currentContentType.label}</span>
-              <ChevronDown
-                size={13}
-                className="planner-dropdown-chevron"
-                style={{
-                  transform: openDropdown === 'contentType' ? 'rotate(180deg)' : 'none',
-                }}
-              />
-            </button>
-
-            {openDropdown === 'contentType' && (
-              <div className="planner-dropdown-menu">
-                {CONTENT_TYPE_OPTIONS.map((opt) => {
-                  const IconComp = opt.icon;
-                  const isSelected = contentTypeFilter === opt.value;
-                  return (
-                    <div
-                      key={opt.value}
-                      onClick={() => {
-                        setContentTypeFilter(opt.value);
-                        setOpenDropdown(null);
-                      }}
-                      className={`planner-dropdown-item ${isSelected ? 'selected' : ''}`}
-                    >
-                      <IconComp
-                        size={13}
-                        color={opt.color}
-                        className="planner-dropdown-item-icon"
-                      />
-                      <span className="planner-dropdown-item-text">{opt.label}</span>
-                      {isSelected && <Check size={14} className="planner-dropdown-check" />}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+          {/* Content Type Filter */}
+          <div style={{ minWidth: '160px' }}>
+            <Select
+              value={contentTypeFilter}
+              options={contentTypeOptions}
+              onChange={(val) => setContentTypeFilter(val)}
+              placeholder="All Content Types"
+            />
           </div>
         </div>
       </div>
-
-      {/* Brand Mission & Schedule Blueprint Banner */}
-      <MissionProgressCard
-        mission={activeMission}
-        brandName={brandLabel}
-        monthName={activeMonthName}
-        onOpenModal={() => setIsMissionModalOpen(true)}
-      />
 
       {/* ====================================================================
           WEEK VIEW: 7 Unified Columns with Pinned Sticky Headers (Full Page Scroll)
@@ -812,8 +645,6 @@ export const PlannerPage = () => {
             <div className="planner-week-body-grid">
               {weekDays.map((day) => {
                 const dayPosts = postsByDate.get(day.dateKey) || [];
-                const daySlots = slotsByDate.get(day.dateKey) || [];
-                const uncompletedSlots = daySlots.filter((s) => s.computed_status !== 'completed');
 
                 return (
                   <div
@@ -826,7 +657,7 @@ export const PlannerPage = () => {
                         <div className="planner-skeleton-thumb" />
                         <div className="planner-skeleton-line" />
                       </div>
-                    ) : (dayPosts.length === 0 && uncompletedSlots.length === 0) ? (
+                    ) : dayPosts.length === 0 ? (
                       <div
                         className="planner-empty-day"
                         onClick={() => navigate(`/planner/create?date=${day.dateKey}`, { state: { from: location.pathname + location.search } })}
@@ -835,65 +666,7 @@ export const PlannerPage = () => {
                         <span>Schedule post</span>
                       </div>
                     ) : (
-                      <>
-                        {/* Planned Blueprint Slots for this day */}
-                        {uncompletedSlots.map((slot, sIdx) => {
-                          const isMissed = slot.computed_status === 'missed';
-                          return (
-                            <div
-                              key={`planned-${slot.id || sIdx}`}
-                              style={{
-                                border: `2px dashed ${isMissed ? '#fca5a5' : '#93c5fd'}`,
-                                backgroundColor: isMissed ? '#fef2f2' : '#f0f9ff',
-                                borderRadius: '8px',
-                                padding: '8px 10px',
-                                marginBottom: '8px',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease'
-                              }}
-                              onClick={() => navigate(`/planner/create?date=${day.dateKey}`, {
-                                state: {
-                                  from: location.pathname + location.search,
-                                  prefillBrandId: slot.brand_id,
-                                  prefillDate: slot.planned_date_str,
-                                  prefillType: slot.content_type,
-                                }
-                              })}
-                              title="Click to create post for this planned day"
-                            >
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontSize: '11px', fontWeight: '800', color: isMissed ? '#b91c1c' : '#0369a1', textTransform: 'uppercase' }}>
-                                  🎯 {slot.brand_name || 'Planned'} {slot.content_type === 'live' ? 'Live Stream' : (slot.content_type === 'video' ? 'Video' : 'Poster')}
-                                </span>
-                                <span style={{
-                                  fontSize: '10px',
-                                  fontWeight: '700',
-                                  color: isMissed ? '#dc2626' : '#0284c7',
-                                  backgroundColor: isMissed ? '#fee2e2' : '#e0f2fe',
-                                  padding: '1px 5px',
-                                  borderRadius: '4px'
-                                }}>
-                                  {isMissed ? 'Missed' : 'Planned'}
-                                </span>
-                              </div>
-                              {slot.time_window && (
-                                <div style={{ fontSize: '11px', fontWeight: '600', color: '#475569', marginTop: '3px' }}>
-                                  ⏰ {slot.time_window}
-                                </div>
-                              )}
-                              {slot.notes && (
-                                <div style={{ fontSize: '11px', color: '#64748b', fontStyle: 'italic', marginTop: '2px' }}>
-                                  "{slot.notes}"
-                                </div>
-                              )}
-                              <div style={{ fontSize: '11px', fontWeight: '700', color: '#2563eb', marginTop: '5px', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                <Plus size={12} /> Create post
-                              </div>
-                            </div>
-                          );
-                        })}
-
-                        {dayPosts.map((post) => {
+                      dayPosts.map((post) => {
                         const allMedia = resolveAllMediaUrls(post.media_url);
                         const postDateStr = post.published_time || post.scheduled_time || post.created_at;
                         const timeStr = formatTime(postDateStr);
@@ -993,8 +766,7 @@ export const PlannerPage = () => {
                             </div>
                           </div>
                         );
-                      })}
-                      </>
+                      })
                     )}
                   </div>
                 );
@@ -1020,8 +792,6 @@ export const PlannerPage = () => {
           <div className="planner-month-grid">
             {monthDays.map((cell, idx) => {
               const cellPosts = postsByDate.get(cell.dateKey) || [];
-              const cellSlots = slotsByDate.get(cell.dateKey) || [];
-              const uncompletedCellSlots = cellSlots.filter((s) => s.computed_status !== 'completed');
 
               return (
                 <div
@@ -1031,46 +801,14 @@ export const PlannerPage = () => {
                 >
                   <div className="planner-month-cell-header">
                     <span className="planner-month-day-num">{cell.dayNumber}</span>
-                    {(cellPosts.length > 0 || uncompletedCellSlots.length > 0) && (
+                    {cellPosts.length > 0 && (
                       <span className="planner-day-count-badge">
-                        {cellPosts.length + uncompletedCellSlots.length}
+                        {cellPosts.length}
                       </span>
                     )}
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto', maxHeight: '110px' }}>
-                    {/* Uncompleted Planned Target Slots in Month View */}
-                    {uncompletedCellSlots.map((slot, sIdx) => {
-                      const isMissed = slot.computed_status === 'missed';
-                      return (
-                        <div
-                          key={`month-slot-${slot.id || sIdx}`}
-                          className="planner-month-post-chip"
-                          style={{
-                            backgroundColor: isMissed ? '#fef2f2' : '#eff6ff',
-                            border: `1px dashed ${isMissed ? '#f87171' : '#60a5fa'}`,
-                            color: isMissed ? '#b91c1c' : '#1d4ed8',
-                            cursor: 'pointer'
-                          }}
-                          onClick={() => navigate(`/planner/create?date=${cell.dateKey}`, {
-                            state: {
-                              from: location.pathname + location.search,
-                              prefillBrandId: slot.brand_id,
-                              prefillDate: slot.planned_date_str,
-                              prefillType: slot.content_type,
-                            }
-                          })}
-                          title={`Planned ${slot.content_type}: Click to create post`}
-                        >
-                          <Target size={11} style={{ flexShrink: 0, color: isMissed ? '#ef4444' : '#2563eb' }} />
-                          <span className="planner-chip-text" style={{ fontWeight: '700' }}>
-                            🎯 {slot.content_type === 'live' ? 'Live' : (slot.content_type === 'video' ? 'Video' : 'Poster')}
-                            {slot.time_window ? ` (${slot.time_window})` : ''}
-                          </span>
-                        </div>
-                      );
-                    })}
-
                     {cellPosts.slice(0, 3).map((post) => {
                       const allMedia = resolveAllMediaUrls(post.media_url);
                       const thumb = post.thumbnail_url || allMedia[0] || post.product_image;
@@ -1120,18 +858,6 @@ export const PlannerPage = () => {
           </div>
         </div>
       )}
-
-      {/* Set Mission & Blueprint Modal */}
-      <SetMissionModal
-        isOpen={isMissionModalOpen}
-        onClose={() => setIsMissionModalOpen(false)}
-        initialMonth={activeMonthNumber}
-        initialYear={activeYearNumber}
-        initialBrandId={brandFilter || (brands[0] ? String(brands[0].brand_id || brands[0].id) : '')}
-        onSaved={() => {
-          loadMissionData();
-        }}
-      />
     </div>
   );
 };

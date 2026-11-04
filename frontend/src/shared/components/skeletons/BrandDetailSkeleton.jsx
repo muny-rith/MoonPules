@@ -38,72 +38,260 @@ export const BrandDetailHeroSkeleton = () => {
 
 export const BrandDetailAnalyticsSkeleton = () => {
   return (
-    <div className="card analytics-overview-card">
+    <div className="card brand-unified-hub-card" style={{ marginBottom: '20px' }}>
       <div className="analytics-filter-container">
-        {/* Header: Title + Post Count matching Screenshot 2 */}
-        <div className="analytics-filter-header" style={{ marginBottom: '14px' }}>
+        {/* Header: Title + Post Count on left, Action buttons on right */}
+        <div
+          className="analytics-filter-header"
+          style={{
+            marginBottom: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+          }}
+        >
           <div className="analytics-title-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <Skeleton width="180px" height={24} borderRadius={4} />
-            <Skeleton width="160px" height={14} borderRadius={4} />
+            <Skeleton width="230px" height={20} borderRadius={4} />
+            <Skeleton width="150px" height={13} borderRadius={4} />
+          </div>
+
+          {/* Top Right Action Buttons Skeleton */}
+          <div className="analytics-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Skeleton width="90px" height={34} borderRadius={8} />
+            <Skeleton width="110px" height={34} borderRadius={8} />
           </div>
         </div>
 
-        {/* Filter Toolbar: 5 Dropdown Pills side-by-side on desktop, 2-column grid on mobile */}
-        <div className="analytics-filter-toolbar">
-          <div className="filter-dropdown-group skel-group" style={{ minWidth: '135px' }}>
-            <Skeleton className="skeleton-filter-pill" height={34} borderRadius={8} />
+        {/* Filter Toolbar: 5 select pills side-by-side on desktop, 2-col or stacked on mobile */}
+        <div
+          className="analytics-filter-toolbar"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            flexWrap: 'wrap',
+            marginBottom: '16px',
+          }}
+        >
+          <div className="filter-dropdown-group" style={{ flex: '1 1 145px', minWidth: '135px' }}>
+            <Skeleton height={38} borderRadius={8} />
           </div>
-          <div className="filter-dropdown-group skel-group" style={{ minWidth: '125px' }}>
-            <Skeleton className="skeleton-filter-pill" height={34} borderRadius={8} />
+          <div className="filter-dropdown-group" style={{ flex: '1 1 140px', minWidth: '130px' }}>
+            <Skeleton height={38} borderRadius={8} />
           </div>
-          <div className="filter-dropdown-group skel-group" style={{ minWidth: '110px' }}>
-            <Skeleton className="skeleton-filter-pill" height={34} borderRadius={8} />
+          <div className="filter-dropdown-group" style={{ flex: '1 1 150px', minWidth: '140px' }}>
+            <Skeleton height={38} borderRadius={8} />
           </div>
-          <div className="filter-dropdown-group skel-group" style={{ minWidth: '120px' }}>
-            <Skeleton className="skeleton-filter-pill" height={34} borderRadius={8} />
+          <div className="filter-dropdown-group" style={{ flex: '1 1 160px', minWidth: '150px' }}>
+            <Skeleton height={38} borderRadius={8} />
           </div>
-          <div className="filter-dropdown-group skel-group" style={{ minWidth: '115px' }}>
-            <Skeleton className="skeleton-filter-pill" height={34} borderRadius={8} />
+          <div className="filter-dropdown-group" style={{ flex: '1 1 135px', minWidth: '125px' }}>
+            <Skeleton height={38} borderRadius={8} />
           </div>
         </div>
       </div>
 
-      {/* KPI Grid (6 items matching Views, Reach, Likes, Comments, Shares, Engagement) */}
-      <div className="kpi-grid-container" style={{ margin: '24px 0 28px' }}>
-        {[
-          { labelW: '38px', valW: '65px' },
-          { labelW: '38px', valW: '60px' },
-          { labelW: '34px', valW: '38px' },
-          { labelW: '56px', valW: '38px' },
-          { labelW: '44px', valW: '36px' },
-          { labelW: '75px', valW: '46px' }
-        ].map((kpi, idx) => (
-          <div key={`skel-kpi-${idx}`} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Skeleton width={14} height={14} borderRadius={3} />
-              <Skeleton width={kpi.labelW} height={11} borderRadius={3} />
+      {/* Main 2-Column Responsive Body Grid */}
+      <div className="brand-unified-grid">
+        {/* LEFT COLUMN: Campaign Mission Skeleton */}
+        <div className="brand-mission-sidebar-panel">
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Skeleton width={28} height={28} borderRadius={7} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <Skeleton width="110px" height={15} borderRadius={4} />
+                <Skeleton width="130px" height={11} borderRadius={3} />
+              </div>
             </div>
-            <Skeleton width={kpi.valW} height={24} borderRadius={4} />
+            <Skeleton width="75px" height={22} borderRadius={20} />
           </div>
-        ))}
+
+          {/* Quota Bar */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Skeleton width="100px" height={12} borderRadius={3} />
+              <Skeleton width="60px" height={12} borderRadius={3} />
+            </div>
+            <Skeleton width="100%" height={6} borderRadius={4} />
+          </div>
+
+          {/* Breakdown Pills */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            <Skeleton width="75px" height={22} borderRadius={6} />
+            <Skeleton width="65px" height={22} borderRadius={6} />
+            <Skeleton width="70px" height={22} borderRadius={6} />
+          </div>
+
+          {/* Schedule Timeline Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px' }}>
+            <Skeleton width="115px" height={13} borderRadius={3} />
+            <Skeleton width="75px" height={11} borderRadius={3} />
+          </div>
+
+          {/* Deliverable Slots List */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {[1, 2, 3].map((slot) => (
+              <div
+                key={`skel-slot-${slot}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '9px 12px',
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Skeleton width="50px" height={18} borderRadius={5} />
+                  <Skeleton width="45px" height={14} borderRadius={3} />
+                </div>
+                <Skeleton width="55px" height={16} borderRadius={4} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: Analytics KPI Cards + Chart Skeleton */}
+        <div className="brand-analytics-chart-col" style={{ minWidth: 0 }}>
+          <div className="brand-analytics-chart-container">
+            {/* KPI Grid (6 cards) */}
+            <div
+              className="brand-analytics-kpi-grid"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                gap: '12px',
+                marginBottom: '16px',
+              }}
+            >
+              {[
+                { labelW: '40px' },
+                { labelW: '42px' },
+                { labelW: '35px' },
+                { labelW: '58px' },
+                { labelW: '45px' },
+                { labelW: '75px' },
+              ].map((kpi, idx) => (
+                <div
+                  key={`skel-kpi-card-${idx}`}
+                  style={{
+                    backgroundColor: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '10px',
+                    padding: '12px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Skeleton width={kpi.labelW} height={12} borderRadius={3} />
+                    <Skeleton width={24} height={24} borderRadius={6} />
+                  </div>
+                  <Skeleton width="60px" height={22} borderRadius={4} />
+                </div>
+              ))}
+            </div>
+
+            {/* Chart Area Skeleton */}
+            <div
+              style={{
+                width: '100%',
+                flex: 1,
+                minHeight: 330,
+                border: '1px solid #f1f5f9',
+                borderRadius: '12px',
+                padding: '20px 16px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                backgroundColor: '#ffffff',
+                boxSizing: 'border-box',
+              }}
+            >
+              {[1, 2, 3, 4].map((i) => (
+                <div key={`skel-chart-line-${i}`} style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                  <Skeleton width="28px" height={10} style={{ marginRight: '12px' }} />
+                  <Skeleton width="100%" height={1} />
+                </div>
+              ))}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-around',
+                  paddingLeft: '40px',
+                  alignItems: 'flex-end',
+                  height: '140px',
+                  gap: '12px',
+                }}
+              >
+                {[45, 95, 35, 80, 115, 65, 90, 50].map((h, i) => (
+                  <div key={`skel-bar-${i}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                    <Skeleton width="26px" height={h} borderRadius="4px 4px 0 0" />
+                    <Skeleton width="30px" height={10} borderRadius={2} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const BrandMissionPanelSkeleton = () => {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+      {/* Quota Bar */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Skeleton width="100px" height={12} borderRadius={3} />
+          <Skeleton width="60px" height={12} borderRadius={3} />
+        </div>
+        <Skeleton width="100%" height={6} borderRadius={4} />
       </div>
 
-      {/* Chart Area */}
-      <div className="chart-area" style={{ width: '100%', height: 350, border: '1px solid #f1f5f9', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-        {[1, 2, 3, 4].map((i) => (
-          <div key={`skel-chart-line-${i}`} style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-            <Skeleton width="24px" height={10} style={{ marginRight: '10px' }} />
-            <Skeleton width="100%" height={1} />
+      {/* Breakdown Pills */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+        <Skeleton width="75px" height={22} borderRadius={6} />
+        <Skeleton width="65px" height={22} borderRadius={6} />
+        <Skeleton width="70px" height={22} borderRadius={6} />
+      </div>
+
+      {/* Schedule Timeline Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
+        <Skeleton width="115px" height={13} borderRadius={3} />
+        <Skeleton width="75px" height={11} borderRadius={3} />
+      </div>
+
+      {/* Deliverable Slots List */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {[1, 2, 3].map((slot) => (
+          <div
+            key={`skel-sub-slot-${slot}`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '9px 12px',
+              backgroundColor: '#ffffff',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Skeleton width="50px" height={18} borderRadius={5} />
+              <Skeleton width="45px" height={14} borderRadius={3} />
+            </div>
+            <Skeleton width="55px" height={16} borderRadius={4} />
           </div>
         ))}
-        <div style={{ display: 'flex', justifyContent: 'space-around', paddingLeft: '34px', alignItems: 'flex-end', height: '140px', gap: '8px' }}>
-          {[60, 110, 40, 95, 130, 75, 105].map((h, i) => (
-            <div key={`skel-bar-${i}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-              <Skeleton width="28px" height={h} borderRadius="4px 4px 0 0" />
-              <Skeleton width="32px" height={10} borderRadius={2} />
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );

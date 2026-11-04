@@ -8,11 +8,9 @@ import {
   Tooltip,
   ResponsiveContainer
 } from 'recharts';
-import { Heart, MessageCircle, Share2, Eye, TrendingUp } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Eye, TrendingUp, Calendar } from 'lucide-react';
 
-export const BrandInsightsChart = ({ detail, posts = [] }) => {
-  console.log("BrandInsightsChart rendered with posts:", posts);
-  console.log("timeFilter or detail.posts:", detail?.posts?.length);
+export const BrandInsightsChart = ({ detail, posts = [], timeFilter = 'this_month', onResetFilter }) => {
   // Compute filtered totals for KPI cards
   const filteredTotals = useMemo(() => {
     const totals = {
@@ -37,7 +35,6 @@ export const BrandInsightsChart = ({ detail, posts = [] }) => {
     const dateMap = {};
 
     posts.forEach((post) => {
-      // Use published_time or scheduled_time
       const timestamp = post.published_time || post.scheduled_time;
       if (!timestamp) return;
 
@@ -72,15 +69,82 @@ export const BrandInsightsChart = ({ detail, posts = [] }) => {
     return Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date));
   }, [posts]);
 
-  // If no posts, show a placeholder
+  // If no posts in the filtered range, show a clean, helpful empty state (no nested card-in-card double border)
   if (!detail || !detail.posts || detail.posts.length === 0) {
+    const isFiltered = detail && detail.total_posts > 0;
+    const filterLabel =
+      timeFilter === 'today'
+        ? 'Today'
+        : timeFilter === 'yesterday'
+        ? 'Yesterday'
+        : timeFilter === 'this_week'
+        ? 'This Week'
+        : timeFilter === 'last_month'
+        ? 'Last Month'
+        : timeFilter === 'this_month'
+        ? 'This Month'
+        : timeFilter === 'custom'
+        ? 'Selected Date Range'
+        : 'Selected Range';
+
     return (
-      <div className="chart-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
-        <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
-          <Eye size={48} style={{ margin: '0 auto 16px', opacity: 0.5 }} />
-          <h3>No Insights Data</h3>
-          <p>Tracked posts data will appear here once synced from Facebook.</p>
+      <div
+        className="brand-analytics-empty-state"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '40px 24px',
+          backgroundColor: '#f8fafc',
+          border: '1px dashed #cbd5e1',
+          borderRadius: '12px',
+          textAlign: 'center',
+          boxSizing: 'border-box',
+        }}
+      >
+        <div
+          style={{
+            width: '48px',
+            height: '48px',
+            borderRadius: '12px',
+            backgroundColor: '#eff6ff',
+            border: '1px solid #bfdbfe',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '14px',
+          }}
+        >
+          <Calendar size={22} color="#2563eb" />
         </div>
+        <h4 style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: '700', color: '#0f172a' }}>
+          {isFiltered ? `No Posts Published ${filterLabel === 'Selected Date Range' ? 'in Range' : 'for ' + filterLabel}` : 'No Insights Data Yet'}
+        </h4>
+        <p style={{ margin: '0 0 16px', fontSize: '12.5px', color: '#64748b', maxWidth: '380px', lineHeight: 1.5 }}>
+          {isFiltered
+            ? `This brand has ${detail.total_posts} published posts total, but none match the current "${filterLabel}" filter.`
+            : 'Tracked posts data will appear here once synced from Facebook.'}
+        </p>
+        {isFiltered && onResetFilter && (
+          <button
+            type="button"
+            onClick={onResetFilter}
+            style={{
+              padding: '7px 16px',
+              fontSize: '12px',
+              fontWeight: '600',
+              color: '#ffffff',
+              backgroundColor: '#2563eb',
+              border: 'none',
+              borderRadius: '7px',
+              cursor: 'pointer',
+              transition: 'background-color 0.15s ease',
+            }}
+          >
+            Switch to This Month
+          </button>
+        )}
       </div>
     );
   }
@@ -128,65 +192,96 @@ export const BrandInsightsChart = ({ detail, posts = [] }) => {
   };
 
   return (
-    <div>
-
-      <div className="kpi-grid-container">
-        {/* Media Views */}
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-            <Eye size={14} color="#6366f1" />
-            <span style={{ fontSize: 'clamp(9px, 2.5vw, 11px)', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Views</span>
+    <div className="brand-analytics-chart-container" style={{ display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+      {/* Modern Executive KPI Grid */}
+      <div
+        className="brand-analytics-kpi-grid"
+        style={{
+          display: 'grid',
+          gap: '12px',
+          marginBottom: '16px',
+        }}
+      >
+        {/* Views */}
+        <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Views</span>
+            <div style={{ width: '24px', height: '24px', borderRadius: '6px', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Eye size={13} color="#2563eb" />
+            </div>
           </div>
-          <div style={{ fontSize: 'clamp(18px, 5vw, 24px)', fontWeight: 700, color: '#0f172a', lineHeight: 1 }}>{formatCompactNumber(filteredTotals.total_views || 0)}</div>
+          <div style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a', lineHeight: 1.1 }}>
+            {formatCompactNumber(filteredTotals.total_views || 0)}
+          </div>
         </div>
 
-        {/* Unique Viewers */}
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-            <Eye size={14} color="#0ea5e9" />
-            <span style={{ fontSize: 'clamp(9px, 2.5vw, 11px)', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Reach</span>
+        {/* Reach */}
+        <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Reach</span>
+            <div style={{ width: '24px', height: '24px', borderRadius: '6px', backgroundColor: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <TrendingUp size={13} color="#16a34a" />
+            </div>
           </div>
-          <div style={{ fontSize: 'clamp(18px, 5vw, 24px)', fontWeight: 700, color: '#0f172a', lineHeight: 1 }}>{formatCompactNumber(filteredTotals.total_reach || 0)}</div>
+          <div style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a', lineHeight: 1.1 }}>
+            {formatCompactNumber(filteredTotals.total_reach || 0)}
+          </div>
         </div>
 
         {/* Likes */}
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-            <Heart size={14} color="#f43f5e" />
-            <span style={{ fontSize: 'clamp(9px, 2.5vw, 11px)', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Likes</span>
+        <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Likes</span>
+            <div style={{ width: '24px', height: '24px', borderRadius: '6px', backgroundColor: '#fff1f2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Heart size={13} color="#f43f5e" />
+            </div>
           </div>
-          <div style={{ fontSize: 'clamp(18px, 5vw, 24px)', fontWeight: 700, color: '#0f172a', lineHeight: 1 }}>{formatCompactNumber(filteredTotals.total_likes)}</div>
+          <div style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a', lineHeight: 1.1 }}>
+            {formatCompactNumber(filteredTotals.total_likes || 0)}
+          </div>
         </div>
 
         {/* Comments */}
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-            <MessageCircle size={14} color="#8b5cf6" />
-            <span style={{ fontSize: 'clamp(9px, 2.5vw, 11px)', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Comments</span>
+        <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Comments</span>
+            <div style={{ width: '24px', height: '24px', borderRadius: '6px', backgroundColor: '#faf5ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <MessageCircle size={13} color="#8b5cf6" />
+            </div>
           </div>
-          <div style={{ fontSize: 'clamp(18px, 5vw, 24px)', fontWeight: 700, color: '#0f172a', lineHeight: 1 }}>{formatCompactNumber(filteredTotals.total_comments)}</div>
+          <div style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a', lineHeight: 1.1 }}>
+            {formatCompactNumber(filteredTotals.total_comments || 0)}
+          </div>
         </div>
 
         {/* Shares */}
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-            <Share2 size={14} color="#10b981" />
-            <span style={{ fontSize: 'clamp(9px, 2.5vw, 11px)', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Shares</span>
+        <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Shares</span>
+            <div style={{ width: '24px', height: '24px', borderRadius: '6px', backgroundColor: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Share2 size={13} color="#10b981" />
+            </div>
           </div>
-          <div style={{ fontSize: 'clamp(18px, 5vw, 24px)', fontWeight: 700, color: '#0f172a', lineHeight: 1 }}>{formatCompactNumber(filteredTotals.total_shares)}</div>
+          <div style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a', lineHeight: 1.1 }}>
+            {formatCompactNumber(filteredTotals.total_shares || 0)}
+          </div>
         </div>
 
         {/* Engagement Rate */}
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-            <TrendingUp size={14} color="#d97706" />
-            <span style={{ fontSize: 'clamp(9px, 2.5vw, 11px)', color: '#d97706', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Engagement</span>
+        <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '11px', fontWeight: '700', color: '#b45309', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Engagement</span>
+            <div style={{ width: '24px', height: '24px', borderRadius: '6px', backgroundColor: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <TrendingUp size={13} color="#d97706" />
+            </div>
           </div>
-          <div style={{ fontSize: 'clamp(18px, 5vw, 24px)', fontWeight: 800, color: '#b45309', lineHeight: 1 }}>{filteredTotals.engagement_rate}%</div>
+          <div style={{ fontSize: '20px', fontWeight: '800', color: '#92400e', lineHeight: 1.1 }}>
+            {filteredTotals.engagement_rate}%
+          </div>
         </div>
       </div>
 
-      <div className="chart-area" style={{ width: '100%', height: 350, outline: 'none' }} tabIndex="-1">
+      <div className="chart-area" style={{ width: '100%', flex: 1, minHeight: 330, outline: 'none' }} tabIndex="-1">
         {chartData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%" style={{ outline: 'none' }}>
             <BarChart
@@ -217,13 +312,13 @@ export const BrandInsightsChart = ({ detail, posts = [] }) => {
                 dataKey="reach"
                 fill="#1e3a8a"
                 radius={[4, 4, 0, 0]}
-                maxBarSize={40}
+                maxBarSize={48}
               />
               <Bar
                 dataKey="views"
                 fill="#0ea5e9"
                 radius={[4, 4, 0, 0]}
-                maxBarSize={40}
+                maxBarSize={48}
               />
             </BarChart>
           </ResponsiveContainer>
@@ -238,3 +333,5 @@ export const BrandInsightsChart = ({ detail, posts = [] }) => {
     </div>
   );
 };
+
+export default BrandInsightsChart;

@@ -12,6 +12,7 @@ import { Search, Filter, Calendar, ExternalLink, RefreshCw, BarChart2, DollarSig
 import { FaFacebook, FaTiktok, FaInstagram } from 'react-icons/fa';
 
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
+import { Select, Input, Button } from '../../../shared/components/ui';
 import { PostTrackerTableSkeleton, PostTrackerMobileSkeleton } from '../../../shared/components/skeletons';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
 import { SortableHeader } from '../../../shared/components/ui/SortableHeader';
@@ -41,127 +42,6 @@ const STATUS_OPTIONS = [
   { value: 'failed', label: 'Failed', icon: <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#ef4444', display: 'inline-block' }} /> },
   { value: 'archived', label: 'Archived', icon: <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#94a3b8', display: 'inline-block' }} /> },
 ];
-
-const FilterDropdown = ({ icon: Icon, value, options, onChange, minWidth = '130px' }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (ref.current && !ref.current.contains(event.target)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const selectedOption = options.find(o => o.value === value) || options[0];
-  const isFiltered = value !== 'all';
-
-  return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        style={{
-          padding: '8px 12px',
-          borderRadius: '8px',
-          border: isFiltered ? '1px solid #93c5fd' : '1px solid #e2e8f0',
-          fontSize: '13px',
-          backgroundColor: isFiltered ? '#eff6ff' : 'white',
-          color: isFiltered ? '#1d4ed8' : '#334155',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          minWidth,
-          justifyContent: 'space-between',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-          whiteSpace: 'nowrap',
-          fontWeight: isFiltered ? 600 : 500,
-          transition: 'all 0.15s ease',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          {selectedOption.icon ? (
-            selectedOption.icon
-          ) : Icon ? (
-            <Icon size={14} style={{ color: isFiltered ? '#2563eb' : '#64748b' }} />
-          ) : null}
-          <span>{selectedOption.label}</span>
-        </div>
-        <ChevronDown
-          size={14}
-          style={{
-            color: isFiltered ? '#2563eb' : '#94a3b8',
-            transform: isOpen ? 'rotate(180deg)' : 'rotate(0)',
-            transition: 'transform 0.2s',
-          }}
-        />
-      </button>
-
-      {isOpen && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 6px)',
-            right: 0,
-            backgroundColor: '#ffffff',
-            border: '1px solid #e2e8f0',
-            borderRadius: '10px',
-            boxShadow: '0 15px 30px -5px rgba(0, 0, 0, 0.12), 0 8px 12px -4px rgba(0, 0, 0, 0.06)',
-            minWidth: '180px',
-            zIndex: 100,
-            overflow: 'hidden',
-            padding: '6px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '2px',
-          }}
-        >
-          {options.map((option) => {
-            const isSelected = value === option.value;
-            return (
-              <div
-                key={option.value}
-                onClick={() => {
-                  onChange(option.value);
-                  setIsOpen(false);
-                }}
-                style={{
-                  padding: '8px 10px',
-                  borderRadius: '6px',
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  color: isSelected ? '#1d4ed8' : '#334155',
-                  backgroundColor: isSelected ? '#eff6ff' : 'transparent',
-                  fontWeight: isSelected ? 600 : 400,
-                  transition: 'background-color 0.12s ease',
-                }}
-                onMouseEnter={(e) => {
-                  if (!isSelected) e.currentTarget.style.backgroundColor = '#f8fafc';
-                }}
-                onMouseLeave={(e) => {
-                  if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {option.icon}
-                  <span>{option.label}</span>
-                </div>
-                {isSelected && <Check size={14} color="#2563eb" strokeWidth={2.5} />}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-};
 
 export const PostTrackerPage = () => {
   const navigate = useNavigate();
@@ -450,24 +330,25 @@ export const PostTrackerPage = () => {
         backgroundColor: '#ffffff'
       }}>
         <div className="toolbar-header-row" style={{ padding: '16px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
-          <div className="search-input-wrap" style={{ flex: 1, maxWidth: '400px', position: 'relative' }}>
-            <Search size={14} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input
-              type="text"
+          <div style={{ flex: 1, maxWidth: '380px' }}>
+            <Input
+              type="search"
               placeholder="Search by product or page..."
               value={searchTerm}
               onChange={(e) => setFilter('search', e.target.value)}
-              style={{ fontSize: '13px', width: '100%', padding: '10px 16px 10px 40px', borderRadius: '24px', border: '1px solid var(--border-color)' }}
+              isClearable
+              onClear={() => setFilter('search', '')}
             />
           </div>
 
           <div className="toolbar-filter-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <FilterDropdown
-              value={platformFilter}
-              options={PLATFORM_OPTIONS}
-              onChange={(val) => setFilter('platform', val)}
-              minWidth="140px"
-            />
+            <div style={{ minWidth: '145px' }}>
+              <Select
+                value={platformFilter}
+                options={PLATFORM_OPTIONS}
+                onChange={(val) => setFilter('platform', val)}
+              />
+            </div>
             <DateRangeFilter
               value={dateFilter}
               onChange={handleDateFilterChange}
@@ -475,36 +356,28 @@ export const PostTrackerPage = () => {
               onCustomRangeChange={handleCustomRangeChange}
               minWidth="150px"
             />
-            <FilterDropdown
-              value={statusFilter}
-              options={STATUS_OPTIONS}
-              onChange={(val) => setFilter('status', val)}
-              minWidth="135px"
-            />
+            <div style={{ minWidth: '140px' }}>
+              <Select
+                value={statusFilter}
+                options={STATUS_OPTIONS}
+                onChange={(val) => setFilter('status', val)}
+              />
+            </div>
             {isAnyFilterActive && (
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<RotateCcw size={12} />}
                 onClick={resetAllFilters}
-                className="btn-secondary"
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '7px 11px',
-                  fontSize: '12px',
                   color: '#ef4444',
                   backgroundColor: '#fef2f2',
-                  border: '1px solid #fee2e2',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                  transition: 'all 0.15s ease'
+                  borderColor: '#fee2e2'
                 }}
                 title="Reset all active filters"
               >
-                <RotateCcw size={12} />
-                <span>Reset</span>
-              </button>
+                Reset
+              </Button>
             )}
           </div>
         </div>

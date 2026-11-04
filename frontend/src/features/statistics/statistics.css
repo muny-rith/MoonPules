@@ -675,7 +675,9 @@
   }
 
   .brand-hero-card .btn-secondary,
-  .brand-detail-hero-card .btn-secondary {
+  .brand-detail-hero-card .btn-secondary,
+  .brand-detail-hero-actions button,
+  .brand-detail-hero-actions .btn {
     flex: 1 1 0 !important;
     min-width: 0 !important;
     display: inline-flex !important;
@@ -717,9 +719,11 @@
     overflow: visible !important;
   }
 
+  .analytics-filter-toolbar > div,
   .analytics-filter-toolbar .filter-dropdown-group,
   .analytics-filter-toolbar .date-range-filter-container {
     width: 100% !important;
+    min-width: 0 !important;
     position: relative !important;
   }
 
@@ -917,7 +921,9 @@
   }
 
   .brand-hero-card .btn-secondary,
-  .brand-detail-hero-card .btn-secondary {
+  .brand-detail-hero-card .btn-secondary,
+  .brand-detail-hero-actions button,
+  .brand-detail-hero-actions .btn {
     flex: 1 1 0 !important;
     min-width: 0 !important;
     display: inline-flex !important;
@@ -1119,5 +1125,183 @@
     bottom: 12px !important;
     border-radius: 12px !important;
     justify-content: space-between !important;
+  }
+}
+
+
+/* ==========================================================================
+   UNIFIED BRAND DETAIL HUB (Side-by-Side Mission & Analytics)
+   ========================================================================== */
+.brand-unified-hub-card {
+  padding: 20px 24px;
+  background-color: #ffffff;
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.brand-unified-grid {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 20px;
+  align-items: stretch;
+  margin-top: 16px;
+}
+
+.brand-mission-sidebar-panel {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 446px;
+  min-height: 446px;
+  box-sizing: border-box;
+}
+
+.brand-analytics-chart-container {
+  height: 446px;
+  min-height: 446px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.brand-analytics-empty-state {
+  height: 446px;
+  min-height: 446px;
+  box-sizing: border-box;
+}
+
+.brand-analytics-kpi-grid {
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+}
+
+.deliverable-slots-scroll-list {
+  flex: 1;
+  min-height: 140px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.deliverable-slots-scroll-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.deliverable-slots-scroll-list::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.deliverable-slots-scroll-list::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.deliverable-slots-scroll-list::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.deliverable-slot-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.deliverable-slot-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+/* ==========================================================================
+   UNIFIED HUB RESPONSIVE BREAKPOINTS (Desktop, Tablet, Mobile)
+   ========================================================================== */
+
+/* Tablet & Smaller Screens (<= 1080px) */
+@media (max-width: 1080px) {
+  .brand-unified-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .brand-mission-sidebar-panel {
+    height: auto !important;
+    min-height: auto !important;
+  }
+
+  .brand-analytics-chart-container {
+    height: auto !important;
+    min-height: auto !important;
+  }
+
+  .brand-analytics-empty-state {
+    height: auto !important;
+    min-height: 280px !important;
+  }
+
+  .deliverable-slots-scroll-list {
+    max-height: 220px;
+  }
+}
+
+/* Standard Mobile Breakpoint (<= 768px) */
+@media (max-width: 768px) {
+  .brand-unified-hub-card {
+    padding: 14px 14px !important;
+    border-radius: 12px !important;
+  }
+
+  .analytics-filter-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+
+  .analytics-header-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    width: 100% !important;
+    gap: 8px !important;
+  }
+
+  .analytics-header-actions button {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  .analytics-filter-toolbar > div,
+  .analytics-filter-toolbar .filter-dropdown-group,
+  .analytics-filter-toolbar .date-range-filter-container {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+
+/* Small Tablets / Large Phones (<= 640px) */
+@media (max-width: 640px) {
+  .brand-analytics-kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+}
+
+/* Compact Mobile (<= 480px) */
+@media (max-width: 480px) {
+  .analytics-filter-toolbar {
+    grid-template-columns: 1fr !important;
+  }
+
+  .analytics-header-actions {
+    grid-template-columns: 1fr !important;
   }
 }

@@ -224,10 +224,92 @@ const getMonthAudit = async (month, year) => {
   return auditList;
 };
 
+/**
+ * Update a single deliverable slot (e.g. reschedule date, change format)
+ */
+const updateSlot = async (slotId, data) => {
+  const existing = await missionsRepo.getSlotById(slotId);
+  if (!existing) {
+    const err = new Error('Slot not found');
+    err.status = 404;
+    throw err;
+  }
+  const updated = await missionsRepo.updateSlot(slotId, data);
+  if (data.content_type && data.content_type !== existing.content_type) {
+    await missionsRepo.recalculateMissionTargets(existing.mission_id);
+  }
+  return {
+    ...updated,
+    planned_date_str: formatLocalDateStr(updated.planned_date),
+  };
+};
+
+/**
+ * Add a single deliverable slot to an existing or new mission
+ */
+const createSlot = async ({
+  mission_id,
+  brand_id,
+  brand_name,
+  month,
+  year,
+  planned_date,
+  content_type = 'photo',
+  time_window = null,
+  notes = null,
+}) => {
+  let targetMissionId = mission_id;
+  if (!targetMissionId) {
+    if (!brand_id || !month || !year) {
+      const err = new Error('mission_id or (brand_id, month, year) required to create slot');
+      err.status = 400;
+      throw err;
+    }
+    let mission = await missionsRepo.getMission(brand_id, month, year);
+    if (!mission) {
+      mission = await missionsRepo.upsertMission({
+        brand_id,
+        brand_name: brand_name || `Brand #${brand_id}`,
+        month,
+        year,
+      });
+    }
+    targetMissionId = mission.id;
+  }
+
+  const slot = await missionsRepo.createSlot(targetMissionId, {
+    planned_date,
+    content_type,
+    time_window,
+    notes,
+  });
+
+  return {
+    ...slot,
+    planned_date_str: formatLocalDateStr(slot.planned_date),
+  };
+};
+
+/**
+ * Delete a single deliverable slot
+ */
+const deleteSlot = async (slotId) => {
+  const deleted = await missionsRepo.deleteSlot(slotId);
+  if (!deleted) {
+    const err = new Error('Slot not found');
+    err.status = 404;
+    throw err;
+  }
+  return deleted;
+};
+
 module.exports = {
   getMissionWithProgress,
   saveMissionWithSlots,
   getCalendarSlots,
   getMonthAudit,
+  updateSlot,
+  createSlot,
+  deleteSlot,
 };
 

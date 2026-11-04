@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Menu, Bell } from 'lucide-react';
 
@@ -86,7 +86,7 @@ export const Layout = ({ children }) => {
           </div>
         </header>
         <div ref={contentScrollRef} className={`content-scroll ${isDashboard ? 'content-dashboard' : ''} ${isPlanner ? 'content-planner' : ''}`}>
-          {children}
+          {children || <Outlet />}
         </div>
       </main>
     </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as api from '../api/postTrackerApi';
 import * as productService from '../../product/services/productService';
 import { parseFbPostUrl } from '../utils/parseFbPostUrl';
@@ -58,6 +58,7 @@ import { AddHashtagsModal } from '../components/AddHashtagsModal';
 import { VideoThumbnailPicker } from '../components/VideoThumbnailPicker';
 import { useWheelIsolation } from '../hooks/useWheelIsolation';
 import '../postTracker.css';
+import { Select, MultiSelect, Input, Button } from '../../../shared/components/ui';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
 import { compressImageFile, getMediaMetadata, isVideoMedia, resolveMediaUrl } from '../../../shared/utils/mediaUrl';
 
@@ -111,6 +112,14 @@ export const CreatePostPage = () => {
   // Data states
   const [pages, setPages] = useState([]);
   const [selectedPageIds, setSelectedPageIds] = useState([]);
+
+  const pageMultiOptions = useMemo(() => {
+    return pages.map((p) => ({
+      value: String(p.id),
+      label: p.page_name,
+      icon: <PageAvatar page={p} size={18} />,
+    }));
+  }, [pages]);
   const [isPageDropdownOpen, setIsPageDropdownOpen] = useState(false);
   const [pageSearchQuery, setPageSearchQuery] = useState('');
   const pageDropdownRef = useRef(null);
@@ -1013,139 +1022,22 @@ export const CreatePostPage = () => {
               )}
             </div>
 
-            <div className="meta-multi-select-wrap" ref={pageDropdownRef}>
-              <div
-                className={`meta-multi-select-trigger ${isPageDropdownOpen ? 'active' : ''}`}
-                onClick={() => setIsPageDropdownOpen(!isPageDropdownOpen)}
-              >
-                <div className="meta-selected-pages-display">
-                  {selectedPages.length === 0 ? (
-                    <span style={{ color: '#8a8d91', fontSize: '14px' }}>Select Facebook page...</span>
-                  ) : tabMode === 'legacy' ? (
-                    <div className="meta-page-tag" style={{ cursor: 'pointer' }}>
-                      <PageAvatar page={primaryPage} size={20} />
-                      <span style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {primaryPage?.page_name}
-                      </span>
-                    </div>
-                  ) : (
-                    <>
-                      {selectedPages.slice(0, 2).map((page) => (
-                        <div key={page.id} className="meta-page-tag">
-                          <PageAvatar page={page} size={20} />
-                          <span style={{ maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {page.page_name}
-                          </span>
-                          {selectedPages.length > 1 && (
-                            <span
-                              className="meta-page-tag-remove"
-                              onClick={(e) => handleRemovePageTag(e, page.id)}
-                              title="Remove"
-                            >
-                              <X size={12} />
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                      {selectedPages.length > 2 && (
-                        <span className="meta-page-badge-pill">
-                          +{selectedPages.length - 2} more
-                        </span>
-                      )}
-                    </>
-                  )}
-                </div>
-                <ChevronDown
-                  size={16}
-                  color="#65676b"
-                  style={{
-                    transform: isPageDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                    transition: 'transform 0.2s ease',
-                    flexShrink: 0,
-                    marginLeft: '8px'
-                  }}
+            <div style={{ marginTop: '12px' }}>
+              {tabMode === 'direct' ? (
+                <MultiSelect
+                  options={pageMultiOptions}
+                  selectedValues={selectedPageIds}
+                  onChange={(newVals) => setSelectedPageIds(newVals)}
+                  placeholder="Select Facebook accounts to publish or schedule..."
+                  maxTagsVisible={2}
                 />
-              </div>
-
-              {isPageDropdownOpen && (
-                <div className="meta-multi-select-menu">
-                  <div className="meta-multi-select-header">
-                    <span className="meta-multi-select-title">
-                      {tabMode === 'legacy' ? 'Select Facebook Page' : `Connected Accounts (${selectedPageIds.length}/${pages.length})`}
-                    </span>
-                    {tabMode === 'direct' && (
-                      <button
-                        type="button"
-                        className="meta-select-all-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleSelectAllPages();
-                        }}
-                      >
-                        {selectedPageIds.length === pages.length ? 'Clear' : 'Select all'}
-                      </button>
-                    )}
-                  </div>
-
-                  {pages.length > 3 && (
-                    <div className="meta-multi-select-search">
-                      <input
-                        type="text"
-                        placeholder="Search accounts..."
-                        value={pageSearchQuery}
-                        onChange={(e) => setPageSearchQuery(e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="meta-page-search-input"
-                      />
-                    </div>
-                  )}
-
-                  <div className="meta-multi-select-list">
-                    {filteredPages.map((p) => {
-                      const isChecked = selectedPageIds.includes(String(p.id));
-                      return (
-                        <div
-                          key={p.id}
-                          className={`meta-page-option-row ${isChecked ? 'selected' : ''}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleTogglePage(p.id);
-                          }}
-                        >
-                          <div className="meta-option-left">
-                            {tabMode === 'legacy' ? (
-                              <div
-                                className={`meta-radio ${isChecked ? 'checked' : ''}`}
-                                style={{
-                                  width: '16px',
-                                  height: '16px',
-                                  borderRadius: '50%',
-                                  border: isChecked ? '5px solid #1877f2' : '2px solid #ced0d4',
-                                  background: '#ffffff',
-                                  flexShrink: 0,
-                                  transition: 'all 0.15s ease'
-                                }}
-                              />
-                            ) : (
-                              <div className={`meta-checkbox ${isChecked ? 'checked' : ''}`}>
-                                {isChecked && <Check size={12} strokeWidth={3} />}
-                              </div>
-                            )}
-                            <PageAvatar page={p} size={28} />
-                            <span style={{ fontSize: '13.5px', fontWeight: 600, color: '#050505' }}>
-                              {p.page_name}
-                            </span>
-                          </div>
-                          {p.category && (
-                            <span style={{ fontSize: '12px', color: '#65676b' }}>
-                              {p.category}
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+              ) : (
+                <Select
+                  options={pageMultiOptions}
+                  value={selectedPageIds[0] || ''}
+                  onChange={(val) => setSelectedPageIds(val ? [val] : [])}
+                  placeholder="Select Facebook page..."
+                />
               )}
             </div>
           </div>
@@ -1159,21 +1051,25 @@ export const CreatePostPage = () => {
             </div>
 
             {/* Target Selector */}
-            <div className="meta-target-switcher">
-              <button
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+              <Button
                 type="button"
-                className={`meta-target-btn ${trackingTarget === 'product' ? 'active' : ''}`}
+                variant={trackingTarget === 'product' ? 'primary' : 'outline'}
+                size="sm"
+                icon={<Package size={15} />}
                 onClick={() => setTrackingTarget('product')}
               >
-                <Package size={15} /> Single Product
-              </button>
-              <button
+                Single Product
+              </Button>
+              <Button
                 type="button"
-                className={`meta-target-btn ${trackingTarget === 'brand' ? 'active' : ''}`}
+                variant={trackingTarget === 'brand' ? 'primary' : 'outline'}
+                size="sm"
+                icon={<Award size={15} />}
                 onClick={() => setTrackingTarget('brand')}
               >
-                <Award size={15} /> Entire Brand / Live Stream
-              </button>
+                Entire Brand / Live Stream
+              </Button>
             </div>
 
             {trackingTarget === 'product' ? (
@@ -1817,28 +1713,14 @@ export const CreatePostPage = () => {
 
               {legacyMode === 'paste' ? (
                 <div>
-                  <div className="meta-input-group meta-input-with-icon">
-                    <span className="meta-input-lead-icon">
-                      <Link2 size={16} />
-                    </span>
-                    <input
-                      type="text"
-                      className="meta-text-input"
-                      placeholder="e.g. https://facebook.com/posts/12345 or {pageId}_{postId}"
-                      value={postUrl}
-                      onChange={(e) => handleUrlChange(e.target.value)}
-                    />
-                    {postUrl && (
-                      <button
-                        type="button"
-                        className="meta-input-clear-btn"
-                        onClick={() => handleUrlChange('')}
-                        title="Clear input"
-                      >
-                        <X size={13} />
-                      </button>
-                    )}
-                  </div>
+                  <Input
+                    icon={<Link2 size={16} />}
+                    placeholder="e.g. https://facebook.com/posts/12345 or {pageId}_{postId}"
+                    value={postUrl}
+                    onChange={(e) => handleUrlChange(e.target.value)}
+                    isClearable
+                    onClear={() => handleUrlChange('')}
+                  />
                   {parsedPostId && (
                     <div className="meta-input-feedback-success">
                       <CheckCircle2 size={15} />
@@ -1930,36 +1812,33 @@ export const CreatePostPage = () => {
             </div>
             <div className="meta-costs-grid">
               <div className="meta-cost-field">
-                <label>Content Cost ($)</label>
-                <input
+                <Input
+                  label="Content Cost ($)"
                   type="number"
                   value={contentCost}
                   onChange={(e) => setContentCost(e.target.value)}
                   placeholder="0"
-                  className="meta-cost-input"
                   min="0"
                   step="0.01"
                 />
               </div>
               <div className="meta-cost-field">
-                <label>Ad Spend ($)</label>
-                <input
+                <Input
+                  label="Ad Spend ($)"
                   type="number"
                   value={adSpend}
                   onChange={(e) => setAdSpend(e.target.value)}
                   placeholder="0"
-                  className="meta-cost-input"
                   min="0"
                   step="0.01"
                 />
               </div>
               <div className="meta-cost-field">
-                <label>Attribution (Days)</label>
-                <input
+                <Input
+                  label="Attribution (Days)"
                   type="number"
                   value={attributionWindow}
                   onChange={(e) => setAttributionWindow(e.target.value)}
-                  className="meta-cost-input"
                   min="1"
                   max="90"
                 />
@@ -1978,7 +1857,7 @@ export const CreatePostPage = () => {
           {/* Sticky Action Bar */}
           <div className="meta-sticky-bar" style={{ justifyContent: 'flex-end' }}>
 
-            <div className="meta-actions-right" style={{ display: 'flex', alignItems: 'center' }}>
+            <div className="meta-actions-right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               {tabMode === 'legacy' && legacyMode === 'pick' && !selectedRecentPostId && (
                 <span style={{ fontSize: '12px', color: '#8a8d91', marginRight: '8px' }}>
                   Select a post from the list above to track
@@ -1989,28 +1868,27 @@ export const CreatePostPage = () => {
                   Paste a valid Facebook link or ID
                 </span>
               )}
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={handleCancel}
-                className="meta-btn-secondary"
                 disabled={submitting}
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="primary"
                 onClick={handleSubmit}
+                loading={submitting}
                 disabled={
                   submitting ||
                   !(trackingTarget === 'brand' ? Boolean(brandId) : Boolean(productId)) ||
                   selectedPageIds.length === 0 ||
                   (tabMode === 'legacy' && (legacyMode === 'pick' ? !selectedRecentPostId : !parsedPostId))
                 }
-                className="meta-btn-primary"
               >
-                {submitting ? (
-                  <>Processing ({selectedPageIds.length} account{selectedPageIds.length > 1 ? 's' : ''})...</>
-                ) : tabMode === 'direct' ? (
+                {tabMode === 'direct' ? (
                   publishMode === 'schedule' ? (
                     selectedPageIds.length > 1
                       ? `Schedule to ${selectedPageIds.length} Accounts`
@@ -2023,7 +1901,7 @@ export const CreatePostPage = () => {
                 ) : (
                   'Track Post'
                 )}
-              </button>
+              </Button>
             </div>
           </div>
 

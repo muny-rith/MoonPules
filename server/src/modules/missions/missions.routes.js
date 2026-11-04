@@ -7,5 +7,10 @@ router.get('/slots', missionsController.getCalendarSlots);
 router.get('/audit', missionsController.getMonthAudit);
 router.post('/', missionsController.saveMission);
 
+// Individual slot operations for fast inline editing
+router.post('/slots', missionsController.createSlot);
+router.patch('/slots/:id', missionsController.updateSlot);
+router.delete('/slots/:id', missionsController.deleteSlot);
+
 module.exports = router;
 

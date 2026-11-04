@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as api from '../api/postTrackerApi';
 import * as productService from '../../product/services/productService';
 import { ProductPicker } from '../../product/component/ProductPicker';
@@ -48,6 +48,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
+import { Select, Input, Button } from '../../../shared/components/ui';
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 import { PostEditorSkeleton } from '../../../shared/components/skeletons';
 import { MetaEmojiPicker } from '../components/MetaEmojiPicker';
@@ -112,6 +113,14 @@ export const EditPostPage = () => {
     // Shared state
   const [pages, setPages] = useState([]);
   const [pageId, setPageId] = useState('');
+
+  const pageOptions = useMemo(() => {
+    return pages.map((p) => ({
+      value: String(p.id),
+      label: p.page_name,
+      icon: <PageAvatar page={p} size={18} />,
+    }));
+  }, [pages]);
   const [productId, setProductId] = useState('');
   const [productsList, setProductsList] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -968,30 +977,12 @@ export const EditPostPage = () => {
               <h3 className="meta-card-title">Post to</h3>
             </div>
             <div className="meta-page-select-wrap">
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <div style={{ position: 'absolute', left: '10px', zIndex: 1, pointerEvents: 'none' }}>
-                  <PageAvatar page={currentPage} size={26} />
-                </div>
-                <select
-                  value={pageId}
-                  disabled
-                  className="meta-page-select-input"
-                  style={{
-                    opacity: 0.8,
-                    cursor: 'not-allowed',
-                    appearance: 'none',
-                    WebkitAppearance: 'none',
-                    MozAppearance: 'none',
-                  }}
-                >
-                  {pages.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.page_name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={16} color="#65676b" style={{ position: 'absolute', right: '12px', pointerEvents: 'none' }} />
-              </div>
+              <Select
+                disabled
+                value={String(pageId)}
+                options={pageOptions}
+                placeholder="Select Facebook page..."
+              />
               <div style={{ fontSize: '11px', color: '#65676b', marginTop: '6px' }}>
                 Page cannot be changed after post creation
               </div>
@@ -1006,21 +997,25 @@ export const EditPostPage = () => {
               <p className="meta-card-desc">Choose whether this post promotes a single product or an entire brand live session</p>
             </div>
 
-            <div className="meta-target-switcher">
-              <button
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+              <Button
                 type="button"
-                className={`meta-target-btn ${trackingTarget === 'product' ? 'active' : ''}`}
+                variant={trackingTarget === 'product' ? 'primary' : 'outline'}
+                size="sm"
+                icon={<Package size={15} />}
                 onClick={() => setTrackingTarget('product')}
               >
-                <Package size={15} /> Single Product
-              </button>
-              <button
+                Single Product
+              </Button>
+              <Button
                 type="button"
-                className={`meta-target-btn ${trackingTarget === 'brand' ? 'active' : ''}`}
+                variant={trackingTarget === 'brand' ? 'primary' : 'outline'}
+                size="sm"
+                icon={<Award size={15} />}
                 onClick={() => setTrackingTarget('brand')}
               >
-                <Award size={15} /> Entire Brand / Live Stream
-              </button>
+                Entire Brand / Live Stream
+              </Button>
             </div>
 
             {trackingTarget === 'product' ? (
@@ -1687,36 +1682,33 @@ export const EditPostPage = () => {
             </div>
             <div className="meta-costs-grid">
               <div className="meta-cost-field">
-                <label>Content Cost ($)</label>
-                <input
+                <Input
+                  label="Content Cost ($)"
                   type="number"
                   value={contentCost}
                   onChange={(e) => setContentCost(e.target.value)}
                   placeholder="0"
-                  className="meta-cost-input"
                   min="0"
                   step="0.01"
                 />
               </div>
               <div className="meta-cost-field">
-                <label>Ad Spend ($)</label>
-                <input
+                <Input
+                  label="Ad Spend ($)"
                   type="number"
                   value={adSpend}
                   onChange={(e) => setAdSpend(e.target.value)}
                   placeholder="0"
-                  className="meta-cost-input"
                   min="0"
                   step="0.01"
                 />
               </div>
               <div className="meta-cost-field">
-                <label>Attribution (Days)</label>
-                <input
+                <Input
+                  label="Attribution (Days)"
                   type="number"
                   value={attributionWindow}
                   onChange={(e) => setAttributionWindow(e.target.value)}
-                  className="meta-cost-input"
                   min="1"
                   max="90"
                 />
@@ -1739,22 +1731,23 @@ export const EditPostPage = () => {
             </div>
 
             <div className="meta-actions-right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={handleCancel}
-                className="meta-btn-secondary"
                 disabled={submitting}
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="primary"
                 onClick={handleSubmit}
+                loading={submitting}
                 disabled={submitting || !(trackingTarget === 'brand' ? Boolean(brandId) : Boolean(productId)) || !pageId}
-                className="meta-btn-primary"
               >
-                {submitting ? 'Saving...' : 'Save Changes'}
-              </button>
+                Save Changes
+              </Button>
             </div>
           </div>
 

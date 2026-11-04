@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { FaFacebook } from 'react-icons/fa';
 import * as api from '../api/postTrackerApi';
+import { Modal, Button } from '../../../shared/components/ui';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
 import { resolveMediaUrl, isVideoMedia } from '../../../shared/utils/mediaUrl';
 import { MetaSchedulePicker } from './MetaSchedulePicker';
@@ -138,99 +139,68 @@ export const DuplicatePostModal = ({
   const resolvedMedia = resolveMediaUrl(post.media_url || post.product_image);
 
   return (
-    <div
-      className="modal-backdrop"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 1000,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.55)',
-        backdropFilter: 'blur(4px)',
-        animation: 'fadeIn 0.2s ease-out',
-        overflowY: 'auto',
-        padding: '24px 16px',
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !submitting) onClose();
-      }}
+    <Modal
+      isOpen={isOpen}
+      onClose={submitting ? undefined : onClose}
+      size="md"
     >
+      {/* Header */}
       <div
         style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '16px',
-          width: '100%',
-          maxWidth: '560px',
-          margin: 'auto',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-          animation: 'slideUp 0.25s ease-out',
-          overflow: 'visible',
+          background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+          borderBottom: '1px solid #bfdbfe',
+          padding: '18px 24px',
           display: 'flex',
-          flexDirection: 'column',
-          position: 'relative',
+          justifyContent: 'space-between',
+          alignItems: 'center',
         }}
       >
-        {/* Header */}
-        <div
-          style={{
-            background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
-            borderBottom: '1px solid #bfdbfe',
-            borderTopLeftRadius: '16px',
-            borderTopRightRadius: '16px',
-            padding: '20px 24px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div
-              style={{
-                width: '42px',
-                height: '42px',
-                borderRadius: '10px',
-                background: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 2px 6px rgba(37, 99, 235, 0.15)',
-                color: '#2563eb',
-                flexShrink: 0,
-              }}
-            >
-              <Copy size={20} />
-            </div>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: '#1e3a8a' }}>
-                Duplicate & Reschedule Post
-              </h3>
-              <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#3b82f6' }}>
-                Repost this poster again to one or more Facebook pages
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={submitting}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div
             style={{
-              background: 'none',
-              border: 'none',
-              color: '#64748b',
-              cursor: 'pointer',
-              padding: '6px',
-              borderRadius: '8px',
+              width: '42px',
+              height: '42px',
+              borderRadius: '10px',
+              background: '#ffffff',
               display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 6px rgba(37, 99, 235, 0.15)',
+              color: '#2563eb',
+              flexShrink: 0,
             }}
           >
-            <X size={18} />
-          </button>
+            <Copy size={20} />
+          </div>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: '#1e3a8a' }}>
+              Duplicate & Reschedule Post
+            </h3>
+            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#3b82f6' }}>
+              Repost this poster again to one or more Facebook pages
+            </p>
+          </div>
         </div>
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={submitting}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#64748b',
+            cursor: 'pointer',
+            padding: '6px',
+            borderRadius: '8px',
+            display: 'flex',
+          }}
+        >
+          <X size={18} />
+        </button>
+      </div>
 
-        {/* Modal Scrollable Body */}
-        <div style={{ padding: '20px 24px 30px', overflow: 'visible', display: 'flex', flexDirection: 'column', gap: '18px', position: 'relative' }}>
+      {/* Modal Scrollable Body */}
+      <Modal.Body style={{ padding: '20px 24px 30px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
           
           {/* Post Summary Preview Box */}
           <div
@@ -438,102 +408,51 @@ export const DuplicatePostModal = ({
               <span>{error}</span>
             </div>
           )}
-        </div>
+        </Modal.Body>
 
         {/* Modal Footer with 2 Pathways */}
-        <div
-          style={{
-            padding: '16px 24px',
-            backgroundColor: '#f8fafc',
-            borderTop: '1px solid #e2e8f0',
-            borderBottomLeftRadius: '16px',
-            borderBottomRightRadius: '16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
-            position: 'relative',
-            zIndex: 10,
-          }}
-        >
+        <Modal.Footer style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
           {/* Option: Customize in Full Editor */}
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => {
               onClose();
               if (onCustomize) onCustomize(post);
             }}
             disabled={submitting}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '9px 14px',
-              borderRadius: '8px',
-              fontSize: '13px',
-              fontWeight: 600,
-              backgroundColor: '#ffffff',
-              border: '1px solid #cbd5e1',
-              color: '#334155',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-            }}
+            icon={<Edit2 size={14} />}
           >
-            <Edit2 size={14} /> Customize in Editor
-          </button>
+            Customize in Editor
+          </Button>
 
           {/* Option: Direct 1-Click Schedule */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button
+            <Button
               type="button"
+              variant="text"
+              size="sm"
               onClick={onClose}
               disabled={submitting}
-              style={{
-                padding: '9px 14px',
-                borderRadius: '8px',
-                fontSize: '13px',
-                fontWeight: 500,
-                backgroundColor: 'transparent',
-                border: 'none',
-                color: '#64748b',
-                cursor: 'pointer',
-              }}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="primary"
+              size="sm"
               onClick={handleConfirmDuplicate}
+              loading={submitting}
               disabled={submitting || selectedPageIds.length === 0}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '7px',
-                padding: '9px 18px',
-                borderRadius: '8px',
-                fontSize: '13px',
-                fontWeight: 600,
-                backgroundColor: '#2563eb',
-                border: 'none',
-                color: '#ffffff',
-                cursor: submitting ? 'not-allowed' : 'pointer',
-                boxShadow: '0 2px 4px rgba(37, 99, 235, 0.25)',
-                transition: 'all 0.15s ease',
-                opacity: submitting || selectedPageIds.length === 0 ? 0.7 : 1,
-              }}
+              icon={<Copy size={14} />}
             >
-              <Copy size={14} />
-              <span>
-                {submitting
-                  ? 'Scheduling...'
-                  : publishMode === 'now'
-                    ? `Publish to ${selectedPageIds.length} Page${selectedPageIds.length > 1 ? 's' : ''}`
-                    : `Schedule Duplicate (${selectedPageIds.length})`}
-              </span>
-            </button>
+              {publishMode === 'now'
+                ? `Publish to ${selectedPageIds.length} Page${selectedPageIds.length > 1 ? 's' : ''}`
+                : `Schedule Duplicate (${selectedPageIds.length})`}
+            </Button>
           </div>
-        </div>
-      </div>
-    </div>
+        </Modal.Footer>
+      </Modal>
   );
 };

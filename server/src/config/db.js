@@ -14,12 +14,18 @@ const pool = new Pool({
   port: env.DB_PORT,
   ssl: {
     rejectUnauthorized: false // Supabase requires SSL
-  }
+  },
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
 });
 
 pool.on('error', (err, client) => {
-  console.error('Unexpected error on idle client', err);
-  process.exit(-1);
+  console.warn('[Database] Notice: Idle database client disconnected by host:', err.message);
+  // DO NOT exit process. Supabase pooler routinely closes idle sockets.
+  // pg.Pool automatically evicts the dead socket and creates a fresh connection on demand.
 });
 
 module.exports = {
