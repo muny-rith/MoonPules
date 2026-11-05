@@ -38,7 +38,29 @@ export const SetMissionModal = ({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [activeSlotIndex, setActiveSlotIndex] = useState(null);
-  const isPresetActiveRef = useRef(false);
+
+  // Sync initial props and reset drafts on open/close
+  useEffect(() => {
+    if (isOpen) {
+      if (initialBrandId) {
+        setSelectedBrandId(String(initialBrandId));
+      }
+      if (initialMonth) {
+        setMonth(parseInt(initialMonth, 10));
+      }
+      if (initialYear) {
+        setYear(parseInt(initialYear, 10));
+      }
+      setError(null);
+      setActiveSlotIndex(null);
+    } else {
+      // Discard un-saved in-memory drafts when closed without saving
+      setSlots([]);
+      setNotes('');
+      setError(null);
+      setActiveSlotIndex(null);
+    }
+  }, [isOpen, initialBrandId, initialMonth, initialYear]);
 
   // Load available brands
   useEffect(() => {
@@ -107,12 +129,6 @@ export const SetMissionModal = ({
   useEffect(() => {
     if (!isOpen || !selectedBrandId) return;
 
-    // If template was just applied, do not overwrite with DB fetch
-    if (isPresetActiveRef.current) {
-      isPresetActiveRef.current = false;
-      return;
-    }
-
     let isMounted = true;
     const loadMission = async () => {
       try {
@@ -167,7 +183,6 @@ export const SetMissionModal = ({
 
   // Preset: Load Standard Contract (4 Posters & 2 Live Streams) into the CURRENT selected Month & Year
   const handleLoadPreset = () => {
-    isPresetActiveRef.current = true;
     setNotes(`${activeMonthName} ${year} ${currentBrandName} Schedule (4 Posters, 2 Live Streams)`);
     setSlots(getDefaultSlotsForMonth(month, year));
   };
