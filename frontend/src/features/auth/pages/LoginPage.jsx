@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as authApi from '../api/authApi';
+import { useAuth } from '../../../shared/context/AuthContext';
 import './LoginPage.css';
 
 export const LoginPage = () => {
     const navigate = useNavigate();
+    const { login } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -16,8 +18,7 @@ export const LoginPage = () => {
         setSubmitting(true);
         try {
             const { token, user } = await authApi.login(email, password);
-            localStorage.setItem('moonpulse.auth.token', token);
-            localStorage.setItem('moonpulse.auth.user', JSON.stringify(user));
+            login(token, user);
             navigate('/');
         } catch (err) {
             setError(err?.response?.data?.error || 'Could not sign in. Check your email and password.');

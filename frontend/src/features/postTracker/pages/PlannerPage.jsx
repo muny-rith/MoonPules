@@ -1,5 +1,8 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { useToast } from '../../../shared/context/ToastContext';
+import { queryKeys } from '../../../shared/utils/queryKeys';
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -21,12 +24,14 @@ import {
   Radio,
   FileText,
   Target,
-  Sparkles
+  Sparkles,
+  AlertTriangle
 } from 'lucide-react';
 import { FaFacebook } from 'react-icons/fa';
 import { usePostTracker } from '../hooks/usePostTracker';
 import * as api from '../api/postTrackerApi';
-import { fetchBrands } from '../../product/services/productService';
+import * as missionApi from '../../missions/api/missionApi';
+import { useBrands, usePages } from '../../../shared/hooks/queries';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
 import { Select, Input, Button } from '../../../shared/components/ui';
 import { resolveAllMediaUrls, isVideoMedia } from '../../../shared/utils/mediaUrl';
@@ -82,9 +87,78 @@ const getPostContentType = (post) => {
   return 'status';
 };
 
+// Helper to get styling for planned mission slot badges (matches BrandCalendarPage)
+const getSlotBadgeStyle = (contentType, isSpecial = false) => {
+  const type = (contentType || '').toLowerCase();
+  if (type === 'photo' || type === 'poster') {
+    return {
+      bg: '#f0fdf4',
+      borderColor: '#bbf7d0',
+      barColor: '#16a34a',
+      textColor: '#0f172a',
+      label: 'Poster',
+    };
+  }
+  if (type === 'live') {
+    return {
+      bg: isSpecial ? '#fefce8' : '#eff6ff',
+      borderColor: isSpecial ? '#fef08a' : '#bfdbfe',
+      barColor: isSpecial ? '#ca8a04' : '#2563eb',
+      textColor: '#0f172a',
+      label: isSpecial ? 'Payday Live' : 'Live Stream',
+    };
+  }
+  if (type === 'video' || type === 'reel') {
+    return {
+      bg: '#fdf4ff',
+      borderColor: '#f5d0fe',
+      barColor: '#c026d3',
+      textColor: '#0f172a',
+      label: 'Short Video',
+    };
+  }
+  return {
+    bg: '#f8fafc',
+    borderColor: '#e2e8f0',
+    barColor: '#64748b',
+    textColor: '#0f172a',
+    label: 'Status Post',
+  };
+};
+
+// Helper to determine if a planned blueprint slot has already been posted/completed
+const isSlotPostedReady = (slot, dayPosts = []) => {
+  // If backend marked it completed or linked to a post
+  if (slot.computed_status === 'completed' || slot.linked_post?.id) {
+    return true;
+  }
+  // Check if an actual post in dayPosts belongs to this brand and matches content type
+  const matching = dayPosts.some((p) => {
+    const postBrandId = p.brand_id ? String(p.brand_id) : '';
+    const slotBrandId = slot.brand_id ? String(slot.brand_id) : '';
+    if (slotBrandId && postBrandId && postBrandId !== slotBrandId) {
+      return false;
+    }
+    const postType = getPostContentType(p);
+    const slotType = (slot.content_type || '').toLowerCase();
+    if (slotType === 'photo' || slotType === 'poster') {
+      return postType === 'photo' || postType === 'poster';
+    }
+    if (slotType === 'video' || slotType === 'reel') {
+      return postType === 'video';
+    }
+    if (slotType === 'live') {
+      return postType === 'live';
+    }
+    return true;
+  });
+  return matching;
+};
+
 export const PlannerPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const toast = useToast();
 
   // Load all tracked posts
   const { posts, loading, reload, triggerSync } = usePostTracker({ range: 'all' });
@@ -113,8 +187,9 @@ export const PlannerPage = () => {
   const setContentTypeFilter = (type) => setFilter('type', type);
   const setSearchQuery = (q) => setFilter('search', q);
 
-  // Brand list for brand filter
-  const [brands, setBrands] = useState([]);
+  // TanStack Query: Cached & deduplicated brands and pages lists
+  const { data: brands = [] } = useBrands();
+  const { data: pages = [] } = usePages();
 
   // Navigation states
   const [currentWeekStart, setCurrentWeekStart] = useState(() => getWeekMonday(new Date()));
@@ -124,16 +199,11 @@ export const PlannerPage = () => {
     return d;
   });
 
-  // Filter & Search states: immediately initialize pages & page 1 from cache to prevent any flash
-  const cachedPagesInitial = useMemo(() => api.getCachedPages() || [], []);
-  const [pages, setPages] = useState(cachedPagesInitial);
-
   const selectedPageId = useMemo(() => {
     if (selectedPageFilter) return selectedPageFilter;
-    if (cachedPagesInitial.length > 0) return cachedPagesInitial[0].id;
     if (pages.length > 0) return pages[0].id;
     return 'loading';
-  }, [selectedPageFilter, cachedPagesInitial, pages]);
+  }, [selectedPageFilter, pages]);
 
   const userSelectedPageRef = useRef(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -223,18 +293,6 @@ export const PlannerPage = () => {
     () => CONTENT_TYPE_OPTIONS.find((t) => t.value === contentTypeFilter) || CONTENT_TYPE_OPTIONS[0],
     [CONTENT_TYPE_OPTIONS, contentTypeFilter]
   );
-
-  // Load Facebook Pages for dropdown & ensure default to page 1
-  useEffect(() => {
-    api.fetchPages()
-      .then((data) => {
-        const pageList = data || [];
-        setPages(pageList);
-      })
-      .catch((err) => {
-        console.error('Failed to load FB pages:', err);
-      });
-  }, []);
 
   // Format today's date key for highlighting
   const todayKey = useMemo(() => getDateKey(new Date()), []);
@@ -376,6 +434,99 @@ export const PlannerPage = () => {
     return map;
   }, [filteredPosts]);
 
+  // Visible Month/Year combinations for fetching planned deliverable slots
+  const visibleMonthYears = useMemo(() => {
+    if (viewMode === 'week') {
+      const start = weekDays[0]?.date || currentWeekStart;
+      const end = weekDays[6]?.date || new Date(currentWeekStart.getTime() + 6 * 86400000);
+      const m1 = { month: start.getMonth() + 1, year: start.getFullYear() };
+      const m2 = { month: end.getMonth() + 1, year: end.getFullYear() };
+      if (m1.month === m2.month && m1.year === m2.year) return [m1];
+      return [m1, m2];
+    } else {
+      const year = currentMonthDate.getFullYear();
+      const month = currentMonthDate.getMonth() + 1;
+      return [{ month, year }];
+    }
+  }, [viewMode, weekDays, currentWeekStart, currentMonthDate]);
+
+  // Fetch planned slots from backend mission module with TanStack Query caching
+  const { data: calendarSlots = [], refetch: refetchPlannedSlots } = useQuery({
+    queryKey: ['missions', 'planner-slots', { brandFilter: brandFilter || 'all', visibleMonthYears }],
+    queryFn: async () => {
+      const promises = visibleMonthYears.map(({ month, year }) =>
+        missionApi.getCalendarSlots(brandFilter || 'all', month, year).catch(() => [])
+      );
+      const results = await Promise.all(promises);
+      return results.flat();
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+
+  // Group planned slots by local dateKey "YYYY-MM-DD"
+  const slotsByDate = useMemo(() => {
+    const map = new Map();
+    (calendarSlots || []).forEach((slot) => {
+      // Content Type filter
+      if (contentTypeFilter !== 'all') {
+        const slotType = (slot.content_type || '').toLowerCase();
+        if (contentTypeFilter === 'photo' && slotType !== 'photo' && slotType !== 'poster') return;
+        if (contentTypeFilter === 'video' && slotType !== 'video' && slotType !== 'reel') return;
+        if (contentTypeFilter === 'live' && slotType !== 'live') return;
+        if (contentTypeFilter === 'status' && slotType !== 'status' && slotType !== 'text') return;
+      }
+
+      // Brand filter
+      if (brandFilter && brandFilter !== 'all') {
+        if (String(slot.brand_id) !== String(brandFilter)) return;
+      }
+
+      // Page filter (if slot is linked to a post and page filter is active)
+      if (selectedPageId && selectedPageId !== 'all' && selectedPageId !== 'loading') {
+        if (slot.linked_post) {
+          const slotPageId = String(slot.linked_post.page_id || slot.linked_post.fb_page_id || '');
+          if (slotPageId !== String(selectedPageId)) return;
+        }
+      }
+
+      // Search query filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const brandMatch = (slot.brand_name || '').toLowerCase().includes(q);
+        const noteMatch = (slot.notes || '').toLowerCase().includes(q);
+        const typeMatch = (slot.content_type || '').toLowerCase().includes(q);
+        if (!brandMatch && !noteMatch && !typeMatch) return;
+      }
+
+      const key = slot.planned_date_str;
+      if (key) {
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(slot);
+      }
+    });
+
+    return map;
+  }, [calendarSlots, contentTypeFilter, brandFilter, selectedPageId, searchQuery]);
+
+  // Click handler for a planned target slot chip
+  const handleSlotClick = (slot, dateKey) => {
+    if (slot.linked_post?.id) {
+      navigate(`/planner/edit/${slot.linked_post.id}`, {
+        state: { from: location.pathname + location.search },
+      });
+    } else {
+      navigate(`/planner/create?date=${dateKey}`, {
+        state: {
+          from: location.pathname + location.search,
+          prefillBrandId: slot.brand_id,
+          prefillDate: dateKey,
+          prefillType: slot.content_type,
+          prefillNotes: slot.notes || '',
+        },
+      });
+    }
+  };
+
   // Date Navigation Handlers
   const handlePrev = () => {
     if (viewMode === 'week') {
@@ -408,14 +559,16 @@ export const PlannerPage = () => {
     setCurrentMonthDate(firstOfCurrentMonth);
   };
 
-  // Sync with Facebook
+  // Sync with Facebook & refresh planned deliverable slots
   const handleSync = async () => {
     setIsSyncing(true);
     try {
       await triggerSync();
-      await reload({ range: 'all' }, true);
+      await refetchPlannedSlots();
+      toast.success('Synced latest Facebook data successfully!');
     } catch (err) {
       console.error('Sync failed:', err);
+      toast.error('Failed to sync data with Facebook.');
     } finally {
       setIsSyncing(false);
     }
@@ -439,15 +592,6 @@ export const PlannerPage = () => {
       return { title, range: '' };
     }
   }, [viewMode, weekDays, currentMonthDate]);
-
-  // Load brands list on mount
-  useEffect(() => {
-    let isMounted = true;
-    fetchBrands().then((list) => {
-      if (isMounted) setBrands(list || []);
-    }).catch(console.error);
-    return () => { isMounted = false; };
-  }, []);
 
   const selectedBrand = useMemo(() => {
     return brands.find((b) => String(b.brand_id || b.id) === String(brandFilter)) || null;
@@ -594,6 +738,9 @@ export const PlannerPage = () => {
             <div className="planner-week-header-row">
               {weekDays.map((day) => {
                 const dayPosts = postsByDate.get(day.dateKey) || [];
+                const daySlots = slotsByDate.get(day.dateKey) || [];
+                // Only pending deliverables waiting to be created/posted
+                const pendingSlots = daySlots.filter((slot) => !isSlotPostedReady(slot, dayPosts));
 
                 return (
                   <div
@@ -626,15 +773,40 @@ export const PlannerPage = () => {
                       </button>
                     </div>
 
-                    {/* Daily Count Indicator Badge */}
+                    {/* Daily Indicators: Post Count & Pending Planned Deliverables */}
                     {(loading && posts.length === 0) || selectedPageId === 'loading' ? (
                       <span className="planner-day-count-badge loading">...</span>
-                    ) : dayPosts.length > 0 ? (
-                      <span className="planner-day-count-badge">
-                        {dayPosts.length} {dayPosts.length === 1 ? 'post' : 'posts'}
-                      </span>
                     ) : (
-                      <span className="planner-day-count-zero">0 posts</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                        {dayPosts.length > 0 ? (
+                          <span className="planner-day-count-badge">
+                            {dayPosts.length} {dayPosts.length === 1 ? 'post' : 'posts'}
+                          </span>
+                        ) : (
+                          <span className="planner-day-count-zero">0 posts</span>
+                        )}
+
+                        {pendingSlots.length > 0 && (
+                          <span
+                            className="planner-targets-badge"
+                            title={`${pendingSlots.length} deliverables waiting to be posted`}
+                            style={{
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              padding: '2px 5px',
+                              borderRadius: '8px',
+                              backgroundColor: '#eff6ff',
+                              color: '#2563eb',
+                              border: '1px solid #bfdbfe',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '2px',
+                            }}
+                          >
+                            <Target size={10} /> {pendingSlots.length} plan{pendingSlots.length > 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
                 );
@@ -645,6 +817,10 @@ export const PlannerPage = () => {
             <div className="planner-week-body-grid">
               {weekDays.map((day) => {
                 const dayPosts = postsByDate.get(day.dateKey) || [];
+                const daySlots = slotsByDate.get(day.dateKey) || [];
+                // When posted ready, don't show the plan
+                const pendingSlots = daySlots.filter((slot) => !isSlotPostedReady(slot, dayPosts));
+                const hasContent = dayPosts.length > 0 || pendingSlots.length > 0;
 
                 return (
                   <div
@@ -657,7 +833,7 @@ export const PlannerPage = () => {
                         <div className="planner-skeleton-thumb" />
                         <div className="planner-skeleton-line" />
                       </div>
-                    ) : dayPosts.length === 0 ? (
+                    ) : !hasContent ? (
                       <div
                         className="planner-empty-day"
                         onClick={() => navigate(`/planner/create?date=${day.dateKey}`, { state: { from: location.pathname + location.search } })}
@@ -666,107 +842,197 @@ export const PlannerPage = () => {
                         <span>Schedule post</span>
                       </div>
                     ) : (
-                      dayPosts.map((post) => {
-                        const allMedia = resolveAllMediaUrls(post.media_url);
-                        const postDateStr = post.published_time || post.scheduled_time || post.created_at;
-                        const timeStr = formatTime(postDateStr);
-                        const firstMedia = post.thumbnail_url || allMedia[0] || post.product_image;
-                        const isVideo = isVideoMedia(post.thumbnail_url || allMedia[0] || '');
-                        const photoCount = allMedia.length;
-                        const postType = getPostContentType(post);
-                        const fbPostUrl = getFacebookPostUrl(
-                          post.fb_post_id,
-                          post.post_url,
-                          post.page_id || post.fb_page_id
-                        );
+                      <>
+                        {/* Published & Scheduled Posts */}
+                        {dayPosts.map((post) => {
+                          const allMedia = resolveAllMediaUrls(post.media_url);
+                          const postDateStr = post.published_time || post.scheduled_time || post.created_at;
+                          const timeStr = formatTime(postDateStr);
+                          const firstMedia = post.thumbnail_url || allMedia[0] || post.product_image;
+                          const isVideo = isVideoMedia(post.thumbnail_url || allMedia[0] || '');
+                          const photoCount = allMedia.length;
+                          const postType = getPostContentType(post);
+                          const fbPostUrl = getFacebookPostUrl(
+                            post.fb_post_id,
+                            post.post_url,
+                            post.page_id || post.fb_page_id
+                          );
 
-                        return (
-                          <div
-                            key={post.id}
-                            className="planner-post-card"
-                            onClick={() => navigate(`/planner/edit/${post.id}`, { state: { from: location.pathname + location.search } })}
-                            title="Click to view & edit post"
-                          >
-                            {/* Time & Status Row */}
-                            <div className="planner-card-time-row">
-                              <span className="planner-time-pill">
-                                <Clock size={11} /> {timeStr || '12:00 AM'}
-                              </span>
-                              {post.status === 'published' && fbPostUrl && fbPostUrl !== '#' && (
-                                <a
-                                  href={fbPostUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="planner-card-action-btn"
-                                  title="Open on Facebook"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <ExternalLink size={12} />
-                                </a>
-                              )}
-                            </div>
+                          return (
+                            <div
+                              key={post.id}
+                              className="planner-post-card"
+                              onClick={() => navigate(`/planner/edit/${post.id}`, { state: { from: location.pathname + location.search } })}
+                              title="Click to view & edit post"
+                            >
+                              {/* Time & Status Row */}
+                              <div className="planner-card-time-row">
+                                <span className="planner-time-pill">
+                                  <Clock size={11} /> {timeStr || '12:00 AM'}
+                                </span>
+                                {post.status === 'published' && fbPostUrl && fbPostUrl !== '#' && (
+                                  <a
+                                    href={fbPostUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="planner-card-action-btn"
+                                    title="Open on Facebook"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <ExternalLink size={12} />
+                                  </a>
+                                )}
+                              </div>
 
-                            {/* Media Thumbnail */}
-                            <div className="planner-card-media-wrap">
-                              <SafeImage
-                                src={
-                                  firstMedia ||
-                                  `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                                    post.page_name || 'FB'
-                                  )}&background=e2e8f0&color=475569`
-                                }
-                                poster={post.thumbnail_url}
-                                alt={post.message || 'post'}
-                                className="planner-card-img"
-                                fallbackText="No Image"
-                              />
+                              {/* Media Thumbnail */}
+                              <div className="planner-card-media-wrap">
+                                <SafeImage
+                                  src={
+                                    firstMedia ||
+                                    `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                                      post.page_name || 'FB'
+                                    )}&background=e2e8f0&color=475569`
+                                  }
+                                  poster={post.thumbnail_url}
+                                  alt={post.message || 'post'}
+                                  className="planner-card-img"
+                                  fallbackText="No Image"
+                                />
 
-                              {/* Brand Tag Badge on Top-Left of Photo */}
-                              {(post.brand_name || post.product_name) && (
+                                {/* Brand Tag Badge on Top-Left of Photo */}
+                                {(post.brand_name || post.product_name) && (
+                                  <div
+                                    className="planner-card-brand-badge"
+                                    title={post.brand_name || post.product_name}
+                                  >
+                                    <Tag size={10} color="#2563eb" />
+                                    <span>{post.brand_name || post.product_name}</span>
+                                  </div>
+                                )}
+
+                                {/* Content Type Icon Badge in Top-Right Corner */}
+                                {postType === 'live' ? (
+                                  <div className="planner-type-badge type-live" title="Live Video">
+                                    <Radio size={11} />
+                                  </div>
+                                ) : postType === 'video' || isVideo ? (
+                                  <div className="planner-type-badge type-video" title="Video">
+                                    <Play size={10} fill="#ffffff" />
+                                  </div>
+                                ) : photoCount > 1 ? (
+                                  <div className="planner-type-badge type-photo multi" title={`${photoCount} Photos`}>
+                                    <Layers size={11} />
+                                    <span>{photoCount}</span>
+                                  </div>
+                                ) : postType === 'photo' ? (
+                                  <div className="planner-type-badge type-photo" title="Photo">
+                                    <Image size={11} />
+                                  </div>
+                                ) : (
+                                  <div className="planner-type-badge type-status" title="Text Post">
+                                    <FileText size={11} />
+                                  </div>
+                                )}
+
+                                {/* Platform Icon Badge on Bottom-Right */}
                                 <div
-                                  className="planner-card-brand-badge"
-                                  title={post.brand_name || post.product_name}
+                                  className="planner-platform-badge"
+                                  title={post.page_name || 'Facebook'}
                                 >
-                                  <Tag size={10} color="#2563eb" />
-                                  <span>{post.brand_name || post.product_name}</span>
+                                  <FaFacebook size={14} color="#1877F2" />
                                 </div>
-                              )}
-
-                              {/* Content Type Icon Badge in Top-Right Corner */}
-                              {postType === 'live' ? (
-                                <div className="planner-type-badge type-live" title="Live Video">
-                                  <Radio size={11} />
-                                </div>
-                              ) : postType === 'video' || isVideo ? (
-                                <div className="planner-type-badge type-video" title="Video">
-                                  <Play size={10} fill="#ffffff" />
-                                </div>
-                              ) : photoCount > 1 ? (
-                                <div className="planner-type-badge type-photo multi" title={`${photoCount} Photos`}>
-                                  <Layers size={11} />
-                                  <span>{photoCount}</span>
-                                </div>
-                              ) : postType === 'photo' ? (
-                                <div className="planner-type-badge type-photo" title="Photo">
-                                  <Image size={11} />
-                                </div>
-                              ) : (
-                                <div className="planner-type-badge type-status" title="Text Post">
-                                  <FileText size={11} />
-                                </div>
-                              )}
-
-                              {/* Platform Icon Badge on Bottom-Right */}
-                              <div
-                                className="planner-platform-badge"
-                                title={post.page_name || 'Facebook'}
-                              >
-                                <FaFacebook size={14} color="#1877F2" />
                               </div>
                             </div>
+                          );
+                        })}
+
+                        {/* Pending Planned Posts (Styled like general post card) */}
+                        {pendingSlots.map((slot, sIdx) => {
+                          const isSpecial = (slot.time_window || '').includes('04:00PM') || (slot.notes || '').toLowerCase().includes('payday');
+                          const badge = getSlotBadgeStyle(slot.content_type, isSpecial);
+
+                          return (
+                            <div
+                              key={`plan-${slot.id || sIdx}`}
+                              className="planner-post-card planner-planned-card"
+                              onClick={() => handleSlotClick(slot, day.dateKey)}
+                              title={`[Planned Post] ${slot.brand_name || 'Brand'} · ${badge.label}${slot.notes ? ` (${slot.notes})` : ''} · Click to create & post`}
+                            >
+                              {/* Time & Plan Pill */}
+                              <div className="planner-card-time-row">
+                                <span className="planner-time-pill planner-planned-time">
+                                  <Clock size={11} /> {slot.time_window || 'Planned'}
+                                </span>
+                                <span className="planner-plan-badge">
+                                  <Target size={10} /> PLAN
+                                </span>
+                              </div>
+
+                              {/* Media Wrap (Planned Deliverable Blueprint Preview) */}
+                              <div className={`planner-card-media-wrap planner-planned-media-wrap type-${slot.content_type || 'photo'}`}>
+                                <div className="planner-planned-inner-box">
+                                  <div className="planner-planned-format-title">
+                                    {slot.content_type === 'live' ? (
+                                      <Radio size={13} color="#dc2626" />
+                                    ) : slot.content_type === 'video' ? (
+                                      <Play size={13} color="#7c3aed" />
+                                    ) : (
+                                      <Image size={13} color="#16a34a" />
+                                    )}
+                                    <span>{badge.label}</span>
+                                  </div>
+                                  {slot.notes ? (
+                                    <span className="planner-planned-note" title={slot.notes}>
+                                      {slot.notes}
+                                    </span>
+                                  ) : null}
+                                  <span className="planner-planned-subtext">+ Click to create post</span>
+                                </div>
+
+                                {/* Brand Tag Badge on Top-Left of Photo */}
+                                {slot.brand_name && (
+                                  <div className="planner-card-brand-badge" title={slot.brand_name}>
+                                    <Tag size={10} color="#2563eb" />
+                                    <span>{slot.brand_name}</span>
+                                  </div>
+                                )}
+
+                                {/* Content Type Icon Badge in Top-Right Corner */}
+                                {slot.content_type === 'live' ? (
+                                  <div className="planner-type-badge type-live" title="Live Video">
+                                    <Radio size={11} />
+                                  </div>
+                                ) : slot.content_type === 'video' ? (
+                                  <div className="planner-type-badge type-video" title="Video">
+                                    <Play size={10} fill="#ffffff" />
+                                  </div>
+                                ) : (
+                                  <div className="planner-type-badge type-photo" title="Photo / Poster">
+                                    <Image size={11} />
+                                  </div>
+                                )}
+
+                                {/* Target Platform Badge on Bottom-Right */}
+                                <div className="planner-platform-badge planner-planned-platform-badge" title="Brand Plan Target">
+                                  <Target size={12} color="#2563eb" />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {/* Subtle extra post button when only plans exist */}
+                        {dayPosts.length === 0 && (
+                          <div
+                            className="planner-empty-day-compact"
+                            onClick={() => navigate(`/planner/create?date=${day.dateKey}`, { state: { from: location.pathname + location.search } })}
+                            title={`Schedule extra post for ${day.dayName}`}
+                          >
+                            <Plus size={13} />
+                            <span>+ Extra post</span>
                           </div>
-                        );
-                      })
+                        )}
+                      </>
                     )}
                   </div>
                 );
@@ -792,6 +1058,9 @@ export const PlannerPage = () => {
           <div className="planner-month-grid">
             {monthDays.map((cell, idx) => {
               const cellPosts = postsByDate.get(cell.dateKey) || [];
+              const cellSlots = slotsByDate.get(cell.dateKey) || [];
+              // When posted ready, don't show the plan
+              const pendingSlots = cellSlots.filter((slot) => !isSlotPostedReady(slot, cellPosts));
 
               return (
                 <div
@@ -801,14 +1070,37 @@ export const PlannerPage = () => {
                 >
                   <div className="planner-month-cell-header">
                     <span className="planner-month-day-num">{cell.dayNumber}</span>
-                    {cellPosts.length > 0 && (
-                      <span className="planner-day-count-badge">
-                        {cellPosts.length}
-                      </span>
-                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      {pendingSlots.length > 0 && (
+                        <span
+                          className="planner-targets-badge"
+                          title={`${pendingSlots.length} deliverables waiting to be posted`}
+                          style={{
+                            fontSize: '9.5px',
+                            fontWeight: 700,
+                            padding: '1px 4px',
+                            borderRadius: '6px',
+                            backgroundColor: '#eff6ff',
+                            color: '#2563eb',
+                            border: '1px solid #bfdbfe',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '2px',
+                          }}
+                        >
+                          <Target size={9} /> {pendingSlots.length}
+                        </span>
+                      )}
+                      {cellPosts.length > 0 && (
+                        <span className="planner-day-count-badge">
+                          {cellPosts.length}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto', maxHeight: '110px' }}>
+                    {/* Published / Scheduled Posts */}
                     {cellPosts.slice(0, 3).map((post) => {
                       const allMedia = resolveAllMediaUrls(post.media_url);
                       const thumb = post.thumbnail_url || allMedia[0] || post.product_image;
@@ -839,7 +1131,30 @@ export const PlannerPage = () => {
                       );
                     })}
 
-                    {cellPosts.length > 3 && (
+                    {/* Pending Planned Posts (Styled like general post chip) */}
+                    {pendingSlots.slice(0, Math.max(1, 3 - cellPosts.length)).map((slot, sIdx) => {
+                      const badge = getSlotBadgeStyle(slot.content_type);
+                      const timeStr = slot.time_window ? slot.time_window.split('-')[0].trim() : 'Plan';
+
+                      return (
+                        <div
+                          key={`month-plan-${slot.id || sIdx}`}
+                          className="planner-month-post-chip planner-month-plan-chip"
+                          onClick={() => handleSlotClick(slot, cell.dateKey)}
+                          title={`[Planned Post] ${slot.brand_name || 'Brand'} · ${badge.label}${slot.notes ? ` (${slot.notes})` : ''} · Click to create post`}
+                        >
+                          <div className="planner-month-plan-icon" style={{ backgroundColor: badge.bg, border: `1px solid ${badge.borderColor}` }}>
+                            <Target size={11} color={badge.barColor} />
+                          </div>
+                          <span className="planner-chip-time" style={{ color: '#2563eb' }}>{timeStr}</span>
+                          <span className="planner-chip-text" style={{ fontStyle: 'italic', color: '#475569' }}>
+                            [{slot.brand_name || 'Brand'}] {badge.label}
+                          </span>
+                        </div>
+                      );
+                    })}
+
+                    {cellPosts.length + pendingSlots.length > 3 && (
                       <div
                         style={{ fontSize: '10px', color: '#2563eb', fontWeight: 600, padding: '2px 4px', cursor: 'pointer' }}
                         onClick={() => {
@@ -848,7 +1163,7 @@ export const PlannerPage = () => {
                           setViewMode('week');
                         }}
                       >
-                        +{cellPosts.length - 3} more...
+                        +{cellPosts.length + pendingSlots.length - 3} more...
                       </div>
                     )}
                   </div>

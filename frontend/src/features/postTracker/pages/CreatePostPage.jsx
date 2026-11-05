@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as api from '../api/postTrackerApi';
 import * as productService from '../../product/services/productService';
+import { usePages } from '../../../shared/hooks/queries';
+import { useSessionDraft } from '../../../shared/hooks/useSessionDraft';
+import { useToast } from '../../../shared/context/ToastContext';
 import { parseFbPostUrl } from '../utils/parseFbPostUrl';
 import { ProductPicker } from '../../product/component/ProductPicker';
 import { BrandPicker } from '../../product/component/BrandPicker';
@@ -56,6 +59,7 @@ import { MetaSchedulePicker } from '../components/MetaSchedulePicker';
 import { ContactFooterModal } from '../components/ContactFooterModal';
 import { AddHashtagsModal } from '../components/AddHashtagsModal';
 import { VideoThumbnailPicker } from '../components/VideoThumbnailPicker';
+import { FacebookFeedPreview } from '../components/FacebookFeedPreview';
 import { useWheelIsolation } from '../hooks/useWheelIsolation';
 import '../postTracker.css';
 import { Select, MultiSelect, Input, Button } from '../../../shared/components/ui';
@@ -97,6 +101,7 @@ const PageAvatar = ({ page, size = 20, className = 'meta-page-avatar-img' }) => 
 export const CreatePostPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const toast = useToast();
   const searchParams = new URLSearchParams(location.search);
   const dateParam = searchParams.get('date');
   const isFromPlanner = location.pathname.startsWith('/planner') || location.search.includes('from=planner');
@@ -110,8 +115,16 @@ export const CreatePostPage = () => {
   const textCardRef = useWheelIsolation();
 
   // Data states
-  const [pages, setPages] = useState([]);
+  const { data: pages = [] } = usePages();
   const [selectedPageIds, setSelectedPageIds] = useState([]);
+  const hasInitializedPages = useRef(false);
+
+  useEffect(() => {
+    if (pages.length > 0 && !hasInitializedPages.current) {
+      hasInitializedPages.current = true;
+      setSelectedPageIds(pages.map((p) => String(p.id)));
+    }
+  }, [pages]);
 
   const pageMultiOptions = useMemo(() => {
     return pages.map((p) => ({
@@ -138,8 +151,8 @@ export const CreatePostPage = () => {
   const [adSpend, setAdSpend] = useState('');
   const [attributionWindow, setAttributionWindow] = useState(7);
 
-  // Content
-  const [message, setMessage] = useState('');
+  // Content (Persisted in sessionStorage across accidental refreshes)
+  const [message, setMessage, clearMessageDraft] = useSessionDraft('moonpulse_create_post_message_draft', '');
   const textareaRef = useRef(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [mediaSource, setMediaSource] = useState('upload'); // 'upload' | 'product' | 'none'
@@ -202,7 +215,6 @@ export const CreatePostPage = () => {
   }, []);
 
   useEffect(() => {
-    loadPages();
     loadProducts();
     loadContactFooter();
 
@@ -329,19 +341,6 @@ export const CreatePostPage = () => {
       loadRecentPosts();
     }
   }, [tabMode, legacyMode, selectedPageIds]);
-
-  const loadPages = async () => {
-    try {
-      const data = await api.fetchPages();
-      setPages(data || []);
-      // Select all connected Facebook accounts by default
-      if (data && data.length > 0) {
-        setSelectedPageIds(data.map((p) => String(p.id)));
-      }
-    } catch (err) {
-      console.error('Failed to load pages', err);
-    }
-  };
 
   const loadProducts = async () => {
     try {
@@ -900,10 +899,17 @@ export const CreatePostPage = () => {
         });
       }
 
+      clearMessageDraft();
+      const successMessage = schedulingMode === 'schedule'
+        ? 'Post scheduled successfully!'
+        : 'Post created and tracked successfully!';
+      toast.success(successMessage);
       navigate(returnPath);
     } catch (err) {
       console.error('Failed to create/schedule post:', err);
-      setSubmitError(err.response?.data?.error || err.message || 'Failed to submit post');
+      const errMsg = err.response?.data?.error || err.message || 'Failed to submit post';
+      setSubmitError(errMsg);
+      toast.error(errMsg);
     } finally {
       isSubmittingRef.current = false;
       setSubmitting(false);
@@ -1910,151 +1916,20 @@ export const CreatePostPage = () => {
         {/* ══════════════════════════════════════════════════
             RIGHT COLUMN: Live Facebook Feed Preview Area
             ══════════════════════════════════════════════════ */}
-        <div className="meta-preview-col">
-
-          <div className={`meta-feed-card ${previewDevice === 'desktop' ? 'desktop-view' : 'mobile-view'}`}>
-
-            {/* Post Header */}
-            <div className="meta-feed-header">
-              <div className="meta-feed-author-wrap">
-                <PageAvatar page={primaryPage} size={38} className="meta-feed-avatar" />
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <div className="meta-feed-name">{pageDisplayName}</div>
-                    {selectedPages.length > 1 && (
-                      <span className="meta-page-badge-pill" style={{ fontSize: '11px', padding: '1px 6px' }}>
-                        +{selectedPages.length - 1} other account{selectedPages.length > 2 ? 's' : ''}
-                      </span>
-                    )}
-                  </div>
-                  <div className="meta-feed-time">
-                    {publishMode === 'schedule' && scheduledDateTime ? (
-                      <>{new Date(scheduledDateTime).toLocaleString()} · <Globe size={12} /></>
-                    ) : (
-                      <>Just now · <Globe size={12} /></>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="meta-feed-header-actions">
-                <MoreHorizontal size={18} />
-              </div>
-            </div>
-
-            {/* Post Caption Body */}
-            {message.trim() ? (
-              <div className="meta-feed-body">
-                {message}
-              </div>
-            ) : (
-              <div className="meta-feed-body">
-                <div className="meta-feed-skeleton-lines">
-                  <div className="meta-feed-skeleton-bar" style={{ width: '85%' }} />
-                  <div className="meta-feed-skeleton-bar" style={{ width: '60%' }} />
-                </div>
-              </div>
-            )}
-
-            {/* Post Media Preview / Empty Meta Dashed Frame */}
-            {mediaSource === 'product' && (trackingTarget === 'brand' ? selectedBrand?.image_url : selectedProduct?.image_url) ? (
-              <div className="meta-feed-media">
-                <img
-                  src={trackingTarget === 'brand' ? selectedBrand.image_url : selectedProduct.image_url}
-                  alt="Post preview"
-                  className="meta-feed-image"
-                />
-              </div>
-            ) : mediaSource === 'upload' && mediaItems.length > 0 ? (
-              mediaItems.length === 1 ? (
-                (mediaItems[0].isVideo || isVideoMedia(mediaItems[0].previewUrl)) ? (
-                  <div className="meta-feed-media" style={{ background: '#000000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <video
-                      src={mediaItems[0].previewUrl}
-                      poster={mediaItems[0].thumbUrl || undefined}
-                      controls
-                      playsInline
-                      className="meta-feed-video"
-                    />
-                  </div>
-                ) : (
-                  <div className="meta-feed-media">
-                    <img
-                      src={mediaItems[0].previewUrl}
-                      alt="Post preview"
-                      className="meta-feed-image"
-                    />
-                  </div>
-                )
-              ) : mediaItems.length === 2 ? (
-                <div className="meta-feed-multi-grid grid-2">
-                  <div className="meta-feed-grid-item">
-                    {renderFeedGridItem(mediaItems[0], 0)}
-                  </div>
-                  <div className="meta-feed-grid-item">
-                    {renderFeedGridItem(mediaItems[1], 1)}
-                  </div>
-                </div>
-              ) : mediaItems.length === 3 ? (
-                <div className="meta-feed-multi-grid grid-3">
-                  <div className="meta-feed-grid-item span-2-rows">
-                    {renderFeedGridItem(mediaItems[0], 0)}
-                  </div>
-                  <div className="meta-feed-grid-item">
-                    {renderFeedGridItem(mediaItems[1], 1)}
-                  </div>
-                  <div className="meta-feed-grid-item">
-                    {renderFeedGridItem(mediaItems[2], 2)}
-                  </div>
-                </div>
-              ) : (
-                <div className="meta-feed-multi-grid grid-4">
-                  <div className="meta-feed-grid-item">
-                    {renderFeedGridItem(mediaItems[0], 0)}
-                  </div>
-                  <div className="meta-feed-grid-item">
-                    {renderFeedGridItem(mediaItems[1], 1)}
-                  </div>
-                  <div className="meta-feed-grid-item">
-                    {renderFeedGridItem(mediaItems[2], 2)}
-                  </div>
-                  <div className="meta-feed-grid-item">
-                    {renderFeedGridItem(mediaItems[3], 3)}
-                    {mediaItems.length > 4 && (
-                      <div className="meta-feed-more-overlay">
-                        +{mediaItems.length - 4}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )
-            ) : mediaSource !== 'none' ? (
-              <div className="meta-feed-empty-placeholder">
-                <svg className="meta-placeholder-svg" viewBox="0 0 100 100" fill="none" stroke="currentColor">
-                  <rect x="10" y="10" width="80" height="80" rx="8" strokeWidth="3" strokeDasharray="6 6" />
-                  <circle cx="35" cy="35" r="8" fill="currentColor" fillOpacity="0.4" stroke="none" />
-                  <path d="M20 75 L45 45 L65 65 L80 50 L85 75 Z" fill="currentColor" fillOpacity="0.4" stroke="none" />
-                </svg>
-              </div>
-            ) : null}
-
-            {/* Post Engagement Actions Footer */}
-            <div className="meta-feed-footer">
-              <div className="meta-feed-action-bar">
-                <button type="button" className="meta-feed-action-btn">
-                  <ThumbsUp size={16} /> Like
-                </button>
-                <button type="button" className="meta-feed-action-btn">
-                  <MessageSquare size={16} /> Comment
-                </button>
-                <button type="button" className="meta-feed-action-btn">
-                  <Share2 size={16} /> Share
-                </button>
-              </div>
-            </div>
-
-          </div>
-
-        </div>
+        <FacebookFeedPreview
+          previewDevice={previewDevice}
+          primaryPage={primaryPage}
+          selectedPages={selectedPages}
+          pageDisplayName={pageDisplayName}
+          publishMode={publishMode}
+          scheduledDateTime={scheduledDateTime}
+          message={message}
+          mediaSource={mediaSource}
+          mediaItems={mediaItems}
+          trackingTarget={trackingTarget}
+          selectedBrand={selectedBrand}
+          selectedProduct={selectedProduct}
+        />
 
       </div>
 

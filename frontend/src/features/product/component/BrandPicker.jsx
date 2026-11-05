@@ -1,39 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, ChevronDown, Check, X, Tag, Award, AlertCircle } from 'lucide-react';
-import * as productService from '../services/productService';
+import { useBrands } from '../../../shared/hooks/queries';
 import { PickerListSkeleton } from '../../../shared/components/skeletons';
 import '../product.css';
 
 export const BrandPicker = ({ value, onChange, placeholder = 'Search brand from catalog...' }) => {
-  const [brands, setBrands] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const { data: brands = [], isLoading: loading } = useBrands();
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedBrand, setSelectedBrand] = useState(null);
   const dropdownRef = useRef(null);
   const inputRef = useRef(null);
-
-  useEffect(() => {
-    let isMounted = true;
-    const loadBrands = async () => {
-      try {
-        setLoading(true);
-        const data = await productService.fetchBrands();
-        if (isMounted) {
-          setBrands(data || []);
-        }
-      } catch (err) {
-        console.error('Failed to load brands for picker:', err);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-
-    loadBrands();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
   useEffect(() => {
     if (value && brands.length > 0) {

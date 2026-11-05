@@ -4,9 +4,6 @@ import {
     X, FileText, FileSpreadsheet, FileType, CheckSquare, Square,
     DollarSign, Link2, Percent, SlidersHorizontal, ExternalLink, RotateCcw, Check, Building2
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import './ExportModal.css';
 import logo from "../../../assets/logo.png";
 import { getFacebookPostUrl } from '../../../shared/utils/facebookUrl';
@@ -601,7 +598,8 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
         triggerDownload(blob, `${fileBaseName}.csv`);
     };
 
-    const downloadExcel = () => {
+    const downloadExcel = async () => {
+        const XLSX = await import('xlsx');
         const workbook = XLSX.utils.book_new();
         const usedSheetNames = new Set();
 
@@ -679,6 +677,11 @@ export const ExportModal = ({ isOpen, onClose, posts, brandName, pageName, dateR
                 console.warn('No page containers found in pdfContainerRef');
                 return;
             }
+
+            const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+                import('jspdf'),
+                import('html2canvas'),
+            ]);
 
             const pdf = new jsPDF('p', 'mm', 'a4');
             const pageWidth = pdf.internal.pageSize.getWidth();

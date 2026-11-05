@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as api from '../api/postTrackerApi';
 import * as productService from '../../product/services/productService';
+import { usePages } from '../../../shared/hooks/queries';
+import { useToast } from '../../../shared/context/ToastContext';
 import { ProductPicker } from '../../product/component/ProductPicker';
 import { BrandPicker } from '../../product/component/BrandPicker';
 import { usePostTracker } from '../hooks/usePostTracker';
@@ -56,6 +58,7 @@ import { MetaSchedulePicker } from '../components/MetaSchedulePicker';
 import { ContactFooterModal } from '../components/ContactFooterModal';
 import { AddHashtagsModal } from '../components/AddHashtagsModal';
 import { VideoThumbnailPicker } from '../components/VideoThumbnailPicker';
+import { FacebookFeedPreview } from '../components/FacebookFeedPreview';
 import { DeleteConfirmModal } from '../components/DeleteConfirmModal';
 import { useWheelIsolation } from '../hooks/useWheelIsolation';
 import '../postTracker.css';
@@ -97,6 +100,7 @@ const PageAvatar = ({ page, size = 26, className = 'meta-page-avatar-img' }) => 
 export const EditPostPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const toast = useToast();
   const { id } = useParams();
   const { updatePost } = usePostTracker();
   const isFromPlanner = location.pathname.startsWith('/planner') || location.search.includes('from=planner');
@@ -111,7 +115,7 @@ export const EditPostPage = () => {
   const [loadError, setLoadError] = useState('');
   const [originalPost, setOriginalPost] = useState(null);
     // Shared state
-  const [pages, setPages] = useState([]);
+  const { data: pages = [] } = usePages();
   const [pageId, setPageId] = useState('');
 
   const pageOptions = useMemo(() => {
@@ -203,7 +207,6 @@ export const EditPostPage = () => {
   };
 
   useEffect(() => {
-    loadPages();
     loadProducts();
     loadContactFooter();
   }, []);
@@ -302,15 +305,6 @@ export const EditPostPage = () => {
       setLoadError(err?.response?.data?.error || err.message || 'Failed to load post');
     } finally {
       setLoadingPost(false);
-    }
-  };
-
-  const loadPages = async () => {
-    try {
-      const data = await api.fetchPages();
-      setPages(data || []);
-    } catch (err) {
-      console.error('Failed to load pages', err);
     }
   };
 
@@ -683,10 +677,13 @@ export const EditPostPage = () => {
       };
 
       await updatePost(parseInt(id, 10), updateData);
+      toast.success('Post updated successfully!');
       navigate(returnPath);
     } catch (err) {
       console.error('Update error:', err);
-      setSubmitError(err?.response?.data?.error || err.message || 'Failed to update post');
+      const errMsg = err?.response?.data?.error || err.message || 'Failed to update post';
+      setSubmitError(errMsg);
+      toast.error(errMsg);
     } finally {
       isSubmittingRef.current = false;
       setSubmitting(false);
@@ -763,9 +760,11 @@ export const EditPostPage = () => {
   const handleDeletePost = async (postId) => {
     try {
       await api.deletePost(postId || id);
+      toast.success('Post removed successfully!');
       navigate(returnPath);
     } catch (err) {
       console.error('Delete post error:', err);
+      toast.error('Failed to delete post');
       throw err;
     }
   };
@@ -1752,144 +1751,20 @@ export const EditPostPage = () => {
           </div>
 
         </div>
-        <div className="meta-preview-col">
-
-          <div className={`meta-feed-card ${previewDevice === 'desktop' ? 'desktop-view' : 'mobile-view'}`}>
-
-            {/* Post Header */}
-            <div className="meta-feed-header">
-              <div className="meta-feed-author-wrap">
-                <PageAvatar page={currentPage} size={38} className="meta-feed-avatar" />
-                <div>
-                  <div className="meta-feed-name">{pageDisplayName}</div>
-                  <div className="meta-feed-time">
-                    {isScheduled && scheduledDateTime ? (
-                      <>{new Date(scheduledDateTime).toLocaleString()} · <Globe size={12} /></>
-                    ) : (
-                      <>Just now · <Globe size={12} /></>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="meta-feed-header-actions">
-                <MoreHorizontal size={18} />
-              </div>
-            </div>
-
-            {/* Post Caption Body */}
-            {message.trim() ? (
-              <div className="meta-feed-body">
-                {message}
-              </div>
-            ) : (
-              <div className="meta-feed-body">
-                <div className="meta-feed-skeleton-lines">
-                  <div className="meta-feed-skeleton-bar" style={{ width: '85%' }} />
-                  <div className="meta-feed-skeleton-bar" style={{ width: '60%' }} />
-                </div>
-              </div>
-            )}
-
-            {/* Post Media Preview / Empty Meta Dashed Frame */}
-            {mediaSource === 'product' && (trackingTarget === 'brand' ? selectedBrand?.image_url : selectedProduct?.image_url) ? (
-              <div className="meta-feed-media">
-                <img
-                  src={trackingTarget === 'brand' ? selectedBrand.image_url : selectedProduct.image_url}
-                  alt="Post preview"
-                  className="meta-feed-image"
-                />
-              </div>
-            ) : (mediaSource === 'upload' || isPublished) && mediaItems.length > 0 ? (
-              mediaItems.length === 1 ? (
-                (mediaItems[0].isVideo || isVideoMedia(mediaItems[0].previewUrl)) ? (
-                  <div className="meta-feed-media" style={{ background: '#000000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <video
-                      src={mediaItems[0].previewUrl}
-                      poster={mediaItems[0].thumbUrl || undefined}
-                      controls
-                      playsInline
-                      className="meta-feed-video"
-                    />
-                  </div>
-                ) : (
-                  <div className="meta-feed-media">
-                    <img
-                      src={mediaItems[0].previewUrl}
-                      alt="Post preview"
-                      className="meta-feed-image"
-                    />
-                  </div>
-                )
-              ) : mediaItems.length === 2 ? (
-                <div className="meta-feed-multi-grid grid-2">
-                  <div className="meta-feed-grid-item">
-                    {renderFeedGridItem(mediaItems[0], 0)}
-                  </div>
-                  <div className="meta-feed-grid-item">
-                    {renderFeedGridItem(mediaItems[1], 1)}
-                  </div>
-                </div>
-              ) : mediaItems.length === 3 ? (
-                <div className="meta-feed-multi-grid grid-3">
-                  <div className="meta-feed-grid-item span-2-rows">
-                    {renderFeedGridItem(mediaItems[0], 0)}
-                  </div>
-                  <div className="meta-feed-grid-item">
-                    {renderFeedGridItem(mediaItems[1], 1)}
-                  </div>
-                  <div className="meta-feed-grid-item">
-                    {renderFeedGridItem(mediaItems[2], 2)}
-                  </div>
-                </div>
-              ) : (
-                <div className="meta-feed-multi-grid grid-4">
-                  <div className="meta-feed-grid-item">
-                    {renderFeedGridItem(mediaItems[0], 0)}
-                  </div>
-                  <div className="meta-feed-grid-item">
-                    {renderFeedGridItem(mediaItems[1], 1)}
-                  </div>
-                  <div className="meta-feed-grid-item">
-                    {renderFeedGridItem(mediaItems[2], 2)}
-                  </div>
-                  <div className="meta-feed-grid-item">
-                    {renderFeedGridItem(mediaItems[3], 3)}
-                    {mediaItems.length > 4 && (
-                      <div className="meta-feed-more-overlay">
-                        +{mediaItems.length - 4}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )
-            ) : mediaSource !== 'none' ? (
-              <div className="meta-feed-empty-placeholder">
-                <svg className="meta-placeholder-svg" viewBox="0 0 100 100" fill="none" stroke="currentColor">
-                  <rect x="10" y="10" width="80" height="80" rx="8" strokeWidth="3" strokeDasharray="6 6" />
-                  <circle cx="35" cy="35" r="8" fill="currentColor" fillOpacity="0.4" stroke="none" />
-                  <path d="M20 75 L45 45 L65 65 L80 50 L85 75 Z" fill="currentColor" fillOpacity="0.4" stroke="none" />
-                </svg>
-              </div>
-            ) : null}
-
-            {/* Post Engagement Actions Footer */}
-            <div className="meta-feed-footer">
-              <div className="meta-feed-action-bar">
-                <button type="button" className="meta-feed-action-btn">
-                  <ThumbsUp size={16} /> Like
-                </button>
-                <button type="button" className="meta-feed-action-btn">
-                  <MessageSquare size={16} /> Comment
-                </button>
-                <button type="button" className="meta-feed-action-btn">
-                  <Share2 size={16} /> Share
-                </button>
-              </div>
-            </div>
-
-          </div>
-
-        </div>
+        <FacebookFeedPreview
+          previewDevice={previewDevice}
+          primaryPage={currentPage}
+          selectedPages={[currentPage].filter(Boolean)}
+          pageDisplayName={pageDisplayName}
+          publishMode={isScheduled ? 'schedule' : 'now'}
+          scheduledDateTime={scheduledDateTime}
+          message={message}
+          mediaSource={isPublished ? 'upload' : mediaSource}
+          mediaItems={mediaItems}
+          trackingTarget={trackingTarget}
+          selectedBrand={selectedBrand}
+          selectedProduct={selectedProduct}
+        />
 
       </div>
 

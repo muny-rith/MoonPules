@@ -25,8 +25,7 @@ import {
   X
 } from 'lucide-react';
 import * as missionApi from '../../missions/api/missionApi';
-import * as productService from '../../product/services/productService';
-import { fetchPages } from '../../postTracker/api/postTrackerApi';
+import { useBrands, usePages } from '../../../shared/hooks/queries';
 import { usePostTracker } from '../../postTracker/hooks/usePostTracker';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
 import { Select, Button, Modal } from '../../../shared/components/ui';
@@ -58,8 +57,10 @@ export const BrandCalendarPage = () => {
   const [selectedPageId, setSelectedPageId] = useState('all');   // 'all' shows all pages
   const [missionStatusFilter, setMissionStatusFilter] = useState('all'); // 'all' | 'completed' | 'pending'
   const [selectedContentType, setSelectedContentType] = useState('all');
-  const [brands, setBrands] = useState([]);
-  const [pages, setPages] = useState([]);
+
+  // TanStack Query: Cached & deduplicated brands and pages lists
+  const { data: brands = [] } = useBrands();
+  const { data: pages = [] } = usePages();
 
   // Formatted options for global UI Select components
   const brandOptions = useMemo(() => {
@@ -91,20 +92,6 @@ export const BrandCalendarPage = () => {
 
   // Load tracked posts from PostTracker
   const { posts, reload: reloadPosts } = usePostTracker({ range: 'all' });
-
-  // Load brands and FB pages on mount
-  useEffect(() => {
-    let isMounted = true;
-    productService.fetchBrands().then((list) => {
-      if (isMounted) setBrands(list || []);
-    }).catch(console.error);
-
-    fetchPages().then((list) => {
-      if (isMounted) setPages(list || []);
-    }).catch(console.error);
-
-    return () => { isMounted = false; };
-  }, []);
 
   // Fetch slots and audit for the month
   const loadData = async () => {

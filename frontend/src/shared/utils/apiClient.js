@@ -1,5 +1,6 @@
-// frontend/src/shared/utils/apiClient.js — replace entire file
+// frontend/src/shared/utils/apiClient.js
 import axios from 'axios';
+import { queryClient } from './queryClient';
 
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
@@ -19,6 +20,7 @@ apiClient.interceptors.response.use(
     if (error?.response?.status === 401) {
       localStorage.removeItem('moonpulse.auth.token');
       localStorage.removeItem('moonpulse.auth.user');
+      queryClient.clear();
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
       }

@@ -1,117 +1,136 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../../shared/utils/queryKeys';
 import * as api from '../api/postTrackerApi';
 
 export const usePostTracker = (initialParams = { range: 'this_month' }) => {
-  const initialPosts = api.getCachedPosts(initialParams);
-  const [posts, setPosts] = useState(() => initialPosts || []);
-  const [loading, setLoading] = useState(() => !initialPosts);
-  const [error, setError] = useState(null);
-  const paramsRef = useRef(initialParams);
+  const queryClient = useQueryClient();
 
-  const loadPosts = useCallback(async (params = paramsRef.current, force = false) => {
-    let actualParams = params;
-    let actualForce = force;
-    if (typeof params === 'boolean') {
-      actualForce = params;
-      actualParams = paramsRef.current;
-    } else {
-      paramsRef.current = actualParams;
-    }
+  const queryKey = useMemo(() => queryKeys.posts.list(initialParams), [initialParams]);
 
-    try {
-      const hasCached = !!api.getCachedPosts(actualParams);
-      if (!hasCached || actualForce) {
-        setLoading(true);
-      }
-      const data = await api.fetchPosts(actualParams, actualForce);
-      setPosts(data);
-      setError(null);
-    } catch (err) {
-      if (!api.getCachedPosts(actualParams)) {
-        setError(err.message);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // Main Posts Query with TanStack Query caching & deduplication
+  const {
+    data: posts = [],
+    isLoading,
+    isFetching,
+    error: queryError,
+    refetch,
+  } = useQuery({
+    queryKey,
+    queryFn: () => api.fetchPosts(initialParams, true),
+    staleTime: 2 * 60 * 1000,
+    select: (data) => (Array.isArray(data) ? data : []),
+  });
+
+  // Invalidate posts & missions when any mutation occurs
+  const invalidateAll = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.missions.all }),
+    ]);
+  }, [queryClient]);
+
+  // Create post mutation
+  const createMutation = useMutation({
+    mutationFn: api.createPost,
+    onSuccess: invalidateAll,
+  });
+
+  // Update post mutation
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }) => api.updatePostData(id, data),
+    onSuccess: invalidateAll,
+  });
+
+  // Delete post mutation
+  const deleteMutation = useMutation({
+    mutationFn: api.deletePost,
+    onSuccess: invalidateAll,
+  });
+
+  // Publish now mutation
+  const publishMutation = useMutation({
+    mutationFn: api.publishPostNow,
+    onSuccess: invalidateAll,
+  });
+
+  // Sync with Facebook mutation
+  const syncMutation = useMutation({
+    mutationFn: api.syncPosts,
+    onSuccess: invalidateAll,
+  });
 
   const addPost = async (postData) => {
-    try {
-      const newPost = await api.createPost(postData);
-      await loadPosts(paramsRef.current, true);
-      return newPost;
-    } catch (err) {
-      throw err;
-    }
+    return createMutation.mutateAsync(postData);
   };
 
   const updatePost = async (id, data) => {
-    try {
-      const updated = await api.updatePostData(id, data);
-      await loadPosts(paramsRef.current, true);
-      return updated;
-    } catch (err) {
-      throw err;
-    }
+    return updateMutation.mutateAsync({ id, data });
   };
 
   const deletePost = async (id) => {
-    try {
-      await api.deletePost(id);
-      setPosts((prev) => prev.filter(p => p.id !== id));
-    } catch (err) {
-      throw err;
-    }
-  };
-
-  const triggerSync = async (customParams = null) => {
-    try {
-      setLoading(true);
-      const syncFilter = customParams || paramsRef.current || {};
-      await api.syncPosts({
-        range: syncFilter.range,
-        timezone: syncFilter.timezone,
-        platform: syncFilter.platform,
-        brandId: syncFilter.brandId || syncFilter.brand_id,
-        startDate: syncFilter.startDate,
-        endDate: syncFilter.endDate,
-      });
-      await loadPosts(paramsRef.current, true);
-    } catch (err) {
-      setError(err.message);
-      setLoading(false);
-    }
-  };
-
-  const refreshSinglePost = async (id) => {
-    try {
-      const updated = await api.refreshPostById(id);
-      setPosts((prev) => prev.map(p => (p.id === id ? { ...p, ...updated } : p)));
-      return updated;
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    }
+    return deleteMutation.mutateAsync(id);
   };
 
   const publishNow = async (id) => {
-    try {
-      setLoading(true);
-      const res = await api.publishPostNow(id);
-      await loadPosts(paramsRef.current, true);
-      return res;
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
+    return publishMutation.mutateAsync(id);
   };
 
-  useEffect(() => {
-    loadPosts(initialParams);
-  }, [loadPosts]);
+  const triggerSync = async (customParams = null) => {
+    const syncFilter = customParams || initialParams || {};
+    return syncMutation.mutateAsync({
+      range: syncFilter.range,
+      timezone: syncFilter.timezone,
+      platform: syncFilter.platform,
+      brandId: syncFilter.brandId || syncFilter.brand_id,
+      startDate: syncFilter.startDate,
+      endDate: syncFilter.endDate,
+    });
+  };
 
-  return { posts, loading, error, addPost, updatePost, deletePost, publishNow, reload: loadPosts, triggerSync, refreshSinglePost };
+  const refreshSinglePost = async (id) => {
+    const updated = await api.refreshPostById(id);
+    await invalidateAll();
+    return updated;
+  };
+
+  const reload = useCallback(
+    async (params, force = false) => {
+      if (params && typeof params === 'object' && Object.keys(params).length > 0) {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.posts.list(params) });
+      } else {
+        await refetch();
+      }
+    },
+    [queryClient, refetch]
+  );
+
+  const error =
+    queryError?.message ||
+    createMutation.error?.message ||
+    updateMutation.error?.message ||
+    deleteMutation.error?.message ||
+    syncMutation.error?.message ||
+    null;
+
+  const loading =
+    isLoading ||
+    createMutation.isPending ||
+    updateMutation.isPending ||
+    deleteMutation.isPending ||
+    publishMutation.isPending ||
+    syncMutation.isPending;
+
+  return {
+    posts,
+    loading,
+    error,
+    addPost,
+    updatePost,
+    deletePost,
+    publishNow,
+    reload,
+    triggerSync,
+    refreshSinglePost,
+  };
 };
-

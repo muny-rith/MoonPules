@@ -7,6 +7,8 @@ import { ConversionFunnel } from '../components/ConversionFunnel';
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 import { DashboardTopStatsSkeleton, DashboardScheduleSkeleton } from '../../../shared/components/skeletons';
 import apiClient from '../../../shared/utils/apiClient';
+import { useAuth } from '../../../shared/context/AuthContext';
+import { useToast } from '../../../shared/context/ToastContext';
 import { syncPosts } from '../../postTracker/api/postTrackerApi';
 import '../dashboard.css';
 
@@ -189,7 +191,8 @@ export const DashboardPage = () => {
   const [loading, setLoading] = useState(() => !initialStats);
   const [profitLoading, setProfitLoading] = useState(() => !initialProfit);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [user, setUser] = useState(null);
+  const { user } = useAuth();
+  const toast = useToast();
 
   const [isDateOpen, setIsDateOpen] = useState(false);
   const [isPlatformOpen, setIsPlatformOpen] = useState(false);
@@ -260,17 +263,6 @@ export const DashboardPage = () => {
     fetchProfit(dateRange, platform);
   }, [dateRange, platform]);
 
-  useEffect(() => {
-    try {
-      const storedUser = localStorage.getItem('moonpulse.auth.user');
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
-      }
-    } catch (e) {
-      console.error('Failed to parse user from local storage', e);
-    }
-  }, []);
-
   const handleSync = async () => {
     try {
       setIsSyncing(true);
@@ -282,8 +274,10 @@ export const DashboardPage = () => {
       });
       clearDashboardCache();
       await Promise.all([fetchDashboard(dateRange, platform, true), fetchProfit(dateRange, platform, true)]);
+      toast.success('Synced latest posts with Facebook successfully!');
     } catch (err) {
       console.error('Failed to sync posts', err);
+      toast.error('Failed to sync posts with Facebook. Please check connection.');
     } finally {
       setIsSyncing(false);
     }

@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Plus, Trash2, Sparkles, AlertCircle } from 'lucide-react';
-import * as productService from '../../product/services/productService';
+import { useQueryClient } from '@tanstack/react-query';
+import { useBrands } from '../../../shared/hooks/queries';
+import { useToast } from '../../../shared/context/ToastContext';
+import { queryKeys } from '../../../shared/utils/queryKeys';
 import * as missionApi from '../api/missionApi';
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, Select, Input, DatePicker } from '../../../shared/components/ui';
 
@@ -28,7 +31,9 @@ export const SetMissionModal = ({
   initialYear = new Date().getFullYear(),
   initialBrandId = '',
 }) => {
-  const [brands, setBrands] = useState([]);
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const { data: brands = [] } = useBrands();
   const [selectedBrandId, setSelectedBrandId] = useState(initialBrandId || '');
   const [month, setMonth] = useState(initialMonth);
   const [year, setYear] = useState(initialYear);
@@ -62,27 +67,13 @@ export const SetMissionModal = ({
     }
   }, [isOpen, initialBrandId, initialMonth, initialYear]);
 
-  // Load available brands
+  // Select default brand if none selected when modal opens
   useEffect(() => {
-    let isMounted = true;
-    const load = async () => {
-      try {
-        const data = await productService.fetchBrands();
-        if (isMounted) {
-          setBrands(data || []);
-          if (!selectedBrandId && data && data.length > 0) {
-            // Find K-FREE if exists, else first brand
-            const kfree = data.find((b) => (b.brand_name || b.name || '').toUpperCase().includes('FREE'));
-            setSelectedBrandId(String(kfree ? (kfree.brand_id || kfree.id) : (data[0].brand_id || data[0].id)));
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load brands:', err);
-      }
-    };
-    if (isOpen) load();
-    return () => { isMounted = false; };
-  }, [isOpen]);
+    if (isOpen && brands.length > 0 && !selectedBrandId) {
+      const kfree = brands.find((b) => (b.brand_name || b.name || '').toUpperCase().includes('FREE'));
+      setSelectedBrandId(String(kfree ? (kfree.brand_id || kfree.id) : (brands[0].brand_id || brands[0].id)));
+    }
+  }, [isOpen, brands, selectedBrandId]);
 
   const brandOptions = useMemo(() => {
     return brands.map((b) => ({
@@ -221,11 +212,15 @@ export const SetMissionModal = ({
       };
 
       const result = await missionApi.saveMission(payload);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.missions.all });
+      toast.success('Brand Schedule Blueprint saved successfully!');
       if (onSaved) onSaved(result);
       onClose();
     } catch (err) {
       console.error('Failed to save mission:', err);
-      setError(err?.response?.data?.error || 'Failed to save mission. Please try again.');
+      const msg = err?.response?.data?.error || 'Failed to save mission. Please try again.';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
