@@ -662,8 +662,21 @@ export const BrandDetailPage = () => {
       'កក្កដា', 'សីហា', 'កញ្ញា', 'តុលា', 'វិច្ឆិកា', 'ធ្នូ',
     ];
     const formatDateKhmer = (d) => {
-      if (isNaN(d.getTime())) return '';
-      return `${d.getDate()} ${KHMER_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+      if (!d) return '';
+      if (typeof d === 'string' && d.includes('-')) {
+        const parts = d.split('T')[0].split('-');
+        if (parts.length === 3) {
+          const y = parseInt(parts[0], 10);
+          const m = parseInt(parts[1], 10) - 1;
+          const day = parseInt(parts[2], 10);
+          if (m >= 0 && m < 12) {
+            return `${day} ${KHMER_MONTHS[m]} ${y}`;
+          }
+        }
+      }
+      const dateObj = d instanceof Date ? d : new Date(d);
+      if (!dateObj || isNaN(dateObj.getTime())) return '';
+      return `${dateObj.getDate()} ${KHMER_MONTHS[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
     };
 
     const now = new Date();
@@ -731,6 +744,7 @@ export const BrandDetailPage = () => {
       if (endStr) {
         return { label: `រហូតដល់ ${endStr}`, start: '', end: endStr };
       }
+      return { label: 'ចន្លោះកាលបរិច្ឆេទកំណត់', start: '', end: '' };
     }
 
     return { label: 'គ្រប់ពេលវេលា', start: 'គ្រប់ពេលវេលា', end: 'គ្រប់ពេលវេលា' };

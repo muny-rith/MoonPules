@@ -11,8 +11,10 @@ const MONTH_NAMES = [
 const pad = (n) => String(n).padStart(2, '0');
 
 const toYMD = (d) => {
-  if (!d || isNaN(d.getTime())) return '';
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  if (!d) return '';
+  const dateObj = d instanceof Date ? d : new Date(d);
+  if (isNaN(dateObj.getTime())) return '';
+  return `${dateObj.getFullYear()}-${pad(dateObj.getMonth() + 1)}-${pad(dateObj.getDate())}`;
 };
 
 export const DatePicker = ({
