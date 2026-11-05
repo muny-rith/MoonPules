@@ -1,8 +1,24 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { X, Plus, Trash2, Calendar, Clock, Tag, Sparkles, Check, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Plus, Trash2, Sparkles, AlertCircle } from 'lucide-react';
 import * as productService from '../../product/services/productService';
 import * as missionApi from '../api/missionApi';
-import { Modal, Button, Select, Input } from '../../../shared/components/ui';
+import { Modal, ModalHeader, ModalBody, ModalFooter, Button, Select, Input, DatePicker } from '../../../shared/components/ui';
+
+// Default standard contract: 4 Posters and 2 Live Streams (6 slots total)
+const getDefaultSlotsForMonth = (m, y) => {
+  const padM = String(m).padStart(2, '0');
+  const lastDayOfMonth = new Date(y, m, 0).getDate();
+  const clampDay = (d) => String(Math.min(d, lastDayOfMonth)).padStart(2, '0');
+
+  return [
+    { planned_date: `${y}-${padM}-${clampDay(4)}`, content_type: 'photo', time_window: '', notes: 'Week 1 Hero Poster' },
+    { planned_date: `${y}-${padM}-${clampDay(9)}`, content_type: 'live', time_window: '01:00PM - 05:00PM', notes: 'Friday Afternoon Live Stream' },
+    { planned_date: `${y}-${padM}-${clampDay(12)}`, content_type: 'photo', time_window: '', notes: 'Week 2 Feature Poster' },
+    { planned_date: `${y}-${padM}-${clampDay(21)}`, content_type: 'photo', time_window: '', notes: 'Week 3 Product Showcase Poster' },
+    { planned_date: `${y}-${padM}-${clampDay(23)}`, content_type: 'live', time_window: '01:00PM - 05:00PM', notes: 'Payday Special Live Stream' },
+    { planned_date: `${y}-${padM}-${clampDay(27)}`, content_type: 'photo', time_window: '', notes: 'Month-End Closing Poster' },
+  ];
+};
 
 export const SetMissionModal = ({
   isOpen,
@@ -21,6 +37,8 @@ export const SetMissionModal = ({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [activeSlotIndex, setActiveSlotIndex] = useState(null);
+  const isPresetActiveRef = useRef(false);
 
   // Load available brands
   useEffect(() => {
@@ -66,9 +84,34 @@ export const SetMissionModal = ({
     { value: '12', label: 'December' },
   ], []);
 
+  const contentTypeOptions = useMemo(() => [
+    { value: 'photo', label: '🖼️ Poster (Photo)' },
+    { value: 'live', label: '🎥 Live Stream' },
+    { value: 'video', label: '🎬 Short Video / Reel' },
+    { value: 'status', label: '📝 Status / Text' },
+  ], []);
+
+  const monthNames = useMemo(() => [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ], []);
+  const activeMonthName = monthNames[month - 1] || 'Month';
+
+  // Compute active month boundary for date inputs
+  const padMonth = String(month).padStart(2, '0');
+  const lastDay = new Date(year, month, 0).getDate();
+  const minDate = `${year}-${padMonth}-01`;
+  const maxDate = `${year}-${padMonth}-${String(lastDay).padStart(2, '0')}`;
+
   // Load existing mission for selected brand + month + year
   useEffect(() => {
     if (!isOpen || !selectedBrandId) return;
+
+    // If template was just applied, do not overwrite with DB fetch
+    if (isPresetActiveRef.current) {
+      isPresetActiveRef.current = false;
+      return;
+    }
 
     let isMounted = true;
     const loadMission = async () => {
@@ -111,7 +154,6 @@ export const SetMissionModal = ({
 
   // Add slot
   const handleAddSlot = () => {
-    const padMonth = String(month).padStart(2, '0');
     setSlots([
       ...slots,
       {
@@ -123,20 +165,11 @@ export const SetMissionModal = ({
     ]);
   };
 
-  // Preset: Load October 2026 K-FREE Schedule from Calendar
-  const handleLoadOctoberPreset = () => {
-    setMonth(10);
-    setYear(2026);
-    setNotes('October 2026 K-FREE Master Schedule (4 Posters, 3 Live Streams)');
-    setSlots([
-      { planned_date: '2026-10-04', content_type: 'photo', time_window: '', notes: 'Week 1 Hero Poster' },
-      { planned_date: '2026-10-09', content_type: 'live', time_window: '01:00PM - 05:00PM', notes: 'Friday Afternoon Live Stream' },
-      { planned_date: '2026-10-12', content_type: 'photo', time_window: '', notes: 'Week 2 Feature Poster' },
-      { planned_date: '2026-10-21', content_type: 'photo', time_window: '', notes: 'Week 3 Product Showcase Poster' },
-      { planned_date: '2026-10-23', content_type: 'live', time_window: '01:00PM - 05:00PM', notes: 'Friday Afternoon Live Stream' },
-      { planned_date: '2026-10-27', content_type: 'photo', time_window: '', notes: 'Month-End Teaser Poster' },
-      { planned_date: '2026-10-30', content_type: 'live', time_window: '04:00PM', notes: 'Payday Special Live Stream' },
-    ]);
+  // Preset: Load Standard Contract (4 Posters & 2 Live Streams) into the CURRENT selected Month & Year
+  const handleLoadPreset = () => {
+    isPresetActiveRef.current = true;
+    setNotes(`${activeMonthName} ${year} ${currentBrandName} Schedule (4 Posters, 2 Live Streams)`);
+    setSlots(getDefaultSlotsForMonth(month, year));
   };
 
   const handleUpdateSlot = (index, field, val) => {
@@ -160,7 +193,7 @@ export const SetMissionModal = ({
       setSaving(true);
       setError(null);
 
-      // Sort slots by date
+      // Sort slots chronologically by planned date
       const sortedSlots = [...slots].sort((a, b) => (a.planned_date > b.planned_date ? 1 : -1));
 
       const payload = {
@@ -184,160 +217,95 @@ export const SetMissionModal = ({
   };
 
   return (
-    <div className="modal-overlay" style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.55)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 9999,
-      padding: '16px'
-    }}>
-      <div className="modal-content" style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '12px',
-        width: '100%',
-        maxWidth: '750px',
-        maxHeight: '90vh',
-        display: 'flex',
-        flexDirection: 'column',
-        boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)',
-        overflow: 'hidden'
-      }}>
-        {/* Header */}
-        <div style={{
-          padding: '18px 24px',
-          borderBottom: '1px solid #e2e8f0',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <div>
-            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#0f172a' }}>
-              🎯 Plan Brand Schedule Blueprint
-            </h3>
-            <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b' }}>
-              Set exact days to post and live stream for each brand
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: '#94a3b8',
-              padding: '4px'
-            }}
-          >
-            <X size={20} />
-          </button>
-        </div>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="lg"
+      className="plan-blueprint-modal"
+    >
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', height: '100%', maxHeight: '88vh', overflow: 'hidden' }}>
+        {/* Header using Global ModalHeader */}
+        <ModalHeader
+          title="🎯 Plan Brand Schedule Blueprint"
+          description="Set exact days to post and live stream for each brand"
+          onClose={onClose}
+        />
 
-        {/* Body */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1 }}>
-          <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
-            {error && (
-              <div style={{
-                padding: '10px 14px',
-                backgroundColor: '#fef2f2',
-                border: '1px solid #fecaca',
-                color: '#b91c1c',
-                borderRadius: '8px',
-                fontSize: '13px',
-                marginBottom: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                <AlertCircle size={16} />
-                <span>{error}</span>
-              </div>
-            )}
-
-            {/* Brand, Month, Year Selector */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: '14px', marginBottom: '18px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
-                  Target Brand
-                </label>
-                <Select
-                  value={selectedBrandId}
-                  options={brandOptions}
-                  onChange={(e) => {
-                    const val = e && typeof e === 'object' && 'target' in e ? e.target.value : e;
-                    setSelectedBrandId(val);
-                  }}
-                  placeholder="Select Brand..."
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
-                  Month
-                </label>
-                <Select
-                  value={String(month)}
-                  options={monthOptions}
-                  onChange={(e) => {
-                    const val = e && typeof e === 'object' && 'target' in e ? e.target.value : e;
-                    setMonth(parseInt(val, 10));
-                  }}
-                  placeholder="Select Month..."
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
-                  Year
-                </label>
-                <Input
-                  type="number"
-                  value={year}
-                  onChange={(e) => setYear(parseInt(e.target.value, 10))}
-                  min="2024"
-                  max="2030"
-                  className="m-0"
-                  style={{ height: '38px' }}
-                />
-              </div>
-            </div>
-
-            {/* Quick Preset Button */}
+        {/* Body using Global ModalBody */}
+        <ModalBody style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
+          {error && (
             <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '16px',
               padding: '10px 14px',
-              backgroundColor: '#f8fafc',
+              backgroundColor: '#fef2f2',
+              border: '1px solid #fecaca',
+              color: '#b91c1c',
               borderRadius: '8px',
-              border: '1px solid #e2e8f0'
+              fontSize: '13px',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
             }}>
-              <span style={{ fontSize: '12.5px', color: '#64748b' }}>
-                Need the 7-day schedule like your photo?
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                startIcon={<Sparkles size={14} color="#0284c7" />}
-                onClick={handleLoadOctoberPreset}
-                style={{ height: '32px', fontSize: '12px' }}
-              >
-                Fill October K-FREE Calendar
-              </Button>
+              <AlertCircle size={16} />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Brand, Month, Year Selector using Global Select & Input */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: '14px', marginBottom: '18px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
+                Target Brand
+              </label>
+              <Select
+                value={selectedBrandId}
+                options={brandOptions}
+                onChange={(e) => {
+                  const val = e && typeof e === 'object' && 'target' in e ? e.target.value : e;
+                  setSelectedBrandId(val);
+                }}
+                placeholder="Select Brand..."
+              />
             </div>
 
-            {/* Slots List */}
-            <div style={{ marginBottom: '14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <span style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>
-                  Planned Posting Days ({slots.length} slots)
-                </span>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
+                Month
+              </label>
+              <Select
+                value={String(month)}
+                options={monthOptions}
+                onChange={(e) => {
+                  const val = e && typeof e === 'object' && 'target' in e ? e.target.value : e;
+                  setMonth(parseInt(val, 10));
+                }}
+                placeholder="Select Month..."
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
+                Year
+              </label>
+              <Input
+                type="number"
+                value={year}
+                onChange={(e) => setYear(parseInt(e.target.value, 10))}
+                min="2024"
+                max="2030"
+                className="m-0"
+                style={{ height: '38px' }}
+              />
+            </div>
+          </div>
+
+          {/* Slots Section */}
+          <div style={{ marginBottom: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <span style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>
+                Planned Content : {slots.length}
+              </span>
+              <div style={{ display: 'flex', gap: '7px' }}>
                 <Button
                   variant="secondary"
                   size="sm"
@@ -345,166 +313,179 @@ export const SetMissionModal = ({
                   onClick={handleAddSlot}
                   style={{ height: '30px', fontSize: '12px', padding: '0 10px' }}
                 >
-                  Add Planned Day
+                  Add Planned
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  startIcon={<Sparkles size={14} color="#0284c7" />}
+                  onClick={handleLoadPreset}
+                  style={{ height: '32px', fontSize: '12px' }}
+                >
+                  Fill {activeMonthName}
                 </Button>
               </div>
+            </div>
 
-              {slots.length === 0 ? (
-                <div style={{
-                  padding: '30px',
-                  textAlign: 'center',
-                  backgroundColor: '#f8fafc',
-                  border: '2px dashed #e2e8f0',
-                  borderRadius: '8px',
-                  color: '#94a3b8',
-                  fontSize: '13px'
-                }}>
-                  No days scheduled yet. Click <strong>+ Add Planned Day</strong> or <strong>Fill October K-FREE Calendar</strong> to get started!
+            {slots.length === 0 ? (
+              <div style={{
+                padding: '30px',
+                textAlign: 'center',
+                backgroundColor: '#f8fafc',
+                border: '2px dashed #e2e8f0',
+                borderRadius: '8px',
+                color: '#94a3b8',
+                fontSize: '13px'
+              }}>
+                No days scheduled yet. Click <strong>+ Add Planned Day</strong> or <strong>Fill {activeMonthName} Template</strong> to get started!
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {/* Column Headers */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1.25fr 1.35fr 1.15fr 1.35fr 38px',
+                    gap: '8px',
+                    padding: '0 10px 2px 10px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    color: '#64748b',
+                    letterSpacing: '0.04em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  <span>Date</span>
+                  <span>Format</span>
+                  <span>Time Window</span>
+                  <span>Topic / Note</span>
+                  <span></span>
                 </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {slots.map((slot, index) => (
+
+                {slots.map((slot, index) => {
+                  const isActive = activeSlotIndex === index;
+                  return (
                     <div
                       key={index}
+                      className={`blueprint-slot-row ${isActive ? 'is-active' : ''}`}
+                      onFocus={() => setActiveSlotIndex(index)}
+                      onBlur={(e) => {
+                        if (!e.currentTarget.contains(e.relatedTarget)) {
+                          setActiveSlotIndex(null);
+                        }
+                      }}
                       style={{
                         display: 'grid',
-                        gridTemplateColumns: '1.2fr 1fr 1fr 1.2fr 36px',
+                        gridTemplateColumns: '1.25fr 1.35fr 1.15fr 1.35fr 38px',
                         gap: '8px',
                         alignItems: 'center',
                         padding: '8px 10px',
                         backgroundColor: '#ffffff',
                         border: '1px solid #e2e8f0',
-                        borderRadius: '8px'
+                        borderRadius: '8px',
+                        position: 'relative',
+                        zIndex: isActive ? 100 : 1,
                       }}
                     >
-                      {/* Date */}
+                      {/* Date using Global Custom DatePicker */}
                       <div>
-                        <input
-                          type="date"
+                        <DatePicker
                           value={slot.planned_date}
-                          onChange={(e) => handleUpdateSlot(index, 'planned_date', e.target.value)}
-                          style={{
-                            width: '100%',
-                            padding: '6px 8px',
-                            borderRadius: '6px',
-                            border: '1px solid #cbd5e1',
-                            fontSize: '12px',
-                            boxSizing: 'border-box'
+                          min={minDate}
+                          max={maxDate}
+                          onOpenChange={(open) => setActiveSlotIndex(open ? index : null)}
+                          onChange={(e) => {
+                            const val = e && typeof e === 'object' && 'target' in e ? e.target.value : e;
+                            handleUpdateSlot(index, 'planned_date', val);
                           }}
                           required
                         />
                       </div>
 
-                      {/* Content Type */}
+                      {/* Content Type using Global Select */}
                       <div>
-                        <select
+                        <Select
                           value={slot.content_type}
-                          onChange={(e) => handleUpdateSlot(index, 'content_type', e.target.value)}
-                          style={{
-                            width: '100%',
-                            padding: '6px 8px',
-                            borderRadius: '6px',
-                            border: '1px solid #cbd5e1',
-                            fontSize: '12px',
-                            backgroundColor: '#fff'
+                          options={contentTypeOptions}
+                          onChange={(val) => {
+                            const value = val && typeof val === 'object' && 'target' in val ? val.target.value : val;
+                            handleUpdateSlot(index, 'content_type', value);
                           }}
-                        >
-                          <option value="photo">🖼️ Poster (Photo)</option>
-                          <option value="live">🎥 Live Stream</option>
-                          <option value="video">🎬 Short Video / Reel</option>
-                          <option value="status">📝 Status / Text</option>
-                        </select>
-                      </div>
-
-                      {/* Time Window */}
-                      <div>
-                        <input
-                          type="text"
-                          placeholder={slot.content_type === 'live' ? 'e.g. 01:00PM - 05:00PM' : 'Time (optional)'}
-                          value={slot.time_window || ''}
-                          onChange={(e) => handleUpdateSlot(index, 'time_window', e.target.value)}
-                          style={{
-                            width: '100%',
-                            padding: '6px 8px',
-                            borderRadius: '6px',
-                            border: '1px solid #cbd5e1',
-                            fontSize: '12px',
-                            boxSizing: 'border-box'
-                          }}
+                          placeholder="Format..."
                         />
                       </div>
 
-                      {/* Notes */}
+                      {/* Time Window using Global Input */}
                       <div>
-                        <input
+                        <Input
+                          type="text"
+                          placeholder={slot.content_type === 'live' ? '01:00PM - 05:00PM' : 'Time (optional)'}
+                          value={slot.time_window || ''}
+                          onChange={(e) => handleUpdateSlot(index, 'time_window', e.target.value)}
+                          className="m-0"
+                          style={{ height: '38px' }}
+                        />
+                      </div>
+
+                      {/* Notes using Global Input */}
+                      <div>
+                        <Input
                           type="text"
                           placeholder="Note (e.g. Hero product)"
                           value={slot.notes || ''}
                           onChange={(e) => handleUpdateSlot(index, 'notes', e.target.value)}
-                          style={{
-                            width: '100%',
-                            padding: '6px 8px',
-                            borderRadius: '6px',
-                            border: '1px solid #cbd5e1',
-                            fontSize: '12px',
-                            boxSizing: 'border-box'
-                          }}
+                          className="m-0"
+                          style={{ height: '38px' }}
                         />
                       </div>
 
-                      {/* Delete */}
-                      <button
+                      {/* Delete using Global Button */}
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleRemoveSlot(index)}
+                        title="Remove slot"
                         style={{
-                          background: 'none',
-                          border: 'none',
+                          height: '38px',
+                          width: '38px',
+                          padding: 0,
                           color: '#ef4444',
-                          cursor: 'pointer',
-                          display: 'flex',
+                          display: 'inline-flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          padding: '4px'
                         }}
-                        title="Remove slot"
                       >
                         <Trash2 size={16} />
-                      </button>
+                      </Button>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
+        </ModalBody>
 
-          {/* Footer */}
-          <div style={{
-            padding: '14px 24px',
-            borderTop: '1px solid #e2e8f0',
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: '10px',
-            backgroundColor: '#f8fafc'
-          }}>
-            <Button
-              variant="outline"
-              onClick={onClose}
-              disabled={saving}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              loading={saving}
-              disabled={saving}
-            >
-              Save Schedule Blueprint
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        {/* Footer using Global ModalFooter & Buttons */}
+        <ModalFooter>
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={saving}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            loading={saving}
+            disabled={saving}
+          >
+            Save Schedule Blueprint
+          </Button>
+        </ModalFooter>
+      </form>
+    </Modal >
   );
 };
 

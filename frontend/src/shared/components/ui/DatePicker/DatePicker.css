@@ -1,0 +1,293 @@
+/* ==========================================================================
+   MoonPulse Enterprise DatePicker Component Styles
+   ========================================================================== */
+
+.ui-datepicker-container {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ui-datepicker-container--open {
+  z-index: 100;
+}
+
+/* ── 1. Trigger Field ── */
+.ui-datepicker-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 38px;
+  height: 38px;
+  padding: 6px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: var(--radius, 8px);
+  background-color: #ffffff;
+  color: #0f172a;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  user-select: none;
+  box-sizing: border-box;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.ui-datepicker-trigger:hover:not(:disabled) {
+  border-color: #94a3b8;
+}
+
+.ui-datepicker-trigger--open,
+.ui-datepicker-trigger:focus-visible {
+  border-color: var(--primary-color, #2563eb);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.ui-datepicker-trigger:disabled {
+  background-color: #f8fafc;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+.ui-datepicker-trigger-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ui-datepicker-calendar-icon {
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.ui-datepicker-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  color: #0f172a;
+}
+
+.ui-datepicker-placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.ui-datepicker-arrow {
+  color: #94a3b8;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.ui-datepicker-arrow--open {
+  transform: rotate(180deg);
+  color: #2563eb;
+}
+
+/* ── 2. Floating Popover Calendar ── */
+.ui-datepicker-popover {
+  position: absolute;
+  left: 0;
+  width: 270px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 16px 36px -4px rgba(15, 23, 42, 0.18), 0 4px 12px -2px rgba(15, 23, 42, 0.08);
+  padding: 12px 14px 10px;
+  z-index: 1100;
+  box-sizing: border-box;
+  animation: uiDatePickerPop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ui-datepicker-popover--bottom {
+  top: calc(100% + 5px);
+  transform-origin: top left;
+}
+
+.ui-datepicker-popover--top {
+  bottom: calc(100% + 5px);
+  top: auto;
+  transform-origin: bottom left;
+}
+
+/* Elevate slot row container when any child datepicker or select is active/open */
+.blueprint-slot-row:focus-within,
+.blueprint-slot-row:has(.ui-datepicker-container--open),
+.blueprint-slot-row:has(.ui-select-container--open),
+.blueprint-slot-row.is-active {
+  z-index: 100 !important;
+}
+
+@keyframes uiDatePickerPop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ── 3. Calendar Header ── */
+.ui-datepicker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding: 0 2px;
+}
+
+.ui-datepicker-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+.ui-datepicker-nav-buttons {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ui-datepicker-nav-btn {
+  background: none;
+  border: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  padding: 0;
+}
+
+.ui-datepicker-nav-btn:hover:not(:disabled) {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+.ui-datepicker-nav-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* ── 4. Weekday Headers ── */
+.ui-datepicker-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.ui-datepicker-weekday-cell {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  padding: 3px 0;
+  letter-spacing: 0.04em;
+}
+
+/* ── 5. Days Grid ── */
+.ui-datepicker-days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.ui-datepicker-day-btn {
+  background: none;
+  border: none;
+  width: 32px;
+  height: 32px;
+  margin: 0 auto;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 500;
+  color: #1e293b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s ease;
+  outline: none;
+  padding: 0;
+}
+
+.ui-datepicker-day-btn:hover:not(.selected):not(:disabled) {
+  background-color: #eff6ff;
+  color: #2563eb;
+  font-weight: 700;
+}
+
+.ui-datepicker-day-btn.selected {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.35);
+}
+
+.ui-datepicker-day-btn.today:not(.selected) {
+  border: 1.5px solid #2563eb;
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.ui-datepicker-day-btn.other-month {
+  color: #cbd5e1;
+}
+
+.ui-datepicker-day-btn:disabled {
+  color: #cbd5e1;
+  opacity: 0.35;
+  cursor: not-allowed;
+  background: none !important;
+}
+
+/* ── 6. Footer ── */
+.ui-datepicker-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.ui-datepicker-footer-btn {
+  background: none;
+  border: none;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #2563eb;
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 4px;
+  transition: background-color 0.12s ease;
+}
+
+.ui-datepicker-footer-btn:hover {
+  background-color: #eff6ff;
+}
+
+.ui-datepicker-footer-btn--clear {
+  color: #64748b;
+}
+
+.ui-datepicker-footer-btn--clear:hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+

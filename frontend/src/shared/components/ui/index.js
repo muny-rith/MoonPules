@@ -6,5 +6,6 @@ export { Modal, ModalHeader, ModalBody, ModalFooter } from './Modal/Modal';
 export { Skeleton } from './Skeleton';
 export { SafeImage } from './SafeImage';
 export { DateRangeFilter } from './DateRangeFilter';
+export { DatePicker } from './DatePicker/DatePicker';
 export { SortableHeader } from './SortableHeader';
 
