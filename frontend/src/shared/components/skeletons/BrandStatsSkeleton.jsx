@@ -140,3 +140,86 @@ export const BrandStatsMobileSkeleton = ({ cardCount = 4 }) => {
     </>
   );
 };
+
+export const BrandUnifiedTableSkeleton = ({ rowCount = 7 }) => {
+  const STAGGER = [
+    { nameW: '130px', statusW: '68px', countW: '55px', postsW: '24px', viewsW: '58px', reachW: '48px', engW: '48px' },
+    { nameW: '160px', statusW: '75px', countW: '62px', postsW: '32px', viewsW: '72px', reachW: '60px', engW: '52px' },
+    { nameW: '115px', statusW: '60px', countW: '48px', postsW: '18px', viewsW: '42px', reachW: '36px', engW: '42px' },
+    { nameW: '145px', statusW: '70px', countW: '58px', postsW: '28px', viewsW: '64px', reachW: '52px', engW: '46px' },
+    { nameW: '125px', statusW: '64px', countW: '50px', postsW: '15px', viewsW: '38px', reachW: '30px', engW: '40px' },
+  ];
+
+  return (
+    <tbody>
+      {Array.from({ length: rowCount }).map((_, i) => {
+        const s = STAGGER[i % STAGGER.length];
+        return (
+          <tr
+            key={`unified-skel-row-${i}`}
+            style={{
+              borderBottom: '1px solid #f1f5f9',
+              backgroundColor: i % 2 === 0 ? '#ffffff' : '#fafafa',
+            }}
+          >
+            {/* 0. Checkbox Column */}
+            <td style={{ padding: '14px 10px', textAlign: 'center' }}>
+              <Skeleton width={16} height={16} borderRadius={4} style={{ margin: '0 auto' }} />
+            </td>
+
+            {/* 1. Expand Toggle Button */}
+            <td style={{ padding: '14px 4px', textAlign: 'center' }}>
+              <Skeleton width={16} height={16} borderRadius={4} style={{ margin: '0 auto' }} />
+            </td>
+
+            {/* 2. Brand & Logo */}
+            <td style={{ padding: '14px 16px' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0 }}>
+                  <Skeleton width={36} height={36} borderRadius={8} />
+                </div>
+                <Skeleton width={s.nameW} height={16} borderRadius={4} />
+              </div>
+            </td>
+
+            {/* 3. Campaign Status & Progress */}
+            <td style={{ padding: '14px 16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Skeleton width={s.statusW} height={12} borderRadius={3} />
+                  <Skeleton width={s.countW} height={12} borderRadius={3} />
+                </div>
+                <Skeleton width="100%" height={6} borderRadius={4} />
+              </div>
+            </td>
+
+            {/* 4. Posts */}
+            <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+              <Skeleton width={s.postsW} height={15} borderRadius={3} style={{ margin: '0 auto' }} />
+            </td>
+
+            {/* 5. Views */}
+            <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+              <Skeleton width={s.viewsW} height={15} borderRadius={3} style={{ margin: '0 auto' }} />
+            </td>
+
+            {/* 6. Reach */}
+            <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+              <Skeleton width={s.reachW} height={15} borderRadius={3} style={{ margin: '0 auto' }} />
+            </td>
+
+            {/* 7. Engagement */}
+            <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+              <Skeleton width={s.engW} height={20} borderRadius={6} style={{ margin: '0 auto' }} />
+            </td>
+
+            {/* 8. Actions */}
+            <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+              <Skeleton width="68px" height={28} borderRadius={6} style={{ marginLeft: 'auto' }} />
+            </td>
+          </tr>
+        );
+      })}
+    </tbody>
+  );
+};

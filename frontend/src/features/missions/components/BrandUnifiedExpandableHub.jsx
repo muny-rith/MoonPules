@@ -15,8 +15,10 @@ import {
   Maximize2,
   Minimize2,
   Edit3,
+  Layers,
 } from 'lucide-react';
-import { Input, Select, Button } from '../../../shared/components/ui';
+import { Input, Select, Button, Skeleton } from '../../../shared/components/ui';
+import { BrandUnifiedTableSkeleton } from '../../../shared/components/skeletons';
 import * as missionApi from '../api/missionApi';
 import * as productService from '../../product/services/productService';
 import * as brandStatsService from '../../statistics/services/brandStatsService';
@@ -44,11 +46,14 @@ export const BrandUnifiedExpandableHub = () => {
   // Filters & State
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('active_brands'); // 'active_brands' | 'planned' | 'on_track' | 'at_risk' | 'completed' | 'all'
-  const [sortBy, setSortBy] = useState('views_desc'); // 'views_desc' | 'reach_desc' | 'brand_name' | 'completion' | 'slots'
-  const [loading, setLoading] = useState(false);
+  const [sortBy, setSortBy] = useState('brand_name'); // 'brand_name' (default) | 'views_desc' | 'reach_desc' | 'completion' | 'slots'
+  const [loading, setLoading] = useState(true);
 
   // Expanded Rows State (Set of brand_ids)
   const [expandedBrandIds, setExpandedBrandIds] = useState(() => new Set());
+
+  // Multi-select for Combined View
+  const [selectedBrandIds, setSelectedBrandIds] = useState([]);
 
   // Raw data from APIs
   const [allMasterBrands, setAllMasterBrands] = useState([]);
@@ -248,9 +253,9 @@ export const BrandUnifiedExpandableHub = () => {
   ], [stats, mergedBrands.length]);
 
   const sortOptions = useMemo(() => [
+    { value: 'brand_name', label: 'Sort: Brand (A-Z)' },
     { value: 'views_desc', label: 'Sort: Most Views' },
     { value: 'reach_desc', label: 'Sort: Most Reach' },
-    { value: 'brand_name', label: 'Sort: Brand (A-Z)' },
     { value: 'completion', label: 'Sort: Completion Rate' },
     { value: 'slots', label: 'Sort: Most Deliverables' },
   ], []);
@@ -358,6 +363,43 @@ export const BrandUnifiedExpandableHub = () => {
     setCurrentPage(1);
   };
 
+  // Multi-select for Combined View Handlers
+  const handleToggleSelectBrand = (brandId, e) => {
+    if (e) e.stopPropagation();
+    const bId = String(brandId);
+    setSelectedBrandIds((prev) => {
+      if (prev.includes(bId)) {
+        return prev.filter((id) => id !== bId);
+      }
+      return [...prev, bId];
+    });
+  };
+
+  const handleSelectAllVisible = (e) => {
+    if (e) e.stopPropagation();
+    const visibleIds = paginatedBrands.map((b) => String(b.brand_id));
+    const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedBrandIds.includes(id));
+    if (allSelected) {
+      setSelectedBrandIds((prev) => prev.filter((id) => !visibleIds.includes(id)));
+    } else {
+      setSelectedBrandIds((prev) => Array.from(new Set([...prev, ...visibleIds])));
+    }
+  };
+
+  const isAllVisibleSelected = useMemo(() => {
+    if (paginatedBrands.length === 0) return false;
+    return paginatedBrands.every((b) => selectedBrandIds.includes(String(b.brand_id)));
+  }, [paginatedBrands, selectedBrandIds]);
+
+  const isSomeVisibleSelected = useMemo(() => {
+    return paginatedBrands.some((b) => selectedBrandIds.includes(String(b.brand_id))) && !isAllVisibleSelected;
+  }, [paginatedBrands, selectedBrandIds, isAllVisibleSelected]);
+
+  const handleViewCombined = () => {
+    if (selectedBrandIds.length === 0) return;
+    navigate(`/stats/brands/combined?ids=${selectedBrandIds.join(',')}`);
+  };
+
   // Helper Badge Style for deliverables chips
   const getDeliverableChipStyle = (contentType) => {
     if (contentType === 'photo') {
@@ -389,9 +431,16 @@ export const BrandUnifiedExpandableHub = () => {
             <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#64748b' }}>Active Brands</span>
             <Target size={17} color="#2563eb" />
           </div>
-          <div style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', marginTop: '4px' }}>
-            {stats.activeBrandsCount} <span style={{ fontSize: '12px', fontWeight: '500', color: '#94a3b8' }}>/ {stats.totalBrands} Total</span>
-          </div>
+          {loading ? (
+            <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Skeleton width="45px" height={22} borderRadius={4} />
+              <Skeleton width="55px" height={14} borderRadius={3} />
+            </div>
+          ) : (
+            <div style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', marginTop: '4px' }}>
+              {stats.activeBrandsCount} <span style={{ fontSize: '12px', fontWeight: '500', color: '#94a3b8' }}>/ {stats.totalBrands} Total</span>
+            </div>
+          )}
         </div>
 
         {/* 100% Completed */}
@@ -400,9 +449,16 @@ export const BrandUnifiedExpandableHub = () => {
             <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#16a34a' }}>100% Completed</span>
             <CheckCircle2 size={17} color="#16a34a" />
           </div>
-          <div style={{ fontSize: '22px', fontWeight: '800', color: '#15803d', marginTop: '4px' }}>
-            {stats.completedBrands} <span style={{ fontSize: '12px', fontWeight: '500' }}>brands</span>
-          </div>
+          {loading ? (
+            <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Skeleton width="40px" height={22} borderRadius={4} />
+              <Skeleton width="45px" height={14} borderRadius={3} />
+            </div>
+          ) : (
+            <div style={{ fontSize: '22px', fontWeight: '800', color: '#15803d', marginTop: '4px' }}>
+              {stats.completedBrands} <span style={{ fontSize: '12px', fontWeight: '500' }}>brands</span>
+            </div>
+          )}
         </div>
 
         {/* Deliverables Done */}
@@ -411,9 +467,16 @@ export const BrandUnifiedExpandableHub = () => {
             <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#1d4ed8' }}>Deliverables Done</span>
             <Clock size={17} color="#2563eb" />
           </div>
-          <div style={{ fontSize: '22px', fontWeight: '800', color: '#1e40af', marginTop: '4px' }}>
-            {stats.completedSlots} <span style={{ fontSize: '12px', fontWeight: '500', color: '#60a5fa' }}>/ {stats.totalSlots} scheduled</span>
-          </div>
+          {loading ? (
+            <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Skeleton width="45px" height={22} borderRadius={4} />
+              <Skeleton width="75px" height={14} borderRadius={3} />
+            </div>
+          ) : (
+            <div style={{ fontSize: '22px', fontWeight: '800', color: '#1e40af', marginTop: '4px' }}>
+              {stats.completedSlots} <span style={{ fontSize: '12px', fontWeight: '500', color: '#60a5fa' }}>/ {stats.totalSlots} scheduled</span>
+            </div>
+          )}
         </div>
 
         {/* Total Views */}
@@ -422,9 +485,15 @@ export const BrandUnifiedExpandableHub = () => {
             <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#7e22ce' }}>Total Views</span>
             <Eye size={17} color="#9333ea" />
           </div>
-          <div style={{ fontSize: '22px', fontWeight: '800', color: '#581c87', marginTop: '4px' }}>
-            {stats.totalViews.toLocaleString()}
-          </div>
+          {loading ? (
+            <div style={{ marginTop: '8px' }}>
+              <Skeleton width="65px" height={22} borderRadius={4} />
+            </div>
+          ) : (
+            <div style={{ fontSize: '22px', fontWeight: '800', color: '#581c87', marginTop: '4px' }}>
+              {stats.totalViews.toLocaleString()}
+            </div>
+          )}
         </div>
 
         {/* Total Engagement */}
@@ -433,9 +502,15 @@ export const BrandUnifiedExpandableHub = () => {
             <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#be123c' }}>Total Engagement</span>
             <TrendingUp size={17} color="#e11d48" />
           </div>
-          <div style={{ fontSize: '22px', fontWeight: '800', color: '#9f1239', marginTop: '4px' }}>
-            {stats.totalEngagement.toLocaleString()}
-          </div>
+          {loading ? (
+            <div style={{ marginTop: '8px' }}>
+              <Skeleton width="65px" height={22} borderRadius={4} />
+            </div>
+          ) : (
+            <div style={{ fontSize: '22px', fontWeight: '800', color: '#9f1239', marginTop: '4px' }}>
+              {stats.totalEngagement.toLocaleString()}
+            </div>
+          )}
         </div>
       </div>
 
@@ -602,10 +677,22 @@ export const BrandUnifiedExpandableHub = () => {
         {/* UNIFIED EXPANDABLE MASTER TABLE */}
         <div style={{ overflowX: 'auto' }}>
           {loading ? (
-            <div style={{ padding: '60px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
-              <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 10px', display: 'block', color: '#2563eb' }} />
-              Loading unified operations & performance matrix for {monthNames[month - 1]} {year}...
-            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #e2e8f0', backgroundColor: '#f8fafc', color: '#475569', fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  <th style={{ padding: '12px 10px', width: '42px', textAlign: 'center' }}></th>
+                  <th style={{ padding: '12px 4px', width: '32px', textAlign: 'center' }}></th>
+                  <th style={{ padding: '12px 16px', minWidth: '200px' }}>Brand</th>
+                  <th style={{ padding: '12px 16px', minWidth: '180px' }}>Campaign Status</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'center', width: '90px' }}>Posts</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'center', width: '120px' }}>Views</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'center', width: '120px' }}>Reach</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'center', width: '120px' }}>Engagement</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right', minWidth: '100px' }}>Actions</th>
+                </tr>
+              </thead>
+              <BrandUnifiedTableSkeleton rowCount={7} />
+            </table>
           ) : paginatedBrands.length === 0 ? (
             <div style={{ padding: '50px 20px', textAlign: 'center', color: '#64748b' }}>
               <Target size={36} color="#94a3b8" style={{ margin: '0 auto 12px' }} />
@@ -643,7 +730,27 @@ export const BrandUnifiedExpandableHub = () => {
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid #e2e8f0', backgroundColor: '#f8fafc', color: '#475569', fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  <th style={{ padding: '12px 14px', width: '38px', textAlign: 'center' }}></th>
+                  {/* Select All Checkbox */}
+                  <th style={{ padding: '12px 10px', width: '42px', textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={isAllVisibleSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = isSomeVisibleSelected;
+                      }}
+                      onChange={handleSelectAllVisible}
+                      style={{
+                        width: '16px',
+                        height: '16px',
+                        cursor: 'pointer',
+                        borderRadius: '4px',
+                        accentColor: '#2563eb',
+                      }}
+                      title={isAllVisibleSelected ? 'Deselect all visible brands' : 'Select all visible brands'}
+                    />
+                  </th>
+                  {/* Expand Chevron Column */}
+                  <th style={{ padding: '12px 4px', width: '32px', textAlign: 'center' }}></th>
                   <th style={{ padding: '12px 16px', minWidth: '200px' }}>Brand</th>
                   <th style={{ padding: '12px 16px', minWidth: '180px' }}>Campaign Status</th>
                   <th style={{ padding: '12px 16px', textAlign: 'center', width: '90px' }}>Posts</th>
@@ -660,6 +767,7 @@ export const BrandUnifiedExpandableHub = () => {
                   const hasBlueprint = brand.has_blueprint && brand.total_slots > 0;
                   const isCompleted = brand.completion_rate === 100 && hasBlueprint;
                   const isAtRisk = hasBlueprint && brand.missed_slots > 0;
+                  const isSelected = selectedBrandIds.includes(bId);
                   const brandSlots = brand.slots || [];
 
                   return (
@@ -669,19 +777,36 @@ export const BrandUnifiedExpandableHub = () => {
                         onClick={() => toggleRowExpand(bId)}
                         style={{
                           borderBottom: isExpanded ? 'none' : '1px solid #f1f5f9',
-                          backgroundColor: isExpanded ? '#f8fafc' : '#ffffff',
+                          backgroundColor: isSelected ? '#eff6ff' : isExpanded ? '#f8fafc' : '#ffffff',
                           cursor: 'pointer',
                           transition: 'background-color 0.15s ease',
                         }}
                         onMouseEnter={(e) => {
-                          if (!isExpanded) e.currentTarget.style.backgroundColor = '#fafafa';
+                          if (!isSelected && !isExpanded) e.currentTarget.style.backgroundColor = '#fafafa';
                         }}
                         onMouseLeave={(e) => {
-                          if (!isExpanded) e.currentTarget.style.backgroundColor = '#ffffff';
+                          if (!isSelected && !isExpanded) e.currentTarget.style.backgroundColor = '#ffffff';
                         }}
                       >
+                        {/* 0. Checkbox Column */}
+                        <td style={{ padding: '14px 10px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => handleToggleSelectBrand(bId, e)}
+                            style={{
+                              width: '16px',
+                              height: '16px',
+                              cursor: 'pointer',
+                              borderRadius: '4px',
+                              accentColor: '#2563eb',
+                            }}
+                            title={isSelected ? 'Deselect brand' : 'Select brand to combine'}
+                          />
+                        </td>
+
                         {/* 1. Expand Toggle Button */}
-                        <td style={{ padding: '14px 10px', textAlign: 'center' }} onClick={(e) => { e.stopPropagation(); toggleRowExpand(bId); }}>
+                        <td style={{ padding: '14px 4px', textAlign: 'center' }} onClick={(e) => { e.stopPropagation(); toggleRowExpand(bId); }}>
                           <button
                             type="button"
                             style={{
@@ -844,7 +969,7 @@ export const BrandUnifiedExpandableHub = () => {
                       {/* EXPANDABLE ACCORDION DRAWER (DELIVERABLES TIMELINE & CHIPS) */}
                       {isExpanded && (
                         <tr style={{ backgroundColor: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
-                          <td colSpan="8" style={{ padding: '0 24px 20px 52px' }}>
+                          <td colSpan="9" style={{ padding: '0 24px 20px 52px' }}>
                             <div
                               style={{
                                 backgroundColor: '#ffffff',
@@ -1036,6 +1161,80 @@ export const BrandUnifiedExpandableHub = () => {
           </div>
         )}
       </div>
+
+      {/* FLOATING ACTION BAR FOR MULTI-SELECT COMBINE */}
+      {selectedBrandIds.length > 0 && (
+        <div
+          className="brand-floating-selection-bar"
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: '#0f172a',
+            color: 'white',
+            padding: '10px 20px',
+            borderRadius: '16px',
+            boxShadow: '0 12px 32px rgba(15, 23, 42, 0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            zIndex: 1000,
+            maxWidth: '92vw',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span
+              style={{
+                backgroundColor: '#2563eb',
+                color: 'white',
+                borderRadius: '20px',
+                padding: '2px 9px',
+                fontSize: '12px',
+                fontWeight: '700',
+              }}
+            >
+              {selectedBrandIds.length}
+            </span>
+            <span style={{ fontSize: '13.5px', fontWeight: '600', whiteSpace: 'nowrap' }}>
+              {selectedBrandIds.length === 1 ? 'Brand Selected' : 'Brands Selected'}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Button
+              variant="primary"
+              size="sm"
+              startIcon={<Layers size={14} />}
+              onClick={handleViewCombined}
+              style={{
+                height: '34px',
+                fontSize: '12.5px',
+                fontWeight: '600',
+                padding: '0 14px',
+                borderRadius: '8px',
+              }}
+            >
+              {selectedBrandIds.length > 1 ? 'View Combined Detail' : 'View Detail'}
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedBrandIds([])}
+              style={{
+                color: '#94a3b8',
+                height: '34px',
+                fontSize: '12px',
+                padding: '0 10px',
+              }}
+            >
+              Clear
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* POPUP: Reschedule Slot Popover */}
       <SlotDatePopover

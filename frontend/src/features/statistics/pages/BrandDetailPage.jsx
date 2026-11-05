@@ -152,6 +152,60 @@ export const BrandDetailPage = () => {
     return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   }, [missionMonth, missionYear]);
 
+  // Smart Filtered Slots: follows timeFilter, customRange, and formatFilter
+  const filteredSlots = useMemo(() => {
+    if (!brandMission || !brandMission.slots) return [];
+    let slots = [...brandMission.slots];
+
+    // 1. Format Filter
+    if (formatFilter !== 'all') {
+      slots = slots.filter((slot) => {
+        const ct = (slot.content_type || '').toLowerCase();
+        if (formatFilter === 'photo') return ct === 'poster' || ct === 'photo';
+        if (formatFilter === 'video') return ct === 'video' || ct === 'reel';
+        if (formatFilter === 'live') return ct === 'live';
+        return true;
+      });
+    }
+
+    // 2. Date Range Filter
+    if (timeFilter === 'this_month' || timeFilter === 'last_month') {
+      return slots;
+    }
+
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const toYMD = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+    if (timeFilter === 'today') {
+      const todayStr = toYMD(now);
+      slots = slots.filter((s) => s.planned_date_str === todayStr);
+    } else if (timeFilter === 'yesterday') {
+      const yest = new Date(now);
+      yest.setDate(yest.getDate() - 1);
+      const yestStr = toYMD(yest);
+      slots = slots.filter((s) => s.planned_date_str === yestStr);
+    } else if (timeFilter === 'this_week') {
+      const day = now.getDay();
+      const diffToMonday = day === 0 ? -6 : 1 - day;
+      const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday);
+      const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+      const startStr = toYMD(monday);
+      const endStr = toYMD(sunday);
+      slots = slots.filter((s) => s.planned_date_str >= startStr && s.planned_date_str <= endStr);
+    } else if (timeFilter === 'custom') {
+      if (customRange.start && customRange.end) {
+        slots = slots.filter((s) => s.planned_date_str >= customRange.start && s.planned_date_str <= customRange.end);
+      } else if (customRange.start) {
+        slots = slots.filter((s) => s.planned_date_str >= customRange.start);
+      } else if (customRange.end) {
+        slots = slots.filter((s) => s.planned_date_str <= customRange.end);
+      }
+    }
+
+    return slots;
+  }, [brandMission, formatFilter, timeFilter, customRange]);
+
   const handleSaveSlot = async (slotData) => {
     await missionApi.updateSlot(slotData.id, {
       planned_date: slotData.planned_date,
@@ -1144,13 +1198,52 @@ export const BrandDetailPage = () => {
                       {/* Quota Breakdown Pills */}
                       {brandMission.breakdown && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '11px', fontWeight: '600', color: '#15803d', backgroundColor: '#ffffff', border: '1px solid #bbf7d0', padding: '3px 8px', borderRadius: '6px' }}>
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: '600',
+                              color: '#15803d',
+                              backgroundColor: (formatFilter === 'all' || formatFilter === 'photo') ? '#ffffff' : '#f8fafc',
+                              border: `1px solid ${formatFilter === 'photo' ? '#16a34a' : '#bbf7d0'}`,
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                              opacity: (formatFilter === 'all' || formatFilter === 'photo') ? 1 : 0.45,
+                              boxShadow: formatFilter === 'photo' ? '0 1px 3px rgba(22, 163, 74, 0.2)' : 'none',
+                              transition: 'all 0.15s ease',
+                            }}
+                          >
                             Posters: <strong>{brandMission.breakdown.posters?.completed || 0}/{brandMission.breakdown.posters?.target || 0}</strong>
                           </span>
-                          <span style={{ fontSize: '11px', fontWeight: '600', color: '#1d4ed8', backgroundColor: '#ffffff', border: '1px solid #bfdbfe', padding: '3px 8px', borderRadius: '6px' }}>
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: '600',
+                              color: '#1d4ed8',
+                              backgroundColor: (formatFilter === 'all' || formatFilter === 'live') ? '#ffffff' : '#f8fafc',
+                              border: `1px solid ${formatFilter === 'live' ? '#2563eb' : '#bfdbfe'}`,
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                              opacity: (formatFilter === 'all' || formatFilter === 'live') ? 1 : 0.45,
+                              boxShadow: formatFilter === 'live' ? '0 1px 3px rgba(37, 99, 235, 0.2)' : 'none',
+                              transition: 'all 0.15s ease',
+                            }}
+                          >
                             Live: <strong>{brandMission.breakdown.lives?.completed || 0}/{brandMission.breakdown.lives?.target || 0}</strong>
                           </span>
-                          <span style={{ fontSize: '11px', fontWeight: '600', color: '#7e22ce', backgroundColor: '#ffffff', border: '1px solid #e9d5ff', padding: '3px 8px', borderRadius: '6px' }}>
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: '600',
+                              color: '#7e22ce',
+                              backgroundColor: (formatFilter === 'all' || formatFilter === 'video') ? '#ffffff' : '#f8fafc',
+                              border: `1px solid ${formatFilter === 'video' ? '#9333ea' : '#e9d5ff'}`,
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                              opacity: (formatFilter === 'all' || formatFilter === 'video') ? 1 : 0.45,
+                              boxShadow: formatFilter === 'video' ? '0 1px 3px rgba(147, 51, 234, 0.2)' : 'none',
+                              transition: 'all 0.15s ease',
+                            }}
+                          >
                             Videos: <strong>{brandMission.breakdown.videos?.completed || 0}/{brandMission.breakdown.videos?.target || 0}</strong>
                           </span>
                         </div>
@@ -1161,19 +1254,72 @@ export const BrandDetailPage = () => {
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                           <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <Calendar size={13} color="#64748b" /> Schedule Timeline
+                            {(timeFilter !== 'this_month' && timeFilter !== 'last_month' || formatFilter !== 'all') && (
+                              <span style={{ fontSize: '10.5px', color: '#2563eb', fontWeight: '600', marginLeft: '4px' }}>
+                                • {timeFilter === 'today' ? 'Today' : timeFilter === 'yesterday' ? 'Yesterday' : timeFilter === 'this_week' ? 'This Week' : formatFilter !== 'all' ? (formatFilter === 'photo' ? 'Posters' : formatFilter === 'live' ? 'Live' : 'Videos') : 'Filtered'} ({filteredSlots.length})
+                              </span>
+                            )}
                           </span>
                           <span style={{ fontSize: '10.5px', color: '#94a3b8' }}>
                             Click slot to edit
                           </span>
                         </div>
 
-                        {(!brandMission.slots || brandMission.slots.length === 0) ? (
-                          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '14px', backgroundColor: '#ffffff', border: '1px dashed #cbd5e1', borderRadius: '8px', textAlign: 'center', fontSize: '12px', color: '#64748b' }}>
-                            No slots scheduled yet this month.
+                        {filteredSlots.length === 0 ? (
+                          <div
+                            style={{
+                              flex: 1,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              padding: '20px 14px',
+                              backgroundColor: '#ffffff',
+                              border: '1px dashed #cbd5e1',
+                              borderRadius: '8px',
+                              textAlign: 'center',
+                              gap: '6px',
+                            }}
+                          >
+                            <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>
+                              {timeFilter === 'today'
+                                ? 'No deliverables scheduled for Today'
+                                : timeFilter === 'yesterday'
+                                  ? 'No deliverables scheduled for Yesterday'
+                                  : timeFilter === 'this_week'
+                                    ? 'No deliverables scheduled for This Week'
+                                    : formatFilter !== 'all'
+                                      ? `No ${formatFilter === 'photo' ? 'Poster' : formatFilter === 'live' ? 'Live' : 'Video'} deliverables in this period`
+                                      : 'No deliverables match this filter'}
+                            </div>
+                            {brandMission.slots && brandMission.slots.length > 0 && (
+                              <>
+                                <div style={{ fontSize: '11px', color: '#64748b' }}>
+                                  Monthly contract has <strong>{brandMission.slots.length}</strong> planned deliverable{brandMission.slots.length === 1 ? '' : 's'} total
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setFilters({ range: 'this_month', start: '', end: '', format: 'all' })}
+                                  style={{
+                                    marginTop: '4px',
+                                    fontSize: '11.5px',
+                                    fontWeight: '600',
+                                    color: '#2563eb',
+                                    backgroundColor: '#eff6ff',
+                                    border: '1px solid #bfdbfe',
+                                    padding: '4px 12px',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  View All This Month ({brandMission.slots.length})
+                                </button>
+                              </>
+                            )}
                           </div>
                         ) : (
                           <div className="deliverable-slots-scroll-list">
-                            {brandMission.slots.map((slot) => {
+                            {filteredSlots.map((slot) => {
                               const style = getDeliverableChipStyle(slot.content_type);
                               const isDone = slot.computed_status === 'completed';
                               const isMissed = slot.computed_status === 'missed';

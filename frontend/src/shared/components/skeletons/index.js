@@ -1,7 +1,12 @@
 export { Skeleton, default as SkeletonDefault } from './Skeleton';
 export { TableSkeleton } from './TableSkeleton';
 export { PostTrackerTableSkeleton, PostTrackerMobileSkeleton } from './PostTrackerSkeleton';
-export { BrandStatsTopBannerSkeleton, BrandStatsTableSkeleton, BrandStatsMobileSkeleton } from './BrandStatsSkeleton';
+export {
+  BrandStatsTopBannerSkeleton,
+  BrandStatsTableSkeleton,
+  BrandStatsMobileSkeleton,
+  BrandUnifiedTableSkeleton
+} from './BrandStatsSkeleton';
 export {
   BrandDetailHeroSkeleton,
   BrandDetailKpisSkeleton,
