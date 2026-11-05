@@ -68,6 +68,7 @@ const Select = forwardRef(
       loading = false,
       autoFlip = true,
       maxVisibleItems,
+      onOpenChange,
       ...props
     },
     ref
@@ -280,6 +281,18 @@ const Select = forwardRef(
         setMobileStep(0);
       }
     }, [isOpen, isMobile]);
+
+    // Notify open state changes
+    const isOpenMountedRef = useRef(false);
+    useEffect(() => {
+      if (!isOpenMountedRef.current) {
+        isOpenMountedRef.current = true;
+        return;
+      }
+      if (onOpenChange) {
+        onOpenChange(isOpen);
+      }
+    }, [isOpen, onOpenChange]);
 
     // Reset highlighted index when opened/closed
     useEffect(() => {

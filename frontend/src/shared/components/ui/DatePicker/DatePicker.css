@@ -125,6 +125,17 @@
   z-index: 100 !important;
 }
 
+/* Ensure top selectors (Target Brand, Month, Year) always stack cleanly above the slot rows */
+.blueprint-top-selectors {
+  position: relative;
+  z-index: 200;
+}
+
+.blueprint-top-selectors:focus-within,
+.blueprint-top-selectors:has(.ui-select-container--open) {
+  z-index: 250 !important;
+}
+
 @keyframes uiDatePickerPop {
   from {
     opacity: 0;

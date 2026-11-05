@@ -232,7 +232,7 @@ export const SetMissionModal = ({
         />
 
         {/* Body using Global ModalBody */}
-        <ModalBody style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
+        <ModalBody style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, minHeight: '440px' }}>
           {error && (
             <div style={{
               padding: '10px 14px',
@@ -252,7 +252,17 @@ export const SetMissionModal = ({
           )}
 
           {/* Brand, Month, Year Selector using Global Select & Input */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: '14px', marginBottom: '18px' }}>
+          <div
+            className="blueprint-top-selectors"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1.5fr 1fr 1fr',
+              gap: '14px',
+              marginBottom: '18px',
+              position: 'relative',
+              zIndex: 200,
+            }}
+          >
             <div>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
                 Target Brand
@@ -260,6 +270,9 @@ export const SetMissionModal = ({
               <Select
                 value={selectedBrandId}
                 options={brandOptions}
+                onOpenChange={(open) => {
+                  if (open) setActiveSlotIndex(null);
+                }}
                 onChange={(e) => {
                   const val = e && typeof e === 'object' && 'target' in e ? e.target.value : e;
                   setSelectedBrandId(val);
@@ -275,6 +288,9 @@ export const SetMissionModal = ({
               <Select
                 value={String(month)}
                 options={monthOptions}
+                onOpenChange={(open) => {
+                  if (open) setActiveSlotIndex(null);
+                }}
                 onChange={(e) => {
                   const val = e && typeof e === 'object' && 'target' in e ? e.target.value : e;
                   setMonth(parseInt(val, 10));
@@ -384,7 +400,7 @@ export const SetMissionModal = ({
                         border: '1px solid #e2e8f0',
                         borderRadius: '8px',
                         position: 'relative',
-                        zIndex: isActive ? 100 : 1,
+                        zIndex: isActive ? 100 : (slots.length - index + 1),
                       }}
                     >
                       {/* Date using Global Custom DatePicker */}
@@ -407,6 +423,7 @@ export const SetMissionModal = ({
                         <Select
                           value={slot.content_type}
                           options={contentTypeOptions}
+                          onOpenChange={(open) => setActiveSlotIndex(open ? index : null)}
                           onChange={(val) => {
                             const value = val && typeof val === 'object' && 'target' in val ? val.target.value : val;
                             handleUpdateSlot(index, 'content_type', value);

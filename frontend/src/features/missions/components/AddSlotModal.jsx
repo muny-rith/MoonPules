@@ -96,7 +96,7 @@ export const AddSlotModal = ({
           onClose={onClose}
         />
 
-        <ModalBody style={{ padding: '18px 20px' }}>
+        <ModalBody style={{ padding: '18px 20px', minHeight: '360px' }}>
           {error && (
             <div
               style={{
