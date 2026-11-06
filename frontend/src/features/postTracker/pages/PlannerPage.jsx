@@ -697,8 +697,9 @@ export const PlannerPage = () => {
               value={selectedPageId}
               options={pageOptions}
               onChange={(val) => {
+                const cleanVal = val && typeof val === 'object' && 'target' in val ? val.target.value : val;
                 userSelectedPageRef.current = true;
-                setFilter('page_id', val);
+                setFilter('page_id', cleanVal);
               }}
               placeholder="All Pages"
             />
@@ -709,7 +710,10 @@ export const PlannerPage = () => {
             <Select
               value={brandFilter || 'all'}
               options={brandOptions}
-              onChange={(val) => setBrandFilter(val === 'all' ? '' : val)}
+              onChange={(val) => {
+                const cleanVal = val && typeof val === 'object' && 'target' in val ? val.target.value : val;
+                setBrandFilter(cleanVal === 'all' ? '' : cleanVal);
+              }}
               placeholder="All Brands"
               isSearchable
             />
@@ -720,7 +724,10 @@ export const PlannerPage = () => {
             <Select
               value={contentTypeFilter}
               options={contentTypeOptions}
-              onChange={(val) => setContentTypeFilter(val)}
+              onChange={(val) => {
+                const cleanVal = val && typeof val === 'object' && 'target' in val ? val.target.value : val;
+                setContentTypeFilter(cleanVal);
+              }}
               placeholder="All Content Types"
             />
           </div>

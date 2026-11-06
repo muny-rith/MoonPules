@@ -309,16 +309,19 @@ const Select = forwardRef(
       }
     }, [isOpen, highlightedIndex]);
 
-    // Emit selection change with synthetic event compatible with standard forms
+    // Emit selection change:
+    // 1st arg: optValue (raw primitive string/number, matching Radix/Shadcn/AntD standards)
+    // 2nd arg: synthetic event { target: { name, value: optValue } } for form libraries
     const handleSelect = useCallback(
       (optValue) => {
         if (onChange) {
-          onChange({
+          const syntheticEvent = {
             target: {
               name,
               value: optValue,
             },
-          });
+          };
+          onChange(optValue, syntheticEvent);
         }
         setIsOpen(false);
         setMobileStep(0);

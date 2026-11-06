@@ -32,11 +32,24 @@ export const useUrlFilters = (
 
   const [searchParams, setSearchParams] = useSearchParams();
 
+  // Helper to safely extract primitive value from potential event objects
+  const unwrapFilterValue = (val) => {
+    if (val && typeof val === 'object' && 'target' in val) {
+      return val.target?.value ?? '';
+    }
+    if (typeof val === 'string' && val.includes('[object Object]')) {
+      return '';
+    }
+    return val;
+  };
+
   // Helper to parse a single param from URL with fallback to default
   const getParamFromUrl = useCallback(
     (key, defaultVal) => {
       const val = searchParams.get(key);
-      if (val === null || val === undefined) return defaultVal;
+      if (val === null || val === undefined || val === '[object Object]' || val.includes('[object Object]')) {
+        return defaultVal;
+      }
 
       if (typeof defaultVal === 'number') {
         const num = parseInt(val, 10);
@@ -49,6 +62,21 @@ export const useUrlFilters = (
     },
     [searchParams]
   );
+
+  // Self-healing: Automatically cleanse any corrupted '[object Object]' params from browser URL on mount
+  useEffect(() => {
+    let hasCorrupted = false;
+    const cleanParams = new URLSearchParams(searchParams);
+    for (const [key, val] of searchParams.entries()) {
+      if (val === '[object Object]' || val.includes('[object Object]')) {
+        cleanParams.delete(key);
+        hasCorrupted = true;
+      }
+    }
+    if (hasCorrupted) {
+      setSearchParams(cleanParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   // Initialize local filter states from URL searchParams
   const initialValues = useMemo(() => {
@@ -90,13 +118,15 @@ export const useUrlFilters = (
     (newFilters, shouldResetPage = false) => {
       const nextParams = new URLSearchParams(searchParams);
 
-      for (const [key, value] of Object.entries(newFilters)) {
+      for (const [key, rawValue] of Object.entries(newFilters)) {
+        const value = unwrapFilterValue(rawValue);
         const defaultVal = defaultFiltersRef.current[key];
         const isDefault =
           value === defaultVal ||
           value === '' ||
           value === null ||
           value === undefined ||
+          value === '[object Object]' ||
           (Array.isArray(value) && value.length === 0);
 
         if (isDefault) {
@@ -132,7 +162,8 @@ export const useUrlFilters = (
 
   // Public setter for a single filter key
   const setFilter = useCallback(
-    (key, value) => {
+    (key, rawValue) => {
+      const value = unwrapFilterValue(rawValue);
       const isDebounced = debouncedKeys.includes(key);
 
       setFiltersState((prev) => {
@@ -156,14 +187,19 @@ export const useUrlFilters = (
   // Public setter for multiple filters at once (e.g. custom date range start & end)
   const setFilters = useCallback(
     (partialFilters, shouldResetPage = true) => {
+      const cleaned = {};
+      for (const [k, v] of Object.entries(partialFilters)) {
+        cleaned[k] = unwrapFilterValue(v);
+      }
       setFiltersState((prev) => {
-        const next = { ...prev, ...partialFilters };
-        if (shouldResetPage && prev[pageKey] !== undefined) {
+        const next = { ...prev, ...cleaned };
+        if (shouldResetPage && pageKey && prev[pageKey] !== undefined) {
           next[pageKey] = 1;
         }
         return next;
       });
-      pushParamsToUrl(partialFilters, shouldResetPage);
+
+      pushParamsToUrl(cleaned, shouldResetPage);
     },
     [pageKey, pushParamsToUrl]
   );
