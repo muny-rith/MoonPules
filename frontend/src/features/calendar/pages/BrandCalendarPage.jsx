@@ -712,7 +712,35 @@ export const BrandCalendarPage = () => {
                           const isSpecial = (slot.time_window || '').includes('04:00PM') || (slot.notes || '').toLowerCase().includes('payday');
                           const badge = getBadgeStyle(slot.content_type, isSpecial);
                           const isCompleted = slot.computed_status === 'completed';
+                          const isScheduled = slot.computed_status === 'scheduled';
                           const isMissed = slot.computed_status === 'missed';
+
+                          // State-driven card appearance
+                          let cardBg = '#ffffff';
+                          let cardBorder = '1px dashed #cbd5e1';
+                          let cardBar = '#94a3b8';
+                          let brandTextColor = '#475569';
+                          let labelTextColor = '#334155';
+
+                          if (isCompleted) {
+                            cardBg = '#f0fdf4';
+                            cardBorder = '1px solid #86efac';
+                            cardBar = '#16a34a';
+                            brandTextColor = '#15803d';
+                            labelTextColor = '#14532d';
+                          } else if (isScheduled) {
+                            cardBg = '#eff6ff';
+                            cardBorder = '1px solid #93c5fd';
+                            cardBar = '#2563eb';
+                            brandTextColor = '#1d4ed8';
+                            labelTextColor = '#1e3a8a';
+                          } else if (isMissed) {
+                            cardBg = '#fef2f2';
+                            cardBorder = '1px solid #fca5a5';
+                            cardBar = '#dc2626';
+                            brandTextColor = '#b91c1c';
+                            labelTextColor = '#7f1d1d';
+                          }
 
                           return (
                             <div
@@ -732,74 +760,144 @@ export const BrandCalendarPage = () => {
                                 }
                               }}
                               style={{
-                                backgroundColor: badge.bg,
-                                color: badge.textColor,
+                                backgroundColor: cardBg,
                                 borderRadius: '6px',
-                                padding: '3px 8px',
+                                padding: '3px 7px',
                                 fontSize: '11px',
                                 fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
                                 gap: '6px',
-                                boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                                boxShadow: isCompleted ? '0 1px 2px rgba(22,163,74,0.08)' : '0 1px 2px rgba(0,0,0,0.03)',
                                 cursor: 'pointer',
                                 position: 'relative',
-                                border: isCompleted 
-                                  ? '1px solid #86efac' 
-                                  : (isMissed ? '1px solid #fca5a5' : `1px solid ${badge.borderColor}`),
+                                border: cardBorder,
                                 transition: 'all 0.15s ease'
                               }}
-                              title={`Click to ${isCompleted ? 'view post' : 'create post'} for ${slot.brand_name}`}
+                              title={`Click to ${isCompleted ? 'view post' : 'create post'} for ${slot.brand_name} (${isCompleted ? 'Delivered & Published' : isScheduled ? 'Scheduled' : isMissed ? 'Overdue' : 'Planned deliverable'})`}
                             >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
-                                {/* Inner rounded vertical accent bar matching reference */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', overflow: 'hidden' }}>
+                                {/* Inner vertical accent bar */}
                                 <span
                                   style={{
                                     width: '3.5px',
                                     height: '11px',
-                                    backgroundColor: badge.barColor,
+                                    backgroundColor: cardBar,
                                     borderRadius: '2px',
                                     flexShrink: 0
                                   }}
                                 />
                                 <span style={{
-                                  fontSize: '10.5px',
+                                  fontSize: '10px',
                                   fontWeight: '700',
                                   textTransform: 'uppercase',
                                   letterSpacing: '0.3px',
                                   flexShrink: 0,
-                                  color: badge.textColor
+                                  color: brandTextColor
                                 }}>
                                   [{slot.brand_name || 'BRAND'}]
                                 </span>
                                 <span style={{
                                   fontWeight: '600',
-                                  fontSize: '11px',
+                                  fontSize: '10.5px',
                                   overflow: 'hidden',
                                   textOverflow: 'ellipsis',
                                   whiteSpace: 'nowrap',
-                                  color: '#334155'
+                                  color: labelTextColor
                                 }}>
                                   {badge.label}
                                 </span>
                               </div>
 
                               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                                {slot.time_window && (
-                                  <span style={{ fontSize: '10px', fontWeight: '600', color: '#64748b' }}>
-                                    {slot.time_window}
+                                {isCompleted && (
+                                  <span
+                                    style={{
+                                      backgroundColor: '#16a34a',
+                                      color: '#ffffff',
+                                      fontSize: '8.5px',
+                                      fontWeight: '700',
+                                      padding: '1px 5px',
+                                      borderRadius: '4px',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '2.5px',
+                                      textTransform: 'uppercase',
+                                      letterSpacing: '0.3px',
+                                      boxShadow: '0 1px 2px rgba(22, 163, 74, 0.25)',
+                                    }}
+                                    title="Delivered & Published live on Facebook"
+                                  >
+                                    <Check size={9} strokeWidth={3} />
+                                    <span>Published</span>
                                   </span>
                                 )}
-                                {isCompleted && (
-                                  <div style={{ backgroundColor: '#ffffff', borderRadius: '50%', padding: '1px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #86efac' }} title="Delivered & Published">
-                                    <Check size={9} color="#16a34a" />
-                                  </div>
+
+                                {isScheduled && (
+                                  <span
+                                    style={{
+                                      backgroundColor: '#2563eb',
+                                      color: '#ffffff',
+                                      fontSize: '8.5px',
+                                      fontWeight: '700',
+                                      padding: '1px 5px',
+                                      borderRadius: '4px',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '2.5px',
+                                      textTransform: 'uppercase',
+                                      letterSpacing: '0.3px',
+                                      boxShadow: '0 1px 2px rgba(37, 99, 235, 0.25)',
+                                    }}
+                                    title="Scheduled to publish on Facebook"
+                                  >
+                                    <Clock size={9} strokeWidth={2.5} />
+                                    <span>{slot.time_window || 'Scheduled'}</span>
+                                  </span>
                                 )}
+
                                 {isMissed && (
-                                  <div style={{ backgroundColor: '#ffffff', borderRadius: '50%', padding: '1px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #fca5a5' }} title="Milestone Pending / Missed">
-                                    <AlertTriangle size={9} color="#dc2626" />
-                                  </div>
+                                  <span
+                                    style={{
+                                      backgroundColor: '#dc2626',
+                                      color: '#ffffff',
+                                      fontSize: '8.5px',
+                                      fontWeight: '700',
+                                      padding: '1px 5px',
+                                      borderRadius: '4px',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '2.5px',
+                                      textTransform: 'uppercase',
+                                      letterSpacing: '0.3px',
+                                      boxShadow: '0 1px 2px rgba(220, 38, 38, 0.25)',
+                                    }}
+                                    title="Overdue / Missed deliverable date"
+                                  >
+                                    <AlertTriangle size={9} strokeWidth={2.5} />
+                                    <span>Missed</span>
+                                  </span>
+                                )}
+
+                                {!isCompleted && !isScheduled && !isMissed && (
+                                  <span
+                                    style={{
+                                      backgroundColor: '#f8fafc',
+                                      color: '#64748b',
+                                      border: '1px solid #cbd5e1',
+                                      fontSize: '8.5px',
+                                      fontWeight: '600',
+                                      padding: '1px 5px',
+                                      borderRadius: '4px',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '2px',
+                                    }}
+                                    title="Planned deliverable (click to create post)"
+                                  >
+                                    {slot.time_window || 'To Do'}
+                                  </span>
                                 )}
                               </div>
                             </div>
@@ -949,13 +1047,34 @@ export const BrandCalendarPage = () => {
                     {selectedDayDetail.slots.map((slot, sIdx) => {
                       const isSpecial = (slot.time_window || '').includes('04:00PM') || (slot.notes || '').toLowerCase().includes('payday');
                       const badge = getBadgeStyle(slot.content_type, isSpecial);
+                      const isCompleted = slot.computed_status === 'completed';
+                      const isScheduled = slot.computed_status === 'scheduled';
+                      const isMissed = slot.computed_status === 'missed';
+
+                      let cardBg = '#ffffff';
+                      let cardBorder = '1px dashed #cbd5e1';
+                      let cardBar = '#94a3b8';
+
+                      if (isCompleted) {
+                        cardBg = '#f0fdf4';
+                        cardBorder = '1px solid #86efac';
+                        cardBar = '#16a34a';
+                      } else if (isScheduled) {
+                        cardBg = '#eff6ff';
+                        cardBorder = '1px solid #93c5fd';
+                        cardBar = '#2563eb';
+                      } else if (isMissed) {
+                        cardBg = '#fef2f2';
+                        cardBorder = '1px solid #fca5a5';
+                        cardBar = '#dc2626';
+                      }
+
                       return (
                         <div
                           key={`modal-slot-${slot.id || sIdx}`}
                           style={{
-                            backgroundColor: badge.bg,
-                            color: badge.textColor,
-                            border: `1px solid ${badge.borderColor}`,
+                            backgroundColor: cardBg,
+                            border: cardBorder,
                             borderRadius: '8px',
                             padding: '12px 16px',
                             display: 'flex',
@@ -970,16 +1089,35 @@ export const BrandCalendarPage = () => {
                               style={{
                                 width: '4px',
                                 height: '24px',
-                                backgroundColor: badge.barColor,
+                                backgroundColor: cardBar,
                                 borderRadius: '3px',
                                 flexShrink: 0
                               }}
                             />
                             <div>
-                              <div style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.4px', textTransform: 'uppercase', color: '#64748b' }}>
-                                [{slot.brand_name || 'Brand'}]
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.4px', textTransform: 'uppercase', color: '#64748b' }}>
+                                  [{slot.brand_name || 'Brand'}]
+                                </span>
+                                {isCompleted ? (
+                                  <span style={{ backgroundColor: '#16a34a', color: '#ffffff', fontSize: '9px', fontWeight: '700', padding: '1px 6px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '3px', textTransform: 'uppercase' }}>
+                                    <Check size={9} strokeWidth={3} /> Published
+                                  </span>
+                                ) : isScheduled ? (
+                                  <span style={{ backgroundColor: '#2563eb', color: '#ffffff', fontSize: '9px', fontWeight: '700', padding: '1px 6px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '3px', textTransform: 'uppercase' }}>
+                                    <Clock size={9} strokeWidth={2.5} /> Scheduled
+                                  </span>
+                                ) : isMissed ? (
+                                  <span style={{ backgroundColor: '#dc2626', color: '#ffffff', fontSize: '9px', fontWeight: '700', padding: '1px 6px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '3px', textTransform: 'uppercase' }}>
+                                    <AlertTriangle size={9} strokeWidth={2.5} /> Missed
+                                  </span>
+                                ) : (
+                                  <span style={{ backgroundColor: '#f1f5f9', color: '#64748b', fontSize: '9px', fontWeight: '600', padding: '1px 6px', borderRadius: '4px', border: '1px solid #cbd5e1' }}>
+                                    To Do
+                                  </span>
+                                )}
                               </div>
-                              <div style={{ fontSize: '14px', fontWeight: '600', marginTop: '1px', color: '#0f172a' }}>
+                              <div style={{ fontSize: '14px', fontWeight: '600', marginTop: '2px', color: '#0f172a' }}>
                                 {badge.label} {slot.time_window ? `(${slot.time_window})` : ''}
                               </div>
                             </div>
@@ -1003,9 +1141,9 @@ export const BrandCalendarPage = () => {
                               }
                             }}
                             style={{
-                              backgroundColor: '#ffffff',
-                              color: badge.barColor,
-                              border: `1px solid ${badge.borderColor}`,
+                              backgroundColor: isCompleted ? '#f0fdf4' : '#ffffff',
+                              color: isCompleted ? '#16a34a' : (isMissed ? '#dc2626' : '#2563eb'),
+                              border: isCompleted ? '1px solid #86efac' : (isMissed ? '1px solid #fca5a5' : '1px solid #cbd5e1'),
                               borderRadius: '6px',
                               padding: '7px 14px',
                               fontSize: '12px',
