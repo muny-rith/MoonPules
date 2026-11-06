@@ -52,7 +52,8 @@ import {
   List,
   ZoomIn,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Loader2
 } from 'lucide-react';
 import { MetaEmojiPicker } from '../components/MetaEmojiPicker';
 import { MetaSchedulePicker } from '../components/MetaSchedulePicker';
@@ -64,7 +65,8 @@ import { useWheelIsolation } from '../hooks/useWheelIsolation';
 import '../postTracker.css';
 import { Select, MultiSelect, Input, Button } from '../../../shared/components/ui';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
-import { compressImageFile, getMediaMetadata, isVideoMedia, resolveMediaUrl } from '../../../shared/utils/mediaUrl';
+import { getMediaMetadata, isVideoMedia, resolveMediaUrl } from '../../../shared/utils/mediaUrl';
+import { processMediaFileForUpload } from '../../../shared/utils/videoOptimizer';
 
 const PageAvatar = ({ page, size = 20, className = 'meta-page-avatar-img' }) => {
   const [imgError, setImgError] = useState(false);
@@ -421,6 +423,58 @@ export const CreatePostPage = () => {
 
     setMediaSource('upload');
 
+    const uploadSingleMediaItem = async (targetId, file, isVideo) => {
+      try {
+        const processed = await processMediaFileForUpload(file, isVideo, {
+          onProgress: ({ percent, text }) => {
+            setMediaItems((prev) =>
+              prev.map((it) =>
+                it.id === targetId ? { ...it, uploadProgress: percent, statusText: text } : it
+              )
+            );
+          },
+        });
+
+        setMediaItems((prev) =>
+          prev.map((it) =>
+            it.id === targetId ? { ...it, uploadProgress: 100, statusText: '⚡ Uploading...' } : it
+          )
+        );
+
+        const res = await api.uploadPostImage(processed.file);
+
+        setMediaItems((prev) =>
+          prev.map((it) =>
+            it.id === targetId
+              ? {
+                  ...it,
+                  file: processed.file,
+                  serverUrl: res.url,
+                  previewUrl: res.url,
+                  thumbUrl: res.url,
+                  uploading: false,
+                  uploadProgress: 100,
+                  statusText:
+                    processed.savedPct > 0
+                      ? `✓ Ready (Saved ${processed.savedPct}%)`
+                      : '✓ Ready',
+                }
+              : it
+          )
+        );
+      } catch (err) {
+        console.error('Failed to upload media:', err);
+        const errMsg = err?.response?.data?.error || err.message || 'Upload failed';
+        setMediaItems((prev) =>
+          prev.map((it) =>
+            it.id === targetId
+              ? { ...it, uploading: false, error: true, errorMessage: errMsg, statusText: 'Upload failed' }
+              : it
+          )
+        );
+      }
+    };
+
     if (editItemIndexRef.current !== null) {
       const index = editItemIndexRef.current;
       editItemIndexRef.current = null;
@@ -439,6 +493,8 @@ export const CreatePostPage = () => {
         serverUrl: '',
         dimensions: firstMeta.dimensions,
         uploading: true,
+        uploadProgress: 0,
+        statusText: firstMeta.isVideo ? '⚡ Optimizing video...' : 'Uploading...',
       };
 
       const additionalItems = await Promise.all(
@@ -454,6 +510,8 @@ export const CreatePostPage = () => {
             serverUrl: '',
             dimensions: meta.dimensions,
             uploading: true,
+            uploadProgress: 0,
+            statusText: meta.isVideo ? '⚡ Optimizing video...' : 'Uploading...',
           };
         })
       );
@@ -465,39 +523,11 @@ export const CreatePostPage = () => {
       });
 
       // Upload replacement item
-      (async () => {
-        try {
-          const compressed = firstMeta.isVideo ? firstFile : await compressImageFile(firstFile, 1200, 0.85);
-          const res = await api.uploadPostImage(compressed);
-          setMediaItems((prev) =>
-            prev.map((it) => (it.id === firstItemId ? { ...it, serverUrl: res.url, previewUrl: res.url, thumbUrl: res.url, uploading: false } : it))
-          );
-        } catch (err) {
-          console.error('Failed to upload media:', err);
-          const errMsg = err?.response?.data?.error || err.message || 'Upload failed';
-          setMediaItems((prev) =>
-            prev.map((it) => (it.id === firstItemId ? { ...it, uploading: false, error: true, errorMessage: errMsg } : it))
-          );
-        }
-      })();
+      uploadSingleMediaItem(firstItemId, firstFile, firstMeta.isVideo);
 
-      // Upload any additional items
+      // Upload additional items
       for (const item of additionalItems) {
-        (async () => {
-          try {
-            const compressed = item.isVideo ? item.file : await compressImageFile(item.file, 1200, 0.85);
-            const res = await api.uploadPostImage(compressed);
-            setMediaItems((prev) =>
-              prev.map((it) => (it.id === item.id ? { ...it, serverUrl: res.url, previewUrl: res.url, thumbUrl: res.url, uploading: false } : it))
-            );
-          } catch (err) {
-            console.error('Failed to upload additional item', err);
-            const errMsg = err?.response?.data?.error || err.message || 'Upload failed';
-            setMediaItems((prev) =>
-              prev.map((it) => (it.id === item.id ? { ...it, uploading: false, error: true, errorMessage: errMsg } : it))
-            );
-          }
-        })();
+        uploadSingleMediaItem(item.id, item.file, item.isVideo);
       }
 
       return;
@@ -516,6 +546,8 @@ export const CreatePostPage = () => {
           serverUrl: '',
           dimensions: meta.dimensions,
           uploading: true,
+          uploadProgress: 0,
+          statusText: meta.isVideo ? '⚡ Optimizing video...' : 'Uploading...',
         };
       })
     );
@@ -523,20 +555,7 @@ export const CreatePostPage = () => {
     setMediaItems((prev) => [...prev, ...newItems]);
 
     for (const item of newItems) {
-      compressImageFile(item.file, 1200, 0.85)
-        .then((compressed) => api.uploadPostImage(compressed))
-        .then((res) => {
-          setMediaItems((prev) =>
-            prev.map((it) => (it.id === item.id ? { ...it, serverUrl: res.url, previewUrl: res.url, thumbUrl: res.url, uploading: false } : it))
-          );
-        })
-        .catch((err) => {
-          console.error('Failed to upload item', err);
-          const errMsg = err?.response?.data?.error || err.message || 'Upload failed';
-          setMediaItems((prev) =>
-            prev.map((it) => (it.id === item.id ? { ...it, uploading: false, error: true, errorMessage: errMsg } : it))
-          );
-        });
+      uploadSingleMediaItem(item.id, item.file, item.isVideo);
     }
   };
 
@@ -1294,8 +1313,16 @@ export const CreatePostPage = () => {
 
                             {/* Uploading / Error indicator */}
                             {item.uploading && (
-                              <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontSize: '11px', fontWeight: 600 }}>
-                                Uploading...
+                              <div style={{ position: 'absolute', inset: 0, background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(2px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontSize: '11px', fontWeight: 600, padding: '8px', textAlign: 'center', gap: '6px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <Loader2 size={14} className="animate-spin" />
+                                  <span>{item.statusText || 'Uploading...'}</span>
+                                </div>
+                                {typeof item.uploadProgress === 'number' && item.uploadProgress > 0 && item.uploadProgress < 100 && (
+                                  <div style={{ width: '80%', height: '4px', background: 'rgba(255,255,255,0.25)', borderRadius: '2px', overflow: 'hidden' }}>
+                                    <div style={{ width: `${item.uploadProgress}%`, height: '100%', background: '#3b82f6', transition: 'width 0.2s ease-out' }} />
+                                  </div>
+                                )}
                               </div>
                             )}
                             {item.error && (
@@ -1464,13 +1491,21 @@ export const CreatePostPage = () => {
                                 <div className="meta-media-dim-label">
                                   {item.dimensions || 'Image'}
                                 </div>
-                                <div style={{ fontSize: '11px', color: item.uploading ? '#1877f2' : item.error ? '#dc2626' : '#16a34a' }}>
-                                  {item.uploading
-                                    ? (item.isVideo ? '⚡ Optimizing & Uploading...' : 'Uploading...')
-                                    : item.error
-                                      ? (item.errorMessage || 'Upload failed')
-                                      : '✓ Ready'}
+                                <div style={{ fontSize: '11px', color: item.uploading ? '#1877f2' : item.error ? '#dc2626' : '#16a34a', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                  {item.uploading && <Loader2 size={12} className="animate-spin" />}
+                                  <span>
+                                    {item.uploading
+                                      ? (item.statusText || (item.isVideo ? '⚡ Optimizing & Uploading...' : 'Uploading...'))
+                                      : item.error
+                                        ? (item.errorMessage || 'Upload failed')
+                                        : (item.statusText || '✓ Ready')}
+                                  </span>
                                 </div>
+                                {item.uploading && typeof item.uploadProgress === 'number' && item.uploadProgress > 0 && item.uploadProgress < 100 && (
+                                  <div style={{ width: '90px', height: '3px', background: '#e2e8f0', borderRadius: '2px', overflow: 'hidden', marginTop: '3px' }}>
+                                    <div style={{ width: `${item.uploadProgress}%`, height: '100%', background: '#1877f2', transition: 'width 0.2s ease-out' }} />
+                                  </div>
+                                )}
                               </div>
                             </div>
 
