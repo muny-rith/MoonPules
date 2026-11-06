@@ -564,36 +564,36 @@ export const BrandCalendarPage = () => {
          ==================================================================== */}
       <div style={{
         backgroundColor: '#ffffff',
-        border: '1px solid #e2e8f0',
+        border: '1.5px solid #cbd5e1',
         borderRadius: '12px',
         overflow: 'hidden',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+        boxShadow: '0 2px 6px -1px rgba(0,0,0,0.06)',
         marginBottom: '24px'
       }}>
-        {/* Days of week Header (Clean Notion / Linear Slate Header) */}
+        {/* Days of week Header (Solid, Legible Slate Header) */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(7, 1fr)',
-          backgroundColor: '#f8fafc',
-          borderBottom: '1px solid #e2e8f0',
+          backgroundColor: '#f1f5f9',
+          borderBottom: '1.5px solid #cbd5e1',
           textAlign: 'center',
-          fontWeight: '700',
-          fontSize: '11px',
-          letterSpacing: '0.06em',
-          padding: '10px 0'
+          fontWeight: '800',
+          fontSize: '12px',
+          letterSpacing: '0.05em',
+          padding: '12px 0'
         }}>
           {DAY_NAMES.map((d, index) => (
-            <div key={d} style={{ color: index >= 5 ? '#94a3b8' : '#64748b' }}>
+            <div key={d} style={{ color: index >= 5 ? '#64748b' : '#1e293b' }}>
               {d.toUpperCase()}
             </div>
           ))}
         </div>
 
-        {/* Calendar Cells Grid */}
+        {/* Calendar Cells Grid — Crisp 1px #cbd5e1 dividers so every cell is clearly framed */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(7, 1fr)',
-          backgroundColor: '#f1f5f9',
+          backgroundColor: '#cbd5e1',
           gap: '1px'
         }}>
           {calendarCells.map((cell, idx) => {
@@ -608,12 +608,13 @@ export const BrandCalendarPage = () => {
               <div
                 key={idx}
                 style={{
-                  backgroundColor: isCurrentMonth ? '#ffffff' : '#fafbfd',
-                  minHeight: '135px',
-                  padding: '7px',
+                  backgroundColor: isCurrentMonth ? '#ffffff' : '#f8fafc',
+                  minHeight: '140px',
+                  padding: '7px 8px',
                   display: 'flex',
                   flexDirection: 'column',
-                  position: 'relative'
+                  position: 'relative',
+                  borderTop: isToday && isCurrentMonth ? '3px solid #2563eb' : 'none'
                 }}
               >
                 {/* Day Number Header */}
@@ -621,38 +622,52 @@ export const BrandCalendarPage = () => {
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  marginBottom: '6px'
+                  marginBottom: '6px',
+                  paddingBottom: '4px',
+                  borderBottom: isCurrentMonth ? '1px solid #f1f5f9' : 'none'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     {isCurrentMonth && cell.dayNumber === 1 && (
-                      <span style={{ fontSize: '10px', color: '#2563eb', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        {currentDate.toLocaleString('default', { month: 'short' })}
+                      <span style={{
+                        fontSize: '11px',
+                        color: '#2563eb',
+                        fontWeight: '800',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                        backgroundColor: '#eff6ff',
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                        border: '1px solid #bfdbfe'
+                      }}>
+                        {currentDate.toLocaleString('default', { month: 'short' })} 01
                       </span>
                     )}
-                    {isToday && isCurrentMonth ? (
-                      <span style={{
-                        backgroundColor: '#2563eb',
-                        color: '#ffffff',
-                        width: '22px',
-                        height: '22px',
-                        borderRadius: '50%',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '11.5px',
-                        fontWeight: '700',
-                        boxShadow: '0 1px 3px rgba(37,99,235,0.35)'
-                      }}>
-                        {cell.dayNumber}
-                      </span>
-                    ) : (
-                      <span style={{
-                        fontSize: '12px',
-                        fontWeight: isCurrentMonth ? '600' : '400',
-                        color: isCurrentMonth ? '#334155' : '#cbd5e1'
-                      }}>
-                        {cell.dayNumber < 10 ? `0${cell.dayNumber}` : cell.dayNumber}
-                      </span>
+                    {!(isCurrentMonth && cell.dayNumber === 1) && (
+                      isToday && isCurrentMonth ? (
+                        <span style={{
+                          backgroundColor: '#2563eb',
+                          color: '#ffffff',
+                          width: '24px',
+                          height: '24px',
+                          borderRadius: '50%',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '12px',
+                          fontWeight: '800',
+                          boxShadow: '0 2px 4px rgba(37,99,235,0.35)'
+                        }}>
+                          {cell.dayNumber}
+                        </span>
+                      ) : (
+                        <span style={{
+                          fontSize: '13px',
+                          fontWeight: isCurrentMonth ? '700' : '500',
+                          color: isCurrentMonth ? '#1e293b' : '#94a3b8'
+                        }}>
+                          {cell.dayNumber < 10 ? `0${cell.dayNumber}` : cell.dayNumber}
+                        </span>
+                      )
                     )}
                   </div>
 
@@ -662,24 +677,23 @@ export const BrandCalendarPage = () => {
                       onClick={() => navigate(`/planner/create?date=${cell.dateKey}`)}
                       style={{
                         background: 'none',
-                        border: 'none',
+                        border: '1px solid transparent',
                         color: '#94a3b8',
                         cursor: 'pointer',
                         padding: '2px 4px',
                         borderRadius: '4px',
                         display: 'flex',
                         alignItems: 'center',
-                        opacity: 0.5,
                         transition: 'all 0.15s ease'
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.opacity = '1';
                         e.currentTarget.style.backgroundColor = '#f1f5f9';
+                        e.currentTarget.style.borderColor = '#cbd5e1';
                         e.currentTarget.style.color = '#2563eb';
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.opacity = '0.5';
                         e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.borderColor = 'transparent';
                         e.currentTarget.style.color = '#94a3b8';
                       }}
                       title={`Schedule post for ${cell.dateKey}`}
@@ -690,8 +704,8 @@ export const BrandCalendarPage = () => {
                 </div>
 
                 {/* Event Badges List for this day */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
-                  {/* Option A: Strict Client Deliverables — Display planned brand mission slots */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', flex: 1 }}>
+                  {/* Strict Client Deliverables — Display planned brand mission slots */}
                   {isCurrentMonth && (() => {
                     const filteredSlots = daySlots.filter((slot) => {
                       if (missionStatusFilter === 'completed') return slot.computed_status === 'completed';
@@ -712,7 +726,6 @@ export const BrandCalendarPage = () => {
                           const isScheduled = slot.computed_status === 'scheduled';
                           const isMissed = slot.computed_status === 'missed';
 
-                          // Option 3: Find linked or matching post for thumbnail
                           const linked = slot.linked_post || (cell.posts || []).find((p) => {
                             const postBrandId = p.brand_id ? String(p.brand_id) : '';
                             const slotBrandId = slot.brand_id ? String(slot.brand_id) : '';
@@ -727,27 +740,19 @@ export const BrandCalendarPage = () => {
 
                           const IconComp = typeInfo.icon;
 
-                          // Notion/Linear Clean Card Styling
-                          let cardBg = '#fcfcfd';
-                          let cardBorder = '1px dashed #cbd5e1';
-                          let brandColor = '#334155';
-                          let labelColor = '#64748b';
+                          // High-contrast, easily visible cards with solid border
+                          let cardBg = '#ffffff';
+                          let cardBorder = '1px solid #cbd5e1';
 
                           if (isCompleted) {
                             cardBg = '#ffffff';
-                            cardBorder = '1px solid #e2e8f0';
-                            brandColor = '#0f172a';
-                            labelColor = '#64748b';
+                            cardBorder = '1px solid #cbd5e1';
                           } else if (isScheduled) {
-                            cardBg = '#ffffff';
-                            cardBorder = '1px solid #bfdbfe';
-                            brandColor = '#0f172a';
-                            labelColor = '#64748b';
+                            cardBg = '#f8faff';
+                            cardBorder = '1px solid #93c5fd';
                           } else if (isMissed) {
-                            cardBg = '#fffafb';
-                            cardBorder = '1px solid #fecaca';
-                            brandColor = '#991b1b';
-                            labelColor = '#b91c1c';
+                            cardBg = '#fff8f8';
+                            cardBorder = '1px solid #fca5a5';
                           }
 
                           return (
@@ -769,28 +774,36 @@ export const BrandCalendarPage = () => {
                               }}
                               style={{
                                 backgroundColor: cardBg,
-                                borderRadius: '5px',
-                                padding: '3px 6px',
+                                borderRadius: '6px',
+                                padding: '4px 7px',
                                 fontSize: '11px',
                                 fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
-                                gap: '5px',
-                                boxShadow: isCompleted || isScheduled ? '0 1px 2px rgba(0,0,0,0.02)' : 'none',
+                                gap: '6px',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
                                 cursor: 'pointer',
                                 position: 'relative',
                                 border: cardBorder,
                                 transition: 'all 0.15s ease'
                               }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.borderColor = '#94a3b8';
+                                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.08)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.borderColor = cardBorder.split(' ')[2];
+                                e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.04)';
+                              }}
                               title={`Click to ${slot.linked_post?.id ? 'view post' : 'create post'} for ${slot.brand_name} (${isCompleted ? 'Live on Facebook' : isScheduled ? 'Scheduled' : isMissed ? 'Overdue' : 'Planned deliverable'})`}
                             >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', overflow: 'hidden' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
                                 {/* Content-Type Color Accent Line */}
                                 <span
                                   style={{
-                                    width: '3px',
-                                    height: '13px',
+                                    width: '3.5px',
+                                    height: '14px',
                                     backgroundColor: typeInfo.color,
                                     borderRadius: '2px',
                                     flexShrink: 0,
@@ -798,28 +811,28 @@ export const BrandCalendarPage = () => {
                                   title={`${typeInfo.label} deliverable`}
                                 />
 
-                                {/* Clean Brand Name (No brackets) */}
+                                {/* High-contrast Brand Name */}
                                 <span style={{
-                                  fontSize: '10.5px',
+                                  fontSize: '11px',
                                   fontWeight: '700',
                                   letterSpacing: '0.1px',
                                   flexShrink: 0,
-                                  color: brandColor,
+                                  color: '#0f172a',
                                   whiteSpace: 'nowrap'
                                 }}>
                                   {slot.brand_name || 'Brand'}
                                 </span>
 
-                                <span style={{ color: '#cbd5e1', fontSize: '9px', flexShrink: 0 }}>·</span>
+                                <span style={{ color: '#94a3b8', fontSize: '9px', flexShrink: 0 }}>·</span>
 
                                 {/* Content Label */}
                                 <span style={{
-                                  fontWeight: '500',
-                                  fontSize: '10px',
+                                  fontWeight: '600',
+                                  fontSize: '10.5px',
                                   overflow: 'hidden',
                                   textOverflow: 'ellipsis',
                                   whiteSpace: 'nowrap',
-                                  color: labelColor
+                                  color: '#475569'
                                 }}>
                                   {typeInfo.label}
                                 </span>
@@ -829,12 +842,12 @@ export const BrandCalendarPage = () => {
                                 {isCompleted && (
                                   <span
                                     style={{
-                                      backgroundColor: '#ecfdf5',
-                                      color: '#059669',
-                                      border: '1px solid #a7f3d0',
+                                      backgroundColor: '#dcfce7',
+                                      color: '#15803d',
+                                      border: '1px solid #86efac',
                                       fontSize: '8.5px',
                                       fontWeight: '700',
-                                      padding: '1px 5px',
+                                      padding: '1.5px 6px',
                                       borderRadius: '4px',
                                       display: 'inline-flex',
                                       alignItems: 'center',
@@ -851,12 +864,12 @@ export const BrandCalendarPage = () => {
                                 {isScheduled && (
                                   <span
                                     style={{
-                                      backgroundColor: '#eff6ff',
-                                      color: '#2563eb',
-                                      border: '1px solid #bfdbfe',
+                                      backgroundColor: '#dbeafe',
+                                      color: '#1d4ed8',
+                                      border: '1px solid #93c5fd',
                                       fontSize: '8.5px',
                                       fontWeight: '700',
-                                      padding: '1px 5px',
+                                      padding: '1.5px 6px',
                                       borderRadius: '4px',
                                       display: 'inline-flex',
                                       alignItems: 'center',
@@ -873,12 +886,12 @@ export const BrandCalendarPage = () => {
                                 {isMissed && (
                                   <span
                                     style={{
-                                      backgroundColor: '#fef2f2',
-                                      color: '#dc2626',
-                                      border: '1px solid #fecaca',
+                                      backgroundColor: '#fee2e2',
+                                      color: '#b91c1c',
+                                      border: '1px solid #fca5a5',
                                       fontSize: '8.5px',
                                       fontWeight: '700',
-                                      padding: '1px 5px',
+                                      padding: '1.5px 6px',
                                       borderRadius: '4px',
                                       display: 'inline-flex',
                                       alignItems: 'center',
@@ -893,29 +906,23 @@ export const BrandCalendarPage = () => {
                                 )}
 
                                 {!isCompleted && !isScheduled && !isMissed && (
-                                  slot.time_window ? (
-                                    <span
-                                      style={{
-                                        color: '#94a3b8',
-                                        fontSize: '9px',
-                                        fontWeight: '500'
-                                      }}
-                                      title={`Planned for ${slot.time_window}`}
-                                    >
-                                      {slot.time_window}
-                                    </span>
-                                  ) : (
-                                    <span
-                                      style={{
-                                        width: '10px',
-                                        height: '10px',
-                                        borderRadius: '50%',
-                                        border: '1.5px dashed #cbd5e1',
-                                        display: 'inline-block'
-                                      }}
-                                      title="Planned deliverable (click to create post)"
-                                    />
-                                  )
+                                  <span
+                                    style={{
+                                      backgroundColor: '#f1f5f9',
+                                      color: '#475569',
+                                      border: '1px solid #e2e8f0',
+                                      fontSize: '8.5px',
+                                      fontWeight: '600',
+                                      padding: '1.5px 5px',
+                                      borderRadius: '4px',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '2px',
+                                    }}
+                                    title="Planned deliverable (click to create post)"
+                                  >
+                                    {slot.time_window || 'Planned'}
+                                  </span>
                                 )}
                               </div>
                             </div>
@@ -936,12 +943,12 @@ export const BrandCalendarPage = () => {
                             }}
                             style={{
                               backgroundColor: '#f1f5f9',
-                              color: '#475569',
-                              fontSize: '10px',
-                              fontWeight: '600',
-                              padding: '3px 6px',
+                              color: '#334155',
+                              fontSize: '10.5px',
+                              fontWeight: '700',
+                              padding: '4px 6px',
                               borderRadius: '4px',
-                              border: 'none',
+                              border: '1px solid #e2e8f0',
                               cursor: 'pointer',
                               display: 'flex',
                               alignItems: 'center',
@@ -956,7 +963,7 @@ export const BrandCalendarPage = () => {
                             }}
                             onMouseLeave={(e) => {
                               e.currentTarget.style.backgroundColor = '#f1f5f9';
-                              e.currentTarget.style.color = '#475569';
+                              e.currentTarget.style.color = '#334155';
                             }}
                           >
                             +{remainingCount} more
