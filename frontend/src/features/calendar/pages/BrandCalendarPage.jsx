@@ -705,7 +705,7 @@ export const BrandCalendarPage = () => {
 
                           const IconComp = typeInfo.icon;
 
-                          // Card background & borders for Option 3
+                          // Clean, calm cards — never overwhelming full-green background
                           let cardBg = '#ffffff';
                           let cardBorder = '1.5px dashed #cbd5e1';
                           let brandColor = '#475569';
@@ -713,22 +713,22 @@ export const BrandCalendarPage = () => {
                           let isDashed = true;
 
                           if (isCompleted) {
-                            cardBg = '#f0fdf4';
-                            cardBorder = '1px solid #86efac';
-                            brandColor = '#15803d';
-                            labelColor = '#166534';
+                            cardBg = '#ffffff'; // Clean white card, not green!
+                            cardBorder = '1px solid #e2e8f0';
+                            brandColor = '#0f172a';
+                            labelColor = '#334155';
                             isDashed = false;
                           } else if (isScheduled) {
-                            cardBg = '#eff6ff';
-                            cardBorder = '1px solid #93c5fd';
-                            brandColor = '#1d4ed8';
-                            labelColor = '#1e40af';
+                            cardBg = '#ffffff';
+                            cardBorder = '1px solid #bfdbfe';
+                            brandColor = '#0f172a';
+                            labelColor = '#334155';
                             isDashed = false;
                           } else if (isMissed) {
-                            cardBg = '#fef2f2';
-                            cardBorder = '1px solid #fca5a5';
-                            brandColor = '#b91c1c';
-                            labelColor = '#991b1b';
+                            cardBg = '#ffffff';
+                            cardBorder = '1px solid #fecaca';
+                            brandColor = '#0f172a';
+                            labelColor = '#334155';
                             isDashed = false;
                           }
 
@@ -779,7 +779,7 @@ export const BrandCalendarPage = () => {
                                         height: '20px',
                                         borderRadius: '3px',
                                         objectFit: 'cover',
-                                        border: '1px solid #10b981',
+                                        border: '1px solid #e2e8f0',
                                       }}
                                       fallbackText="FB"
                                     />
@@ -1135,27 +1135,23 @@ export const BrandCalendarPage = () => {
 
                       const IconComp = typeInfo.icon;
 
-                      // Option 3 styling
+                      // Clean, calm cards in modal (white background, no full green)
                       let cardBg = '#ffffff';
                       let cardBorder = '1.5px dashed #cbd5e1';
-                      let accentColor = '#94a3b8';
                       let brandColor = '#475569';
 
                       if (isCompleted) {
-                        cardBg = '#f0fdf4';
-                        cardBorder = '1px solid #86efac';
-                        accentColor = '#16a34a';
-                        brandColor = '#15803d';
+                        cardBg = '#ffffff';
+                        cardBorder = '1px solid #e2e8f0';
+                        brandColor = '#0f172a';
                       } else if (isScheduled) {
-                        cardBg = '#eff6ff';
-                        cardBorder = '1px solid #93c5fd';
-                        accentColor = '#2563eb';
-                        brandColor = '#1d4ed8';
+                        cardBg = '#ffffff';
+                        cardBorder = '1px solid #bfdbfe';
+                        brandColor = '#0f172a';
                       } else if (isMissed) {
-                        cardBg = '#fef2f2';
-                        cardBorder = '1px solid #fca5a5';
-                        accentColor = '#dc2626';
-                        brandColor = '#b91c1c';
+                        cardBg = '#ffffff';
+                        cardBorder = '1px solid #fecaca';
+                        brandColor = '#0f172a';
                       }
 
                       return (
@@ -1186,7 +1182,7 @@ export const BrandCalendarPage = () => {
                                     height: '42px',
                                     borderRadius: '6px',
                                     objectFit: 'cover',
-                                    border: '1px solid #86efac',
+                                    border: '1px solid #e2e8f0',
                                   }}
                                   fallbackText="FB"
                                 />
