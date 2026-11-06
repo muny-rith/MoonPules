@@ -900,7 +900,7 @@ export const CreatePostPage = () => {
       }
 
       clearMessageDraft();
-      const successMessage = schedulingMode === 'schedule'
+      const successMessage = publishMode === 'schedule'
         ? 'Post scheduled successfully!'
         : 'Post created and tracked successfully!';
       toast.success(successMessage);
