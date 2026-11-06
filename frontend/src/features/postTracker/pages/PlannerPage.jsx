@@ -142,12 +142,15 @@ const isSlotPostedReady = (slot, dayPosts = []) => {
     const postType = getPostContentType(p);
     const slotType = (slot.content_type || '').toLowerCase();
     if (slotType === 'photo' || slotType === 'poster') {
-      return postType === 'photo' || postType === 'poster';
+      // Photo slot can be fulfilled by photo OR video
+      return postType === 'photo' || postType === 'poster' || postType === 'video' || postType === 'reel';
     }
     if (slotType === 'video' || slotType === 'reel') {
-      return postType === 'video';
+      // Video slot must be video
+      return postType === 'video' || postType === 'reel';
     }
     if (slotType === 'live') {
+      // Live slot must be live
       return postType === 'live';
     }
     return true;

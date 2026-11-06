@@ -11,6 +11,61 @@ const formatLocalDateStr = (d) => {
 };
 
 /**
+ * Workflow matching rule:
+ * - When slot is 'photo': can be fulfilled by 'photo' OR 'video' post
+ * - When slot is 'video': can ONLY be fulfilled by 'video'/'reel' post
+ * - When slot is 'live': can ONLY be fulfilled by 'live' post
+ */
+const isMediaTypeCompatibleWithSlot = (slotType, postMediaType) => {
+  const sType = (slotType || '').toLowerCase();
+  const pType = (postMediaType || '').toLowerCase();
+  const isLive = pType === 'live';
+  const isVideo = pType === 'video' || pType === 'reel';
+  const isPhoto = !isLive && !isVideo;
+
+  if (sType === 'live') return isLive;
+  if (sType === 'video') return isVideo;
+  if (sType === 'photo' || sType === 'poster') return isPhoto || isVideo;
+  return true;
+};
+
+/**
+ * Deterministic helper to match an unlinked slot with available posts on that date:
+ * Prioritizes exact matches before fallback upgrades (e.g. video fulfilling photo).
+ */
+const findMatchingPostForSlot = (slot, dayPosts, usedPostIds = new Set()) => {
+  const slotType = (slot.content_type || '').toLowerCase();
+  const available = dayPosts.filter((p) => !usedPostIds.has(p.id));
+
+  if (slotType === 'live') {
+    return available.find((p) => (p.media_type || '').toLowerCase() === 'live') || null;
+  }
+  if (slotType === 'video') {
+    return available.find((p) => {
+      const t = (p.media_type || '').toLowerCase();
+      return t === 'video' || t === 'reel';
+    }) || null;
+  }
+  if (slotType === 'photo' || slotType === 'poster') {
+    // 1. Exact match first: photo
+    const exactPhoto = available.find((p) => {
+      const t = (p.media_type || '').toLowerCase();
+      return t === 'photo' || t === 'image' || (t !== 'live' && t !== 'video' && t !== 'reel');
+    });
+    if (exactPhoto) return exactPhoto;
+
+    // 2. Allowed workflow upgrade: video post fulfills photo slot
+    const videoPost = available.find((p) => {
+      const t = (p.media_type || '').toLowerCase();
+      return t === 'video' || t === 'reel';
+    });
+    return videoPost || null;
+  }
+
+  return available[0] || null;
+};
+
+/**
  * Get mission details and calculate day-by-day execution status
  */
 const getMissionWithProgress = async (brandId, month, year) => {
@@ -32,23 +87,35 @@ const getMissionWithProgress = async (brandId, month, year) => {
     postsByDate[dStr].push(post);
   });
 
+  const usedPostIds = new Set();
+  // Sort slots so that live and video claim matching posts first, then photo
+  const sortedSlotIndices = slots
+    .map((s, idx) => ({ s, idx }))
+    .sort((a, b) => {
+      const order = { live: 1, video: 2, photo: 3 };
+      const oA = order[a.s.content_type?.toLowerCase()] || 3;
+      const oB = order[b.s.content_type?.toLowerCase()] || 3;
+      return oA - oB;
+    });
+
+  const matchingPostsBySlotId = new Map();
+  for (const { s } of sortedSlotIndices) {
+    const slotDateStr = formatLocalDateStr(s.planned_date);
+    const dayPosts = postsByDate[slotDateStr] || [];
+    const match = findMatchingPostForSlot(s, dayPosts, usedPostIds);
+    if (match) {
+      usedPostIds.add(match.id);
+      matchingPostsBySlotId.set(s.id, match);
+    }
+  }
+
   let completedSlots = 0;
   let missedSlots = 0;
   let plannedSlots = 0;
 
   const enrichedSlots = slots.map((slot) => {
     const slotDateStr = formatLocalDateStr(slot.planned_date);
-    const dayPosts = postsByDate[slotDateStr] || [];
-
-    // Find a matching post on this day
-    const matchingPost = dayPosts.find((p) => {
-      const type = (p.media_type || '').toLowerCase();
-      const slotType = (slot.content_type || '').toLowerCase();
-      if (slotType === 'live') return type === 'live';
-      if (slotType === 'video') return type === 'video' || type === 'reel';
-      if (slotType === 'photo') return type === 'photo' || type === 'image';
-      return true;
-    });
+    const matchingPost = matchingPostsBySlotId.get(slot.id);
 
     let computedStatus = 'planned';
     let linkedPost = null;
@@ -166,6 +233,32 @@ const getCalendarSlots = async (brandId, month, year) => {
     postsByDateAndBrand[key].push(post);
   });
 
+  const usedPostIds = new Set();
+  slots.forEach((s) => {
+    if (s.linked_post_id) usedPostIds.add(s.linked_post_id);
+  });
+
+  // For unlinked slots, sort by [live, video, photo] so specific slots claim matches first
+  const unlinkedSlots = slots.filter((s) => !s.linked_post_id || s.fb_post_id === undefined);
+  const sortedUnlinked = [...unlinkedSlots].sort((a, b) => {
+    const order = { live: 1, video: 2, photo: 3 };
+    const oA = order[a.content_type?.toLowerCase()] || 3;
+    const oB = order[b.content_type?.toLowerCase()] || 3;
+    return oA - oB;
+  });
+
+  const fallbackMatchBySlotId = new Map();
+  for (const slot of sortedUnlinked) {
+    const slotDateStr = formatLocalDateStr(slot.planned_date);
+    const key = `${slot.brand_id}_${slotDateStr}`;
+    const dayPosts = postsByDateAndBrand[key] || [];
+    const match = findMatchingPostForSlot(slot, dayPosts, usedPostIds);
+    if (match) {
+      usedPostIds.add(match.id);
+      fallbackMatchBySlotId.set(slot.id, match);
+    }
+  }
+
   return slots.map((slot) => {
     const slotDateStr = formatLocalDateStr(slot.planned_date);
 
@@ -197,17 +290,7 @@ const getCalendarSlots = async (brandId, month, year) => {
     }
 
     // 2. Fallback: Dynamic matching if not yet persistently linked
-    const key = `${slot.brand_id}_${slotDateStr}`;
-    const dayPosts = postsByDateAndBrand[key] || [];
-
-    const matchingPost = dayPosts.find((p) => {
-      const type = (p.media_type || '').toLowerCase();
-      const slotType = (slot.content_type || '').toLowerCase();
-      if (slotType === 'live') return type === 'live';
-      if (slotType === 'video') return type === 'video' || type === 'reel';
-      if (slotType === 'photo') return type === 'photo' || type === 'image';
-      return true;
-    });
+    const matchingPost = fallbackMatchBySlotId.get(slot.id);
 
     let computedStatus = 'planned';
     let linkedPost = null;
@@ -300,6 +383,31 @@ const getMonthAudit = async (month, year) => {
     let missedSlots = 0;
     let plannedSlots = 0;
 
+    const usedPostIds = new Set();
+    slots.forEach((s) => {
+      if (s.linked_post_id) usedPostIds.add(s.linked_post_id);
+    });
+
+    const unlinkedSlots = slots.filter((s) => !s.linked_post_id || !s.post_status);
+    const sortedUnlinked = [...unlinkedSlots].sort((a, b) => {
+      const order = { live: 1, video: 2, photo: 3 };
+      const oA = order[a.content_type?.toLowerCase()] || 3;
+      const oB = order[b.content_type?.toLowerCase()] || 3;
+      return oA - oB;
+    });
+
+    const fallbackMatchBySlotId = new Map();
+    for (const slot of sortedUnlinked) {
+      const slotDateStr = formatLocalDateStr(slot.planned_date);
+      const key = `${mission.brand_id}_${slotDateStr}`;
+      const dayPosts = postsByBrandAndDate.get(key) || [];
+      const match = findMatchingPostForSlot(slot, dayPosts, usedPostIds);
+      if (match) {
+        usedPostIds.add(match.id);
+        fallbackMatchBySlotId.set(slot.id, match);
+      }
+    }
+
     const enrichedSlots = slots.map((slot) => {
       const slotDateStr = formatLocalDateStr(slot.planned_date);
 
@@ -334,17 +442,7 @@ const getMonthAudit = async (month, year) => {
       }
 
       // Dynamic fallback matching
-      const key = `${mission.brand_id}_${slotDateStr}`;
-      const dayPosts = postsByBrandAndDate.get(key) || [];
-
-      const matchingPost = dayPosts.find((p) => {
-        const type = (p.media_type || '').toLowerCase();
-        const slotType = (slot.content_type || '').toLowerCase();
-        if (slotType === 'live') return type === 'live';
-        if (slotType === 'video') return type === 'video' || type === 'reel';
-        if (slotType === 'photo') return type === 'photo' || type === 'image';
-        return true;
-      });
+      const matchingPost = fallbackMatchBySlotId.get(slot.id);
 
       let status = 'planned';
       let linkedPost = null;
@@ -431,11 +529,15 @@ const reconcilePostWithMission = async (post) => {
     const existingSlot = await missionsRepo.getSlotByLinkedPostId(post.id);
     if (existingSlot) {
       const existingDateStr = formatLocalDateStr(existingSlot.planned_date);
-      // If brand, date, and content_type are still aligned, just update status
-      if (existingDateStr === postDateStr && String(existingSlot.brand_id || '') === String(post.brand_id || '')) {
+      const brandMatches = String(existingSlot.brand_id || '') === String(post.brand_id || '');
+      const dateMatches = existingDateStr === postDateStr;
+      const typeMatches = isMediaTypeCompatibleWithSlot(existingSlot.content_type, post.media_type);
+
+      // If brand, date, and content_type are still aligned/compatible, just update status
+      if (brandMatches && dateMatches && typeMatches) {
         return await missionsRepo.linkSlotToPost(existingSlot.id, post.id, targetStatus);
       }
-      // If rescheduled to a new date or brand changed, unlink from old slot first
+      // If rescheduled to a new date, brand changed, or media format no longer satisfies slot, unlink
       await missionsRepo.unlinkSlotByPostId(post.id);
     }
 

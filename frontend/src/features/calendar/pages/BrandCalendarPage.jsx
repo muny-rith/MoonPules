@@ -39,6 +39,19 @@ import '../../postTracker/planner.css';
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+const isPostCompatibleWithSlot = (slotContentType, postMediaType) => {
+  const sType = (slotContentType || '').toLowerCase();
+  const pType = (postMediaType || '').toLowerCase();
+  const isLive = pType === 'live';
+  const isVideo = pType === 'video' || pType === 'reel';
+  const isPhoto = !isLive && !isVideo;
+
+  if (sType === 'live') return isLive;
+  if (sType === 'video') return isVideo;
+  if (sType === 'photo' || sType === 'poster') return isPhoto || isVideo;
+  return true;
+};
+
 export const BrandCalendarPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -734,7 +747,9 @@ export const BrandCalendarPage = () => {
                           const linked = slot.linked_post || (cell.posts || []).find((p) => {
                             const postBrandId = p.brand_id ? String(p.brand_id) : '';
                             const slotBrandId = slot.brand_id ? String(slot.brand_id) : '';
-                            return (!slotBrandId || postBrandId === slotBrandId) && (p.status === 'published' || p.status === 'scheduled');
+                            if (slotBrandId && postBrandId !== slotBrandId) return false;
+                            if (p.status !== 'published' && p.status !== 'scheduled') return false;
+                            return isPostCompatibleWithSlot(slot.content_type, p.media_type);
                           });
 
                           let thumbUrl = null;
@@ -1033,7 +1048,9 @@ export const BrandCalendarPage = () => {
                       const linked = slot.linked_post || (selectedDayDetail.posts || []).find((p) => {
                         const postBrandId = p.brand_id ? String(p.brand_id) : '';
                         const slotBrandId = slot.brand_id ? String(slot.brand_id) : '';
-                        return (!slotBrandId || postBrandId === slotBrandId) && (p.status === 'published' || p.status === 'scheduled');
+                        if (slotBrandId && postBrandId !== slotBrandId) return false;
+                        if (p.status !== 'published' && p.status !== 'scheduled') return false;
+                        return isPostCompatibleWithSlot(slot.content_type, p.media_type);
                       });
 
                       let thumbUrl = null;
@@ -1302,6 +1319,10 @@ export const BrandCalendarPage = () => {
                                   navigate(`/planner/create?date=${selectedDayDetail.dateKey}`, {
                                     state: {
                                       returnPath: '/calendar',
+                                      from: location.pathname,
+                                      prefillBrandId: slot.brand_id,
+                                      prefillDate: selectedDayDetail.dateKey,
+                                      prefillType: slot.content_type,
                                       defaultBrandId: slot.brand_id,
                                       defaultContentType: slot.content_type,
                                       defaultTime: slot.time_window,

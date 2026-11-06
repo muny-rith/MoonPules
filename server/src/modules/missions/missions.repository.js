@@ -286,26 +286,61 @@ const getBrandPostsForMonth = async (brandId, month, year) => {
 
 /**
  * Find first unlinked planned slot matching post's brand, date, and content_type
+ * Agency Workflow Rules:
+ * - When slot is set as 'photo' -> can be fulfilled by 'photo' OR 'video' post
+ * - When slot is set as 'video' -> can ONLY be fulfilled by 'video'/'reel' post
+ * - When slot is set as 'live' -> can ONLY be fulfilled by 'live' post
  */
 const findUnlinkedSlotForPost = async ({ brand_id, planned_date, content_type }) => {
-  let normalizedType = 'photo';
   const t = (content_type || '').toLowerCase();
-  if (t === 'live') normalizedType = 'live';
-  else if (t === 'video' || t === 'reel') normalizedType = 'video';
-  else normalizedType = 'photo';
+  const isLive = t === 'live';
+  const isVideo = t === 'video' || t === 'reel';
 
-  const result = await db.query(
-    `SELECT s.*, m.brand_id, m.brand_name
-     FROM tb_brand_mission_slot s
-     JOIN tb_brand_mission m ON m.id = s.mission_id
-     WHERE m.brand_id = $1
-       AND s.planned_date = $2
-       AND s.content_type = $3
-       AND s.linked_post_id IS NULL
-     ORDER BY s.id ASC
-     LIMIT 1`,
-    [brand_id, planned_date, normalizedType]
-  );
+  let queryStr = '';
+  const params = [brand_id, planned_date];
+
+  if (isLive) {
+    // Live post matches only live slot
+    queryStr = `
+      SELECT s.*, m.brand_id, m.brand_name
+      FROM tb_brand_mission_slot s
+      JOIN tb_brand_mission m ON m.id = s.mission_id
+      WHERE m.brand_id = $1
+        AND s.planned_date = $2
+        AND s.content_type = 'live'
+        AND s.linked_post_id IS NULL
+      ORDER BY s.id ASC
+      LIMIT 1
+    `;
+  } else if (isVideo) {
+    // Video post matches video slot first; if no video slot exists, it can fulfill a photo slot
+    queryStr = `
+      SELECT s.*, m.brand_id, m.brand_name
+      FROM tb_brand_mission_slot s
+      JOIN tb_brand_mission m ON m.id = s.mission_id
+      WHERE m.brand_id = $1
+        AND s.planned_date = $2
+        AND s.linked_post_id IS NULL
+        AND (s.content_type = 'video' OR s.content_type = 'photo')
+      ORDER BY CASE WHEN s.content_type = 'video' THEN 0 ELSE 1 END, s.id ASC
+      LIMIT 1
+    `;
+  } else {
+    // Photo post can ONLY match photo slot (cannot fulfill video or live slots)
+    queryStr = `
+      SELECT s.*, m.brand_id, m.brand_name
+      FROM tb_brand_mission_slot s
+      JOIN tb_brand_mission m ON m.id = s.mission_id
+      WHERE m.brand_id = $1
+        AND s.planned_date = $2
+        AND s.content_type = 'photo'
+        AND s.linked_post_id IS NULL
+      ORDER BY s.id ASC
+      LIMIT 1
+    `;
+  }
+
+  const result = await db.query(queryStr, params);
   return result.rows[0] || null;
 };
 

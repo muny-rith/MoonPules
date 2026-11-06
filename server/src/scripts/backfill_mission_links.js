@@ -51,7 +51,15 @@ const backfillMissionLinks = async () => {
     let reconciledCount = 0;
     let alreadyLinkedCount = 0;
 
-    for (const slot of slots) {
+    // Sort slots so specific types (live, video) claim exact matching posts first
+    const sortedSlots = [...slots].sort((a, b) => {
+      const order = { live: 1, video: 2, photo: 3 };
+      const oA = order[a.content_type?.toLowerCase()] || 3;
+      const oB = order[b.content_type?.toLowerCase()] || 3;
+      return oA - oB;
+    });
+
+    for (const slot of sortedSlots) {
       const slotDateStr = formatLocalDateStr(slot.planned_date);
       const key = `${slot.brand_id}_${slotDateStr}`;
       const dayPosts = postsByBrandAndDate.get(key) || [];
@@ -63,16 +71,35 @@ const backfillMissionLinks = async () => {
         continue;
       }
 
-      // Find an unused post matching format
+      // Find an unused post matching format according to workflow rules:
+      // Photo slot can be fulfilled by photo OR video. Video/Live must be exact.
       const slotType = (slot.content_type || '').toLowerCase();
-      const match = dayPosts.find((p) => {
-        if (usedPostIds.has(p.id)) return false;
-        const type = (p.media_type || '').toLowerCase();
-        if (slotType === 'live') return type === 'live';
-        if (slotType === 'video') return type === 'video' || type === 'reel';
-        if (slotType === 'photo') return type === 'photo' || type === 'image';
-        return true;
-      });
+      let match = null;
+
+      if (slotType === 'live') {
+        match = dayPosts.find((p) => !usedPostIds.has(p.id) && (p.media_type || '').toLowerCase() === 'live');
+      } else if (slotType === 'video') {
+        match = dayPosts.find((p) => {
+          if (usedPostIds.has(p.id)) return false;
+          const t = (p.media_type || '').toLowerCase();
+          return t === 'video' || t === 'reel';
+        });
+      } else if (slotType === 'photo' || slotType === 'poster') {
+        // 1. Exact match first: photo
+        match = dayPosts.find((p) => {
+          if (usedPostIds.has(p.id)) return false;
+          const t = (p.media_type || '').toLowerCase();
+          return t === 'photo' || t === 'image' || (t !== 'live' && t !== 'video' && t !== 'reel');
+        });
+        // 2. Fallback: video fulfills photo quota
+        if (!match) {
+          match = dayPosts.find((p) => {
+            if (usedPostIds.has(p.id)) return false;
+            const t = (p.media_type || '').toLowerCase();
+            return t === 'video' || t === 'reel';
+          });
+        }
+      }
 
       if (match) {
         usedPostIds.add(match.id);
