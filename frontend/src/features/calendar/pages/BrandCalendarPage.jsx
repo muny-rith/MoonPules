@@ -570,20 +570,28 @@ export const BrandCalendarPage = () => {
         boxShadow: '0 2px 6px -1px rgba(0,0,0,0.06)',
         marginBottom: '24px'
       }}>
-        {/* Days of week Header (Solid, Legible Slate Header) */}
+        {/* Days of week Header (Modern Executive Royal Blue Bar) */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(7, 1fr)',
-          backgroundColor: '#f1f5f9',
-          borderBottom: '1.5px solid #cbd5e1',
+          background: 'linear-gradient(135deg, #1e40af 0%, #2563eb 100%)',
+          color: '#ffffff',
           textAlign: 'center',
           fontWeight: '800',
           fontSize: '12px',
-          letterSpacing: '0.05em',
-          padding: '12px 0'
+          letterSpacing: '0.08em',
+          padding: '11px 0',
+          borderBottom: '1px solid #1d4ed8',
+          boxShadow: '0 2px 4px rgba(30, 58, 138, 0.15)'
         }}>
           {DAY_NAMES.map((d, index) => (
-            <div key={d} style={{ color: index >= 5 ? '#64748b' : '#1e293b' }}>
+            <div
+              key={d}
+              style={{
+                color: index >= 5 ? '#bfdbfe' : '#ffffff',
+                borderRight: index < 6 ? '1px solid rgba(255, 255, 255, 0.12)' : 'none'
+              }}
+            >
               {d.toUpperCase()}
             </div>
           ))}
