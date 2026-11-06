@@ -272,41 +272,81 @@ export const BrandCalendarPage = () => {
     return { namePart, timeStr };
   };
 
-  // Modern Pill Style with Inner Vertical Accent Bar (matching reference)
-  const getBadgeStyle = (contentType, isSpecial = false) => {
-    if (contentType === 'photo') {
+  // Option 2: Content Type Info (Icon & Label)
+  const getContentTypeInfo = (contentType, isSpecial = false) => {
+    const type = (contentType || '').toLowerCase();
+    if (type === 'video' || type === 'reel') {
+      return { label: 'Video', icon: Video, color: '#9333ea' };
+    }
+    if (type === 'live') {
+      return { label: isSpecial ? 'Payday Live' : 'Live Stream', icon: Radio, color: isSpecial ? '#d97706' : '#2563eb' };
+    }
+    return { label: 'Poster', icon: Image, color: '#059669' };
+  };
+
+  // Option 2: State-Driven Card Styles (Instant Scanability)
+  const getSlotCardStyle = (slot) => {
+    const isCompleted = slot.computed_status === 'completed';
+    const isScheduled = slot.computed_status === 'scheduled';
+    const isMissed = slot.computed_status === 'missed';
+
+    if (isCompleted) {
       return {
-        bg: '#f0fdf4', // Soft mint green (like "Meeting")
-        borderColor: '#bbf7d0',
-        barColor: '#16a34a',
-        textColor: '#0f172a',
-        label: 'Poster',
+        cardBg: '#ecfdf5',
+        cardBorder: '1px solid #10b981',
+        barColor: '#059669',
+        badgeBg: '#10b981',
+        badgeColor: '#ffffff',
+        badgeText: 'DONE',
+        badgeIcon: 'check',
+        brandColor: '#065f46',
+        labelColor: '#047857',
+        isDashed: false,
       };
     }
-    if (contentType === 'live') {
+
+    if (isScheduled) {
       return {
-        bg: isSpecial ? '#fefce8' : '#eff6ff', // Soft yellow for Payday, soft sky blue for regular Live (like "Workshop")
-        borderColor: isSpecial ? '#fef08a' : '#bfdbfe',
-        barColor: isSpecial ? '#ca8a04' : '#2563eb',
-        textColor: '#0f172a',
-        label: isSpecial ? 'Payday Live' : 'Live Stream',
+        cardBg: '#eff6ff',
+        cardBorder: '1px solid #3b82f6',
+        barColor: '#2563eb',
+        badgeBg: '#3b82f6',
+        badgeColor: '#ffffff',
+        badgeText: slot.time_window || 'QUEUED',
+        badgeIcon: 'clock',
+        brandColor: '#1e40af',
+        labelColor: '#1d4ed8',
+        isDashed: false,
       };
     }
-    if (contentType === 'video') {
+
+    if (isMissed) {
       return {
-        bg: '#faf5ff', // Soft purple
-        borderColor: '#e9d5ff',
-        barColor: '#9333ea',
-        textColor: '#0f172a',
-        label: 'Video',
+        cardBg: '#fef2f2',
+        cardBorder: '1px solid #ef4444',
+        barColor: '#dc2626',
+        badgeBg: '#ef4444',
+        badgeColor: '#ffffff',
+        badgeText: 'MISSED',
+        badgeIcon: 'alert',
+        brandColor: '#991b1b',
+        labelColor: '#b91c1c',
+        isDashed: false,
       };
     }
+
+    // Default: Planned / To Do (Not done yet)
     return {
-      bg: '#fef2f2', // Soft red (like "Event Conf.")
-      borderColor: '#fecaca',
-      barColor: '#ef4444',
-      textColor: '#0f172a',
-      label: 'Post',
+      cardBg: '#ffffff',
+      cardBorder: '1.5px dashed #94a3b8',
+      barColor: '#cbd5e1',
+      badgeBg: '#f1f5f9',
+      badgeColor: '#475569',
+      badgeText: slot.time_window || 'To Do',
+      badgeIcon: 'todo',
+      brandColor: '#334155',
+      labelColor: '#475569',
+      isDashed: true,
     };
   };
 
@@ -710,37 +750,9 @@ export const BrandCalendarPage = () => {
                       <>
                         {visibleSlots.map((slot, sIdx) => {
                           const isSpecial = (slot.time_window || '').includes('04:00PM') || (slot.notes || '').toLowerCase().includes('payday');
-                          const badge = getBadgeStyle(slot.content_type, isSpecial);
-                          const isCompleted = slot.computed_status === 'completed';
-                          const isScheduled = slot.computed_status === 'scheduled';
-                          const isMissed = slot.computed_status === 'missed';
-
-                          // State-driven card appearance
-                          let cardBg = '#ffffff';
-                          let cardBorder = '1px dashed #cbd5e1';
-                          let cardBar = '#94a3b8';
-                          let brandTextColor = '#475569';
-                          let labelTextColor = '#334155';
-
-                          if (isCompleted) {
-                            cardBg = '#f0fdf4';
-                            cardBorder = '1px solid #86efac';
-                            cardBar = '#16a34a';
-                            brandTextColor = '#15803d';
-                            labelTextColor = '#14532d';
-                          } else if (isScheduled) {
-                            cardBg = '#eff6ff';
-                            cardBorder = '1px solid #93c5fd';
-                            cardBar = '#2563eb';
-                            brandTextColor = '#1d4ed8';
-                            labelTextColor = '#1e3a8a';
-                          } else if (isMissed) {
-                            cardBg = '#fef2f2';
-                            cardBorder = '1px solid #fca5a5';
-                            cardBar = '#dc2626';
-                            brandTextColor = '#b91c1c';
-                            labelTextColor = '#7f1d1d';
-                          }
+                          const typeInfo = getContentTypeInfo(slot.content_type, isSpecial);
+                          const cardStyle = getSlotCardStyle(slot);
+                          const IconComp = typeInfo.icon;
 
                           return (
                             <div
@@ -760,7 +772,7 @@ export const BrandCalendarPage = () => {
                                 }
                               }}
                               style={{
-                                backgroundColor: cardBg,
+                                backgroundColor: cardStyle.cardBg,
                                 borderRadius: '6px',
                                 padding: '3px 7px',
                                 fontSize: '11px',
@@ -769,136 +781,66 @@ export const BrandCalendarPage = () => {
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
                                 gap: '6px',
-                                boxShadow: isCompleted ? '0 1px 2px rgba(22,163,74,0.08)' : '0 1px 2px rgba(0,0,0,0.03)',
+                                boxShadow: cardStyle.isDashed ? 'none' : '0 1px 2px rgba(0,0,0,0.04)',
                                 cursor: 'pointer',
                                 position: 'relative',
-                                border: cardBorder,
+                                border: cardStyle.cardBorder,
                                 transition: 'all 0.15s ease'
                               }}
-                              title={`Click to ${isCompleted ? 'view post' : 'create post'} for ${slot.brand_name} (${isCompleted ? 'Delivered & Published' : isScheduled ? 'Scheduled' : isMissed ? 'Overdue' : 'Planned deliverable'})`}
+                              title={`Click to ${slot.linked_post?.id ? 'view post' : 'create post'} for ${slot.brand_name} (${cardStyle.badgeText})`}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '5px', overflow: 'hidden' }}>
-                                {/* Inner vertical accent bar */}
-                                <span
-                                  style={{
-                                    width: '3.5px',
-                                    height: '11px',
-                                    backgroundColor: cardBar,
-                                    borderRadius: '2px',
-                                    flexShrink: 0
-                                  }}
-                                />
+                                {/* Content Type Icon */}
+                                <IconComp size={12} color={typeInfo.color} style={{ flexShrink: 0 }} />
+
+                                {/* Brand Name */}
                                 <span style={{
                                   fontSize: '10px',
                                   fontWeight: '700',
                                   textTransform: 'uppercase',
                                   letterSpacing: '0.3px',
                                   flexShrink: 0,
-                                  color: brandTextColor
+                                  color: cardStyle.brandColor
                                 }}>
                                   [{slot.brand_name || 'BRAND'}]
                                 </span>
+
+                                {/* Content Label */}
                                 <span style={{
                                   fontWeight: '600',
                                   fontSize: '10.5px',
                                   overflow: 'hidden',
                                   textOverflow: 'ellipsis',
                                   whiteSpace: 'nowrap',
-                                  color: labelTextColor
+                                  color: cardStyle.labelColor
                                 }}>
-                                  {badge.label}
+                                  {typeInfo.label}
                                 </span>
                               </div>
 
                               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                                {isCompleted && (
-                                  <span
-                                    style={{
-                                      backgroundColor: '#16a34a',
-                                      color: '#ffffff',
-                                      fontSize: '8.5px',
-                                      fontWeight: '700',
-                                      padding: '1px 5px',
-                                      borderRadius: '4px',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '2.5px',
-                                      textTransform: 'uppercase',
-                                      letterSpacing: '0.3px',
-                                      boxShadow: '0 1px 2px rgba(22, 163, 74, 0.25)',
-                                    }}
-                                    title="Delivered & Published live on Facebook"
-                                  >
-                                    <Check size={9} strokeWidth={3} />
-                                    <span>Published</span>
-                                  </span>
-                                )}
-
-                                {isScheduled && (
-                                  <span
-                                    style={{
-                                      backgroundColor: '#2563eb',
-                                      color: '#ffffff',
-                                      fontSize: '8.5px',
-                                      fontWeight: '700',
-                                      padding: '1px 5px',
-                                      borderRadius: '4px',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '2.5px',
-                                      textTransform: 'uppercase',
-                                      letterSpacing: '0.3px',
-                                      boxShadow: '0 1px 2px rgba(37, 99, 235, 0.25)',
-                                    }}
-                                    title="Scheduled to publish on Facebook"
-                                  >
-                                    <Clock size={9} strokeWidth={2.5} />
-                                    <span>{slot.time_window || 'Scheduled'}</span>
-                                  </span>
-                                )}
-
-                                {isMissed && (
-                                  <span
-                                    style={{
-                                      backgroundColor: '#dc2626',
-                                      color: '#ffffff',
-                                      fontSize: '8.5px',
-                                      fontWeight: '700',
-                                      padding: '1px 5px',
-                                      borderRadius: '4px',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '2.5px',
-                                      textTransform: 'uppercase',
-                                      letterSpacing: '0.3px',
-                                      boxShadow: '0 1px 2px rgba(220, 38, 38, 0.25)',
-                                    }}
-                                    title="Overdue / Missed deliverable date"
-                                  >
-                                    <AlertTriangle size={9} strokeWidth={2.5} />
-                                    <span>Missed</span>
-                                  </span>
-                                )}
-
-                                {!isCompleted && !isScheduled && !isMissed && (
-                                  <span
-                                    style={{
-                                      backgroundColor: '#f8fafc',
-                                      color: '#64748b',
-                                      border: '1px solid #cbd5e1',
-                                      fontSize: '8.5px',
-                                      fontWeight: '600',
-                                      padding: '1px 5px',
-                                      borderRadius: '4px',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '2px',
-                                    }}
-                                    title="Planned deliverable (click to create post)"
-                                  >
-                                    {slot.time_window || 'To Do'}
-                                  </span>
-                                )}
+                                <span
+                                  style={{
+                                    backgroundColor: cardStyle.badgeBg,
+                                    color: cardStyle.badgeColor,
+                                    fontSize: '8.5px',
+                                    fontWeight: '700',
+                                    padding: '1.5px 6px',
+                                    borderRadius: '9999px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '2.5px',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.3px',
+                                    border: cardStyle.isDashed ? '1px solid #cbd5e1' : 'none',
+                                    boxShadow: cardStyle.isDashed ? 'none' : '0 1px 2px rgba(0,0,0,0.12)',
+                                  }}
+                                >
+                                  {cardStyle.badgeIcon === 'check' && <Check size={9} strokeWidth={3} />}
+                                  {cardStyle.badgeIcon === 'clock' && <Clock size={9} strokeWidth={2.5} />}
+                                  {cardStyle.badgeIcon === 'alert' && <AlertTriangle size={9} strokeWidth={2.5} />}
+                                  <span>{cardStyle.badgeText}</span>
+                                </span>
                               </div>
                             </div>
                           );
@@ -1046,79 +988,64 @@ export const BrandCalendarPage = () => {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {selectedDayDetail.slots.map((slot, sIdx) => {
                       const isSpecial = (slot.time_window || '').includes('04:00PM') || (slot.notes || '').toLowerCase().includes('payday');
-                      const badge = getBadgeStyle(slot.content_type, isSpecial);
-                      const isCompleted = slot.computed_status === 'completed';
-                      const isScheduled = slot.computed_status === 'scheduled';
-                      const isMissed = slot.computed_status === 'missed';
-
-                      let cardBg = '#ffffff';
-                      let cardBorder = '1px dashed #cbd5e1';
-                      let cardBar = '#94a3b8';
-
-                      if (isCompleted) {
-                        cardBg = '#f0fdf4';
-                        cardBorder = '1px solid #86efac';
-                        cardBar = '#16a34a';
-                      } else if (isScheduled) {
-                        cardBg = '#eff6ff';
-                        cardBorder = '1px solid #93c5fd';
-                        cardBar = '#2563eb';
-                      } else if (isMissed) {
-                        cardBg = '#fef2f2';
-                        cardBorder = '1px solid #fca5a5';
-                        cardBar = '#dc2626';
-                      }
+                      const typeInfo = getContentTypeInfo(slot.content_type, isSpecial);
+                      const cardStyle = getSlotCardStyle(slot);
+                      const IconComp = typeInfo.icon;
 
                       return (
                         <div
                           key={`modal-slot-${slot.id || sIdx}`}
                           style={{
-                            backgroundColor: cardBg,
-                            border: cardBorder,
+                            backgroundColor: cardStyle.cardBg,
+                            border: cardStyle.cardBorder,
                             borderRadius: '8px',
                             padding: '12px 16px',
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                            boxShadow: cardStyle.isDashed ? 'none' : '0 1px 3px rgba(0,0,0,0.03)',
                             fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
                           }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <span
-                              style={{
-                                width: '4px',
-                                height: '24px',
-                                backgroundColor: cardBar,
-                                borderRadius: '3px',
-                                flexShrink: 0
-                              }}
-                            />
+                            <div style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '8px',
+                              backgroundColor: cardStyle.isDashed ? '#f1f5f9' : cardStyle.badgeBg,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0
+                            }}>
+                              <IconComp size={16} color={cardStyle.isDashed ? typeInfo.color : '#ffffff'} />
+                            </div>
                             <div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <span style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.4px', textTransform: 'uppercase', color: '#64748b' }}>
                                   [{slot.brand_name || 'Brand'}]
                                 </span>
-                                {isCompleted ? (
-                                  <span style={{ backgroundColor: '#16a34a', color: '#ffffff', fontSize: '9px', fontWeight: '700', padding: '1px 6px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '3px', textTransform: 'uppercase' }}>
-                                    <Check size={9} strokeWidth={3} /> Published
-                                  </span>
-                                ) : isScheduled ? (
-                                  <span style={{ backgroundColor: '#2563eb', color: '#ffffff', fontSize: '9px', fontWeight: '700', padding: '1px 6px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '3px', textTransform: 'uppercase' }}>
-                                    <Clock size={9} strokeWidth={2.5} /> Scheduled
-                                  </span>
-                                ) : isMissed ? (
-                                  <span style={{ backgroundColor: '#dc2626', color: '#ffffff', fontSize: '9px', fontWeight: '700', padding: '1px 6px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '3px', textTransform: 'uppercase' }}>
-                                    <AlertTriangle size={9} strokeWidth={2.5} /> Missed
-                                  </span>
-                                ) : (
-                                  <span style={{ backgroundColor: '#f1f5f9', color: '#64748b', fontSize: '9px', fontWeight: '600', padding: '1px 6px', borderRadius: '4px', border: '1px solid #cbd5e1' }}>
-                                    To Do
-                                  </span>
-                                )}
+                                <span style={{
+                                  backgroundColor: cardStyle.badgeBg,
+                                  color: cardStyle.badgeColor,
+                                  fontSize: '9.5px',
+                                  fontWeight: '700',
+                                  padding: '1px 7px',
+                                  borderRadius: '9999px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                  textTransform: 'uppercase',
+                                  border: cardStyle.isDashed ? '1px solid #cbd5e1' : 'none',
+                                }}>
+                                  {cardStyle.badgeIcon === 'check' && <Check size={9} strokeWidth={3} />}
+                                  {cardStyle.badgeIcon === 'clock' && <Clock size={9} strokeWidth={2.5} />}
+                                  {cardStyle.badgeIcon === 'alert' && <AlertTriangle size={9} strokeWidth={2.5} />}
+                                  <span>{cardStyle.badgeText}</span>
+                                </span>
                               </div>
                               <div style={{ fontSize: '14px', fontWeight: '600', marginTop: '2px', color: '#0f172a' }}>
-                                {badge.label} {slot.time_window ? `(${slot.time_window})` : ''}
+                                {typeInfo.label} {slot.time_window ? `(${slot.time_window})` : ''}
                               </div>
                             </div>
                           </div>
@@ -1141,9 +1068,9 @@ export const BrandCalendarPage = () => {
                               }
                             }}
                             style={{
-                              backgroundColor: isCompleted ? '#f0fdf4' : '#ffffff',
-                              color: isCompleted ? '#16a34a' : (isMissed ? '#dc2626' : '#2563eb'),
-                              border: isCompleted ? '1px solid #86efac' : (isMissed ? '1px solid #fca5a5' : '1px solid #cbd5e1'),
+                              backgroundColor: slot.linked_post?.id ? '#ecfdf5' : '#ffffff',
+                              color: slot.linked_post?.id ? '#059669' : '#2563eb',
+                              border: slot.linked_post?.id ? '1px solid #10b981' : '1px solid #cbd5e1',
                               borderRadius: '6px',
                               padding: '7px 14px',
                               fontSize: '12px',
