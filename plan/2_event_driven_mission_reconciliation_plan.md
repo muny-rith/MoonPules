@@ -93,7 +93,11 @@ flowchart TD
   2. Query `tb_brand_mission_slot` for the first unlinked slot matching:
      - `brand_id` matches
      - `planned_date` matches the post's local date
-     - `content_type` matches (`photo`, `live`, `video`)
+     - `content_type` fulfillment workflow rule:
+       - **Slot is `photo`**: can be fulfilled by `photo` OR `video` post (video upgrades/satisfies photo quota)
+       - **Slot is `video`**: strictly requires `video` / `reel` post
+       - **Slot is `live`**: strictly requires `live` post
+       - **Priority order**: exact matches (`video -> video`) are claimed first before fallback upgrades (`video -> photo`)
      - `linked_post_id IS NULL`
   3. If a slot is found:
      - Update slot: `linked_post_id = post.id`, `slot_status = post.status === 'published' ? 'completed' : 'scheduled'`.
