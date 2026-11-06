@@ -94,9 +94,6 @@ export const PostTrackerPage = () => {
   const [postToDuplicate, setPostToDuplicate] = useState(null);
   const [postsProfit, setPostsProfit] = useState({});
 
-  useEffect(() => {
-    reload(queryParams);
-  }, [queryParams, reload]);
 
   const handleDateFilterChange = (newVal) => {
     if (newVal === 'custom') {

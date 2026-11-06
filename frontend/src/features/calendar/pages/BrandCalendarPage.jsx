@@ -24,8 +24,10 @@ import {
   Target,
   X
 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import * as missionApi from '../../missions/api/missionApi';
-import { useBrands, usePages } from '../../../shared/hooks/queries';
+import { useBrands, usePages, useCalendarSlots, useMonthAudit } from '../../../shared/hooks/queries';
+import { queryKeys } from '../../../shared/utils/queryKeys';
 import { usePostTracker } from '../../postTracker/hooks/usePostTracker';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
 import { Select, Button, Modal } from '../../../shared/components/ui';
@@ -84,43 +86,24 @@ export const BrandCalendarPage = () => {
     return list;
   }, [pages]);
 
-  // Data states
-  const [calendarSlots, setCalendarSlots] = useState([]);
-  const [auditSummary, setAuditSummary] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDayDetail, setSelectedDayDetail] = useState(null); // Day Detail Modal state
 
-  // Load tracked posts from PostTracker
-  const { posts, reload: reloadPosts } = usePostTracker({ range: 'all' });
+  // TanStack Query: Cached calendar slots & monthly audit (0ms instant render on back navigation)
+  const { data: calendarSlots = [], isLoading: slotsLoading } = useCalendarSlots(selectedBrandId, monthNumber, yearNumber);
+  const { data: auditSummary = [], isLoading: auditLoading } = useMonthAudit(monthNumber, yearNumber);
+  const loading = slotsLoading || auditLoading;
 
-  // Fetch slots and audit for the month
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [slotsData, auditData] = await Promise.all([
-        missionApi.getCalendarSlots(selectedBrandId, monthNumber, yearNumber),
-        missionApi.getMonthAudit(monthNumber, yearNumber)
-      ]);
-      setCalendarSlots(slotsData || []);
-      setAuditSummary(auditData || []);
-    } catch (err) {
-      console.error('Failed to load brand calendar data:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Load tracked posts from PostTracker
+  const { posts } = usePostTracker({ range: 'all' });
 
   const handleRefresh = async () => {
-    await loadData();
-    if (reloadPosts) {
-      await reloadPosts();
-    }
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.missions.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.all }),
+    ]);
   };
-
-  useEffect(() => {
-    loadData();
-  }, [selectedBrandId, monthNumber, yearNumber]);
 
   // Date Navigation
   const handlePrevMonth = () => {
@@ -1005,7 +988,7 @@ export const BrandCalendarPage = () => {
         initialYear={yearNumber}
         initialBrandId={selectedBrandId !== 'all' ? selectedBrandId : (brands[0] ? String(brands[0].brand_id || brands[0].id) : '')}
         onSaved={() => {
-          loadData();
+          queryClient.invalidateQueries({ queryKey: queryKeys.missions.all });
         }}
       />
 

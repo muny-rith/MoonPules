@@ -26,6 +26,22 @@ import { SetMissionModal } from './SetMissionModal';
 import { SlotDatePopover } from './SlotDatePopover';
 import { AddSlotModal } from './AddSlotModal';
 
+// In-memory cache for BrandUnifiedExpandableHub (0ms instant back navigation)
+const hubCache = new Map();
+const HUB_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+export const clearHubCache = () => {
+  hubCache.clear();
+};
+
+const getCachedHub = (month, year) => {
+  const item = hubCache.get(`hub_${month}_${year}`);
+  if (item && Date.now() - item.timestamp < HUB_CACHE_TTL) {
+    return item.data;
+  }
+  return null;
+};
+
 export const BrandUnifiedExpandableHub = () => {
   const navigate = useNavigate();
 
@@ -43,11 +59,14 @@ export const BrandUnifiedExpandableHub = () => {
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
+  // Retrieve cached hub state for instant 0ms back-navigation
+  const initialCached = getCachedHub(month, year);
+
   // Filters & State
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('active_brands'); // 'active_brands' | 'planned' | 'on_track' | 'at_risk' | 'completed' | 'all'
   const [sortBy, setSortBy] = useState('brand_name'); // 'brand_name' (default) | 'views_desc' | 'reach_desc' | 'completion' | 'slots'
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !initialCached);
 
   // Expanded Rows State (Set of brand_ids)
   const [expandedBrandIds, setExpandedBrandIds] = useState(() => new Set());
@@ -55,11 +74,11 @@ export const BrandUnifiedExpandableHub = () => {
   // Multi-select for Combined View
   const [selectedBrandIds, setSelectedBrandIds] = useState([]);
 
-  // Raw data from APIs
-  const [allMasterBrands, setAllMasterBrands] = useState([]);
-  const [auditList, setAuditList] = useState([]);
-  const [allSlots, setAllSlots] = useState([]);
-  const [statsList, setStatsList] = useState([]);
+  // Raw data from APIs (initialized instantly from cache if available)
+  const [allMasterBrands, setAllMasterBrands] = useState(() => initialCached?.brands || []);
+  const [auditList, setAuditList] = useState(() => initialCached?.audit || []);
+  const [allSlots, setAllSlots] = useState(() => initialCached?.slots || []);
+  const [statsList, setStatsList] = useState(() => initialCached?.stats || []);
 
   // Modals & Popovers
   const [activeBlueprintModal, setActiveBlueprintModal] = useState({ isOpen: false, brandId: null });
@@ -70,10 +89,13 @@ export const BrandUnifiedExpandableHub = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
 
-  // Load Data
-  const loadData = async () => {
+  // Load Data with Stale-While-Revalidate
+  const loadData = async (force = false) => {
     try {
-      setLoading(true);
+      const cached = getCachedHub(month, year);
+      if (!cached || force) {
+        setLoading(true);
+      }
       const startOfMonth = new Date(year, month - 1, 1).toISOString();
       const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999).toISOString();
 
@@ -81,7 +103,7 @@ export const BrandUnifiedExpandableHub = () => {
         productService.fetchBrands().catch(() => []),
         missionApi.getMonthAudit(month, year).catch(() => []),
         missionApi.getCalendarSlots('all', month, year).catch(() => []),
-        brandStatsService.getBrandStats({ startDate: startOfMonth, endDate: endOfMonth }).catch(() => []),
+        brandStatsService.getBrandStats({ startDate: startOfMonth, endDate: endOfMonth }, force).catch(() => []),
       ]);
 
       setAllMasterBrands(brands || []);
@@ -89,8 +111,11 @@ export const BrandUnifiedExpandableHub = () => {
       setAllSlots(slots || []);
       setStatsList(stats || []);
 
-      // Default state is collapsed
-      setExpandedBrandIds(new Set());
+      // Cache data for instant re-render on back navigation
+      hubCache.set(`hub_${month}_${year}`, {
+        data: { brands: brands || [], audit: audit || [], slots: slots || [], stats: stats || [] },
+        timestamp: Date.now()
+      });
     } catch (err) {
       console.error('Failed to load unified brand hub data:', err);
     } finally {
@@ -1266,7 +1291,7 @@ export const BrandUnifiedExpandableHub = () => {
         initialYear={year}
         onClose={() => setActiveBlueprintModal({ isOpen: false, brandId: null })}
         onSaved={() => {
-          loadData();
+          loadData(true);
         }}
       />
     </div>

@@ -95,7 +95,15 @@ export const BrandDetailPage = () => {
   // ==================== MISSION / DELIVERABLES STATE ====================
   const [missionMonth, setMissionMonth] = useState(() => new Date().getMonth() + 1);
   const [missionYear, setMissionYear] = useState(() => new Date().getFullYear());
-  const [brandMission, setBrandMission] = useState(null);
+  const initialMissionCache = (() => {
+    if (!id || id === 'combined') return null;
+    const now = new Date();
+    const m = now.getMonth() + 1;
+    const y = now.getFullYear();
+    const item = window.__moonpulse_mission_cache?.get(`${id}_${m}_${y}`);
+    return item && Date.now() - item.timestamp < 300000 ? item.data : null;
+  })();
+  const [brandMission, setBrandMission] = useState(() => initialMissionCache || null);
   const [missionLoading, setMissionLoading] = useState(false);
 
   // Modals for slot & blueprint control
@@ -108,13 +116,23 @@ export const BrandDetailPage = () => {
       setBrandMission(null);
       return;
     }
-    try {
+    if (!window.__moonpulse_mission_cache) {
+      window.__moonpulse_mission_cache = new Map();
+    }
+    const cacheKey = `${id}_${missionMonth}_${missionYear}`;
+    const cached = window.__moonpulse_mission_cache.get(cacheKey);
+    const isFresh = cached && Date.now() - cached.timestamp < 300000;
+
+    if (!isFresh) {
       setMissionLoading(true);
+    }
+    try {
       const data = await missionApi.getMission(id, missionMonth, missionYear);
       setBrandMission(data);
+      window.__moonpulse_mission_cache.set(cacheKey, { data, timestamp: Date.now() });
     } catch (err) {
       console.error('Failed to load brand mission:', err);
-      setBrandMission(null);
+      if (!isFresh) setBrandMission(null);
     } finally {
       setMissionLoading(false);
     }

@@ -21,12 +21,23 @@ export const getCachedBrandStats = (params = {}) => {
 
 /**
  * Retrieve cached brand detail by ID or combined key if valid
+ * Supports exact parameter match with smart fallback to most recent valid data for 0ms back-navigation
  */
-export const getCachedBrandDetail = (key, params = {}) => {
-  const cacheKey = getCacheKey(`brand_detail_${key}`, params);
-  const item = brandCache.get(cacheKey);
-  if (item && Date.now() - item.timestamp < CACHE_TTL_MS) {
-    return item.data;
+export const getCachedBrandDetail = (key, params = null) => {
+  if (params && Object.keys(params).length > 0) {
+    const cacheKey = getCacheKey(`brand_detail_${key}`, params);
+    const item = brandCache.get(cacheKey);
+    if (item && Date.now() - item.timestamp < CACHE_TTL_MS) {
+      return item.data;
+    }
+  }
+
+  // Fallback: If no exact param match, retrieve the most recent fresh entry for this brand
+  const prefix = `brand_detail_${key}_`;
+  for (const [k, item] of brandCache.entries()) {
+    if (k.startsWith(prefix) && Date.now() - item.timestamp < CACHE_TTL_MS) {
+      return item.data;
+    }
   }
   return null;
 };
