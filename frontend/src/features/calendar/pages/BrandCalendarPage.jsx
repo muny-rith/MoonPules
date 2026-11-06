@@ -331,29 +331,23 @@ export const BrandCalendarPage = () => {
         {/* Filters Group */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           {/* Brand Filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: '220px' }}>
-            <span style={{ fontSize: '12px', fontWeight: '700', color: '#475569', whiteSpace: 'nowrap' }}>Brand:</span>
-            <div style={{ width: '220px' }}>
-              <Select
-                value={selectedBrandId}
-                options={brandOptions}
-                onChange={setSelectedBrandId}
-                placeholder="Select Brand..."
-              />
-            </div>
+          <div style={{ width: '210px' }}>
+            <Select
+              value={selectedBrandId}
+              options={brandOptions}
+              onChange={setSelectedBrandId}
+              placeholder="Select Brand..."
+            />
           </div>
 
           {/* Page Filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: '220px' }}>
-            <span style={{ fontSize: '12px', fontWeight: '700', color: '#475569', whiteSpace: 'nowrap' }}>Page:</span>
-            <div style={{ width: '220px' }}>
-              <Select
-                value={selectedPageId}
-                options={pageOptions}
-                onChange={setSelectedPageId}
-                placeholder="Select Page..."
-              />
-            </div>
+          <div style={{ width: '210px' }}>
+            <Select
+              value={selectedPageId}
+              options={pageOptions}
+              onChange={setSelectedPageId}
+              placeholder="Select Page..."
+            />
           </div>
 
           {/* Deliverables Status Filter */}
