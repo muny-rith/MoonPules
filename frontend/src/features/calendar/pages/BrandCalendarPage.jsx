@@ -611,7 +611,7 @@ export const BrandCalendarPage = () => {
                 key={idx}
                 style={{
                   backgroundColor: isCurrentMonth ? '#ffffff' : '#f1f5f9',
-                  minHeight: '145px',
+                  minHeight: '190px',
                   padding: '8px 8px',
                   display: 'flex',
                   flexDirection: 'column',
@@ -715,9 +715,12 @@ export const BrandCalendarPage = () => {
                       return true;
                     });
 
-                    const maxSlotsToShow = 3;
-                    const visibleSlots = filteredSlots.slice(0, maxSlotsToShow);
-                    const remainingCount = filteredSlots.length - maxSlotsToShow;
+                    // Flexible 4/5 overflow logic:
+                    // If total slots <= 5, display all normally
+                    // If total slots > 5, display 4 items and show "+ X more ..." as the 5th item
+                    const hasOverflow = filteredSlots.length > 5;
+                    const visibleSlots = hasOverflow ? filteredSlots.slice(0, 4) : filteredSlots;
+                    const remainingCount = hasOverflow ? filteredSlots.length - 4 : 0;
 
                     return (
                       <>
@@ -945,12 +948,12 @@ export const BrandCalendarPage = () => {
                             }}
                             style={{
                               backgroundColor: '#f1f5f9',
-                              color: '#334155',
+                              color: '#2563eb',
                               fontSize: '10.5px',
                               fontWeight: '700',
-                              padding: '4px 6px',
+                              padding: '3px 6px',
                               borderRadius: '4px',
-                              border: '1px solid #e2e8f0',
+                              border: '1px solid #cbd5e1',
                               cursor: 'pointer',
                               display: 'flex',
                               alignItems: 'center',
@@ -961,14 +964,14 @@ export const BrandCalendarPage = () => {
                             }}
                             onMouseEnter={(e) => {
                               e.currentTarget.style.backgroundColor = '#e2e8f0';
-                              e.currentTarget.style.color = '#0f172a';
+                              e.currentTarget.style.borderColor = '#94a3b8';
                             }}
                             onMouseLeave={(e) => {
                               e.currentTarget.style.backgroundColor = '#f1f5f9';
-                              e.currentTarget.style.color = '#334155';
+                              e.currentTarget.style.borderColor = '#cbd5e1';
                             }}
                           >
-                            +{remainingCount} more
+                            +{remainingCount} more ...
                           </button>
                         )}
                       </>
