@@ -180,6 +180,12 @@ export const BrandCalendarPage = () => {
     return cells;
   }, [currentDate]);
 
+  // Today's dateKey string ("YYYY-MM-DD") for active date highlighting
+  const todayKey = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }, []);
+
   // Group planned slots and actual posts by dateKey ("YYYY-MM-DD")
   const itemsByDate = useMemo(() => {
     const map = new Map();
@@ -558,26 +564,28 @@ export const BrandCalendarPage = () => {
          ==================================================================== */}
       <div style={{
         backgroundColor: '#ffffff',
-        border: '1px solid #cbd5e1',
+        border: '1px solid #e2e8f0',
         borderRadius: '12px',
         overflow: 'hidden',
-        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
         marginBottom: '24px'
       }}>
-        {/* Days of week Header (Solid Black bar like original photo) */}
+        {/* Days of week Header (Clean Notion / Linear Slate Header) */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(7, 1fr)',
-          backgroundColor: '#000000',
-          color: '#ffffff',
+          backgroundColor: '#f8fafc',
+          borderBottom: '1px solid #e2e8f0',
           textAlign: 'center',
-          fontWeight: '900',
-          fontSize: '12px',
-          letterSpacing: '0.8px',
-          padding: '8px 0'
+          fontWeight: '700',
+          fontSize: '11px',
+          letterSpacing: '0.06em',
+          padding: '10px 0'
         }}>
-          {DAY_NAMES.map((d) => (
-            <div key={d}>{d.toUpperCase()}</div>
+          {DAY_NAMES.map((d, index) => (
+            <div key={d} style={{ color: index >= 5 ? '#94a3b8' : '#64748b' }}>
+              {d.toUpperCase()}
+            </div>
           ))}
         </div>
 
@@ -585,7 +593,7 @@ export const BrandCalendarPage = () => {
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(7, 1fr)',
-          backgroundColor: '#cbd5e1',
+          backgroundColor: '#f1f5f9',
           gap: '1px'
         }}>
           {calendarCells.map((cell, idx) => {
@@ -594,41 +602,59 @@ export const BrandCalendarPage = () => {
             const dayPosts = data.posts;
 
             const isCurrentMonth = cell.isCurrentMonth;
+            const isToday = cell.dateKey === todayKey;
 
             return (
               <div
                 key={idx}
                 style={{
-                  backgroundColor: isCurrentMonth ? '#ffffff' : '#f8fafc',
-                  minHeight: '140px',
-                  padding: '6px',
+                  backgroundColor: isCurrentMonth ? '#ffffff' : '#fafbfd',
+                  minHeight: '135px',
+                  padding: '7px',
                   display: 'flex',
                   flexDirection: 'column',
                   position: 'relative'
                 }}
               >
-                {/* Day Number */}
+                {/* Day Number Header */}
                 <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  marginBottom: '4px'
+                  marginBottom: '6px'
                 }}>
-                  <span style={{
-                    fontSize: '13px',
-                    fontWeight: '700',
-                    color: isCurrentMonth ? '#1e293b' : '#94a3b8',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     {isCurrentMonth && cell.dayNumber === 1 && (
-                      <span style={{ fontSize: '11px', color: '#2563eb', fontWeight: '800', textTransform: 'uppercase' }}>
+                      <span style={{ fontSize: '10px', color: '#2563eb', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                         {currentDate.toLocaleString('default', { month: 'short' })}
                       </span>
                     )}
-                    {cell.dayNumber < 10 ? `0${cell.dayNumber}` : cell.dayNumber}
-                  </span>
+                    {isToday && isCurrentMonth ? (
+                      <span style={{
+                        backgroundColor: '#2563eb',
+                        color: '#ffffff',
+                        width: '22px',
+                        height: '22px',
+                        borderRadius: '50%',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '11.5px',
+                        fontWeight: '700',
+                        boxShadow: '0 1px 3px rgba(37,99,235,0.35)'
+                      }}>
+                        {cell.dayNumber}
+                      </span>
+                    ) : (
+                      <span style={{
+                        fontSize: '12px',
+                        fontWeight: isCurrentMonth ? '600' : '400',
+                        color: isCurrentMonth ? '#334155' : '#cbd5e1'
+                      }}>
+                        {cell.dayNumber < 10 ? `0${cell.dayNumber}` : cell.dayNumber}
+                      </span>
+                    )}
+                  </div>
 
                   {/* Quick Add Button */}
                   {isCurrentMonth && (
@@ -639,9 +665,22 @@ export const BrandCalendarPage = () => {
                         border: 'none',
                         color: '#94a3b8',
                         cursor: 'pointer',
-                        padding: '2px',
+                        padding: '2px 4px',
+                        borderRadius: '4px',
                         display: 'flex',
-                        alignItems: 'center'
+                        alignItems: 'center',
+                        opacity: 0.5,
+                        transition: 'all 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.opacity = '1';
+                        e.currentTarget.style.backgroundColor = '#f1f5f9';
+                        e.currentTarget.style.color = '#2563eb';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.opacity = '0.5';
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.color = '#94a3b8';
                       }}
                       title={`Schedule post for ${cell.dateKey}`}
                     >
@@ -651,7 +690,7 @@ export const BrandCalendarPage = () => {
                 </div>
 
                 {/* Event Badges List for this day */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', flex: 1 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
                   {/* Option A: Strict Client Deliverables — Display planned brand mission slots */}
                   {isCurrentMonth && (() => {
                     const filteredSlots = daySlots.filter((slot) => {
@@ -688,31 +727,27 @@ export const BrandCalendarPage = () => {
 
                           const IconComp = typeInfo.icon;
 
-                          // Clean, calm cards — never overwhelming full-green background
-                          let cardBg = '#ffffff';
-                          let cardBorder = '1.5px dashed #cbd5e1';
-                          let brandColor = '#475569';
+                          // Notion/Linear Clean Card Styling
+                          let cardBg = '#fcfcfd';
+                          let cardBorder = '1px dashed #cbd5e1';
+                          let brandColor = '#334155';
                           let labelColor = '#64748b';
-                          let isDashed = true;
 
                           if (isCompleted) {
-                            cardBg = '#ffffff'; // Clean white card, not green!
+                            cardBg = '#ffffff';
                             cardBorder = '1px solid #e2e8f0';
                             brandColor = '#0f172a';
-                            labelColor = '#334155';
-                            isDashed = false;
+                            labelColor = '#64748b';
                           } else if (isScheduled) {
                             cardBg = '#ffffff';
                             cardBorder = '1px solid #bfdbfe';
                             brandColor = '#0f172a';
-                            labelColor = '#334155';
-                            isDashed = false;
+                            labelColor = '#64748b';
                           } else if (isMissed) {
-                            cardBg = '#ffffff';
+                            cardBg = '#fffafb';
                             cardBorder = '1px solid #fecaca';
-                            brandColor = '#0f172a';
-                            labelColor = '#334155';
-                            isDashed = false;
+                            brandColor = '#991b1b';
+                            labelColor = '#b91c1c';
                           }
 
                           return (
@@ -734,15 +769,15 @@ export const BrandCalendarPage = () => {
                               }}
                               style={{
                                 backgroundColor: cardBg,
-                                borderRadius: '6px',
-                                padding: '3px 7px',
+                                borderRadius: '5px',
+                                padding: '3px 6px',
                                 fontSize: '11px',
                                 fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
-                                gap: '6px',
-                                boxShadow: isDashed ? 'none' : '0 1px 2px rgba(0,0,0,0.04)',
+                                gap: '5px',
+                                boxShadow: isCompleted || isScheduled ? '0 1px 2px rgba(0,0,0,0.02)' : 'none',
                                 cursor: 'pointer',
                                 position: 'relative',
                                 border: cardBorder,
@@ -750,12 +785,12 @@ export const BrandCalendarPage = () => {
                               }}
                               title={`Click to ${slot.linked_post?.id ? 'view post' : 'create post'} for ${slot.brand_name} (${isCompleted ? 'Live on Facebook' : isScheduled ? 'Scheduled' : isMissed ? 'Overdue' : 'Planned deliverable'})`}
                             >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
-                                {/* Content-Type Color Accent Bar */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', overflow: 'hidden' }}>
+                                {/* Content-Type Color Accent Line */}
                                 <span
                                   style={{
-                                    width: '3.5px',
-                                    height: '14px',
+                                    width: '3px',
+                                    height: '13px',
                                     backgroundColor: typeInfo.color,
                                     borderRadius: '2px',
                                     flexShrink: 0,
@@ -763,22 +798,24 @@ export const BrandCalendarPage = () => {
                                   title={`${typeInfo.label} deliverable`}
                                 />
 
-                                {/* Brand Name */}
+                                {/* Clean Brand Name (No brackets) */}
                                 <span style={{
-                                  fontSize: '10px',
+                                  fontSize: '10.5px',
                                   fontWeight: '700',
-                                  textTransform: 'uppercase',
-                                  letterSpacing: '0.3px',
+                                  letterSpacing: '0.1px',
                                   flexShrink: 0,
-                                  color: brandColor
+                                  color: brandColor,
+                                  whiteSpace: 'nowrap'
                                 }}>
-                                  [{slot.brand_name || 'BRAND'}]
+                                  {slot.brand_name || 'Brand'}
                                 </span>
+
+                                <span style={{ color: '#cbd5e1', fontSize: '9px', flexShrink: 0 }}>·</span>
 
                                 {/* Content Label */}
                                 <span style={{
-                                  fontWeight: '600',
-                                  fontSize: '10.5px',
+                                  fontWeight: '500',
+                                  fontSize: '10px',
                                   overflow: 'hidden',
                                   textOverflow: 'ellipsis',
                                   whiteSpace: 'nowrap',
@@ -788,91 +825,97 @@ export const BrandCalendarPage = () => {
                                 </span>
                               </div>
 
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
                                 {isCompleted && (
                                   <span
                                     style={{
-                                      backgroundColor: '#16a34a',
-                                      color: '#ffffff',
+                                      backgroundColor: '#ecfdf5',
+                                      color: '#059669',
+                                      border: '1px solid #a7f3d0',
                                       fontSize: '8.5px',
                                       fontWeight: '700',
-                                      padding: '1.5px 6px',
-                                      borderRadius: '9999px',
+                                      padding: '1px 5px',
+                                      borderRadius: '4px',
                                       display: 'inline-flex',
                                       alignItems: 'center',
                                       gap: '2.5px',
                                       textTransform: 'uppercase',
-                                      letterSpacing: '0.3px',
-                                      boxShadow: '0 1px 2px rgba(22, 163, 74, 0.25)',
+                                      letterSpacing: '0.2px',
                                     }}
                                     title="Delivered & Live on Facebook"
                                   >
-                                    <Check size={9} strokeWidth={3} /> LIVE
+                                    <Check size={8.5} strokeWidth={3} /> LIVE
                                   </span>
                                 )}
 
                                 {isScheduled && (
                                   <span
                                     style={{
-                                      backgroundColor: '#2563eb',
-                                      color: '#ffffff',
+                                      backgroundColor: '#eff6ff',
+                                      color: '#2563eb',
+                                      border: '1px solid #bfdbfe',
                                       fontSize: '8.5px',
                                       fontWeight: '700',
-                                      padding: '1.5px 6px',
-                                      borderRadius: '9999px',
+                                      padding: '1px 5px',
+                                      borderRadius: '4px',
                                       display: 'inline-flex',
                                       alignItems: 'center',
                                       gap: '2.5px',
                                       textTransform: 'uppercase',
-                                      letterSpacing: '0.3px',
-                                      boxShadow: '0 1px 2px rgba(37, 99, 235, 0.25)',
+                                      letterSpacing: '0.2px',
                                     }}
                                     title="Scheduled on Facebook"
                                   >
-                                    <Clock size={9} strokeWidth={2.5} /> {slot.time_window || 'QUEUED'}
+                                    <Clock size={8.5} strokeWidth={2.5} /> {slot.time_window || 'QUEUED'}
                                   </span>
                                 )}
 
                                 {isMissed && (
                                   <span
                                     style={{
-                                      backgroundColor: '#dc2626',
-                                      color: '#ffffff',
+                                      backgroundColor: '#fef2f2',
+                                      color: '#dc2626',
+                                      border: '1px solid #fecaca',
                                       fontSize: '8.5px',
                                       fontWeight: '700',
-                                      padding: '1.5px 6px',
-                                      borderRadius: '9999px',
+                                      padding: '1px 5px',
+                                      borderRadius: '4px',
                                       display: 'inline-flex',
                                       alignItems: 'center',
                                       gap: '2.5px',
                                       textTransform: 'uppercase',
-                                      letterSpacing: '0.3px',
-                                      boxShadow: '0 1px 2px rgba(220, 38, 38, 0.25)',
+                                      letterSpacing: '0.2px',
                                     }}
                                     title="Overdue / Missed deliverable date"
                                   >
-                                    <AlertTriangle size={9} strokeWidth={2.5} /> MISSED
+                                    <AlertTriangle size={8.5} strokeWidth={2.5} /> MISSED
                                   </span>
                                 )}
 
                                 {!isCompleted && !isScheduled && !isMissed && (
-                                  <span
-                                    style={{
-                                      backgroundColor: '#f8fafc',
-                                      color: '#64748b',
-                                      border: '1px solid #cbd5e1',
-                                      fontSize: '8.5px',
-                                      fontWeight: '600',
-                                      padding: '1px 5px',
-                                      borderRadius: '9999px',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '2px',
-                                    }}
-                                    title="Planned deliverable (click to create post)"
-                                  >
-                                    {slot.time_window || 'To Do'}
-                                  </span>
+                                  slot.time_window ? (
+                                    <span
+                                      style={{
+                                        color: '#94a3b8',
+                                        fontSize: '9px',
+                                        fontWeight: '500'
+                                      }}
+                                      title={`Planned for ${slot.time_window}`}
+                                    >
+                                      {slot.time_window}
+                                    </span>
+                                  ) : (
+                                    <span
+                                      style={{
+                                        width: '10px',
+                                        height: '10px',
+                                        borderRadius: '50%',
+                                        border: '1.5px dashed #cbd5e1',
+                                        display: 'inline-block'
+                                      }}
+                                      title="Planned deliverable (click to create post)"
+                                    />
+                                  )
                                 )}
                               </div>
                             </div>
@@ -892,11 +935,11 @@ export const BrandCalendarPage = () => {
                               });
                             }}
                             style={{
-                              backgroundColor: '#e2e8f0',
-                              color: '#1e293b',
-                              fontSize: '11px',
-                              fontWeight: '700',
-                              padding: '4px 6px',
+                              backgroundColor: '#f1f5f9',
+                              color: '#475569',
+                              fontSize: '10px',
+                              fontWeight: '600',
+                              padding: '3px 6px',
                               borderRadius: '4px',
                               border: 'none',
                               cursor: 'pointer',
@@ -905,12 +948,18 @@ export const BrandCalendarPage = () => {
                               justifyContent: 'center',
                               width: '100%',
                               marginTop: '2px',
-                              transition: 'background-color 0.15s ease'
+                              transition: 'all 0.15s ease'
                             }}
-                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#cbd5e1'}
-                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#e2e8f0'}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = '#e2e8f0';
+                              e.currentTarget.style.color = '#0f172a';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = '#f1f5f9';
+                              e.currentTarget.style.color = '#475569';
+                            }}
                           >
-                            + {remainingCount} more deliverables
+                            +{remainingCount} more
                           </button>
                         )}
                       </>
@@ -1170,28 +1219,30 @@ export const BrandCalendarPage = () => {
                             <div style={{ minWidth: 0, flex: 1 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
                                 <span style={{
-                                  fontSize: '11px',
+                                  fontSize: '11.5px',
                                   fontWeight: '800',
-                                  letterSpacing: '0.4px',
-                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.2px',
                                   color: brandColor
                                 }}>
-                                  [{slot.brand_name || 'Brand'}]
+                                  {slot.brand_name || 'Brand'}
                                 </span>
+
+                                <span style={{ color: '#cbd5e1', fontSize: '10px' }}>·</span>
 
                                 {isCompleted && (
                                   <span style={{
-                                    backgroundColor: '#16a34a',
-                                    color: '#ffffff',
+                                    backgroundColor: '#ecfdf5',
+                                    color: '#059669',
+                                    border: '1px solid #a7f3d0',
                                     fontSize: '9px',
                                     fontWeight: '700',
                                     padding: '1.5px 6px',
-                                    borderRadius: '9999px',
+                                    borderRadius: '4px',
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     gap: '3px',
                                     textTransform: 'uppercase',
-                                    letterSpacing: '0.3px'
+                                    letterSpacing: '0.2px'
                                   }}>
                                     <Check size={9} strokeWidth={3} /> LIVE ON FB
                                   </span>
@@ -1199,16 +1250,18 @@ export const BrandCalendarPage = () => {
 
                                 {isScheduled && (
                                   <span style={{
-                                    backgroundColor: '#2563eb',
-                                    color: '#ffffff',
+                                    backgroundColor: '#eff6ff',
+                                    color: '#2563eb',
+                                    border: '1px solid #bfdbfe',
                                     fontSize: '9px',
                                     fontWeight: '700',
                                     padding: '1.5px 6px',
-                                    borderRadius: '9999px',
+                                    borderRadius: '4px',
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     gap: '3px',
-                                    textTransform: 'uppercase'
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.2px'
                                   }}>
                                     <Clock size={9} strokeWidth={2.5} /> SCHEDULED
                                   </span>
@@ -1216,16 +1269,18 @@ export const BrandCalendarPage = () => {
 
                                 {isMissed && (
                                   <span style={{
-                                    backgroundColor: '#dc2626',
-                                    color: '#ffffff',
+                                    backgroundColor: '#fef2f2',
+                                    color: '#dc2626',
+                                    border: '1px solid #fecaca',
                                     fontSize: '9px',
                                     fontWeight: '700',
                                     padding: '1.5px 6px',
-                                    borderRadius: '9999px',
+                                    borderRadius: '4px',
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     gap: '3px',
-                                    textTransform: 'uppercase'
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.2px'
                                   }}>
                                     <AlertTriangle size={9} strokeWidth={2.5} /> MISSED
                                   </span>
@@ -1233,17 +1288,17 @@ export const BrandCalendarPage = () => {
 
                                 {!isCompleted && !isScheduled && !isMissed && (
                                   <span style={{
-                                    backgroundColor: '#f1f5f9',
+                                    backgroundColor: '#f8fafc',
                                     color: '#64748b',
-                                    border: '1px solid #cbd5e1',
+                                    border: '1px solid #e2e8f0',
                                     fontSize: '9px',
                                     fontWeight: '600',
-                                    padding: '1px 5px',
-                                    borderRadius: '9999px',
+                                    padding: '1.5px 6px',
+                                    borderRadius: '4px',
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                   }}>
-                                    TO DO
+                                    PLANNED
                                   </span>
                                 )}
                               </div>
