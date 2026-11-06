@@ -63,6 +63,10 @@ const getMissionWithProgress = async (brandId, month, year) => {
         published_time: matchingPost.published_time,
         message: matchingPost.message,
         media_url: matchingPost.media_url,
+        thumbnail_url: matchingPost.thumbnail_url,
+        fb_post_id: matchingPost.fb_post_id,
+        page_id: matchingPost.page_id,
+        post_url: matchingPost.post_url,
       };
     } else if (matchingPost && matchingPost.status === 'scheduled') {
       computedStatus = 'scheduled';
@@ -70,6 +74,11 @@ const getMissionWithProgress = async (brandId, month, year) => {
         id: matchingPost.id,
         status: matchingPost.status,
         scheduled_time: matchingPost.scheduled_time,
+        media_url: matchingPost.media_url,
+        thumbnail_url: matchingPost.thumbnail_url,
+        fb_post_id: matchingPost.fb_post_id,
+        page_id: matchingPost.page_id,
+        post_url: matchingPost.post_url,
       };
     } else if (slotDateStr < todayStr) {
       computedStatus = 'missed';
@@ -171,10 +180,33 @@ const getCalendarSlots = async (brandId, month, year) => {
     });
 
     let computedStatus = 'planned';
+    let linkedPost = null;
     if (matchingPost && matchingPost.status === 'published') {
       computedStatus = 'completed';
+      linkedPost = {
+        id: matchingPost.id,
+        status: matchingPost.status,
+        media_type: matchingPost.media_type,
+        published_time: matchingPost.published_time,
+        message: matchingPost.message,
+        media_url: matchingPost.media_url,
+        thumbnail_url: matchingPost.thumbnail_url,
+        fb_post_id: matchingPost.fb_post_id,
+        page_id: matchingPost.page_id,
+        post_url: matchingPost.post_url,
+      };
     } else if (matchingPost && matchingPost.status === 'scheduled') {
       computedStatus = 'scheduled';
+      linkedPost = {
+        id: matchingPost.id,
+        status: matchingPost.status,
+        scheduled_time: matchingPost.scheduled_time,
+        media_url: matchingPost.media_url,
+        thumbnail_url: matchingPost.thumbnail_url,
+        fb_post_id: matchingPost.fb_post_id,
+        page_id: matchingPost.page_id,
+        post_url: matchingPost.post_url,
+      };
     } else if (slotDateStr < todayStr) {
       computedStatus = 'missed';
     }
@@ -183,6 +215,7 @@ const getCalendarSlots = async (brandId, month, year) => {
       ...slot,
       planned_date_str: slotDateStr,
       computed_status: computedStatus,
+      linked_post: linkedPost,
       is_planned_slot: true, // Marker for frontend calendar rendering
     };
   });

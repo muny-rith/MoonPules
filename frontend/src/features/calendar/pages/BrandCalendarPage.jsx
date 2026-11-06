@@ -31,6 +31,7 @@ import { SafeImage } from '../../../shared/components/ui/SafeImage';
 import { Select, Button, Modal } from '../../../shared/components/ui';
 import { resolveAllMediaUrls } from '../../../shared/utils/mediaUrl';
 import { getFacebookPostUrl } from '../../../shared/utils/facebookUrl';
+import { FaFacebook } from 'react-icons/fa';
 import { SetMissionModal } from '../../missions/components/SetMissionModal';
 import '../../postTracker/planner.css';
 
@@ -272,7 +273,7 @@ export const BrandCalendarPage = () => {
     return { namePart, timeStr };
   };
 
-  // Option 2: Content Type Info (Icon & Label)
+  // Content Type Info (Icon & Label)
   const getContentTypeInfo = (contentType, isSpecial = false) => {
     const type = (contentType || '').toLowerCase();
     if (type === 'video' || type === 'reel') {
@@ -282,72 +283,6 @@ export const BrandCalendarPage = () => {
       return { label: isSpecial ? 'Payday Live' : 'Live Stream', icon: Radio, color: isSpecial ? '#d97706' : '#2563eb' };
     }
     return { label: 'Poster', icon: Image, color: '#059669' };
-  };
-
-  // Option 2: State-Driven Card Styles (Instant Scanability)
-  const getSlotCardStyle = (slot) => {
-    const isCompleted = slot.computed_status === 'completed';
-    const isScheduled = slot.computed_status === 'scheduled';
-    const isMissed = slot.computed_status === 'missed';
-
-    if (isCompleted) {
-      return {
-        cardBg: '#ecfdf5',
-        cardBorder: '1px solid #10b981',
-        barColor: '#059669',
-        badgeBg: '#10b981',
-        badgeColor: '#ffffff',
-        badgeText: 'DONE',
-        badgeIcon: 'check',
-        brandColor: '#065f46',
-        labelColor: '#047857',
-        isDashed: false,
-      };
-    }
-
-    if (isScheduled) {
-      return {
-        cardBg: '#eff6ff',
-        cardBorder: '1px solid #3b82f6',
-        barColor: '#2563eb',
-        badgeBg: '#3b82f6',
-        badgeColor: '#ffffff',
-        badgeText: slot.time_window || 'QUEUED',
-        badgeIcon: 'clock',
-        brandColor: '#1e40af',
-        labelColor: '#1d4ed8',
-        isDashed: false,
-      };
-    }
-
-    if (isMissed) {
-      return {
-        cardBg: '#fef2f2',
-        cardBorder: '1px solid #ef4444',
-        barColor: '#dc2626',
-        badgeBg: '#ef4444',
-        badgeColor: '#ffffff',
-        badgeText: 'MISSED',
-        badgeIcon: 'alert',
-        brandColor: '#991b1b',
-        labelColor: '#b91c1c',
-        isDashed: false,
-      };
-    }
-
-    // Default: Planned / To Do (Not done yet)
-    return {
-      cardBg: '#ffffff',
-      cardBorder: '1.5px dashed #94a3b8',
-      barColor: '#cbd5e1',
-      badgeBg: '#f1f5f9',
-      badgeColor: '#475569',
-      badgeText: slot.time_window || 'To Do',
-      badgeIcon: 'todo',
-      brandColor: '#334155',
-      labelColor: '#475569',
-      isDashed: true,
-    };
   };
 
   return (
@@ -751,8 +686,51 @@ export const BrandCalendarPage = () => {
                         {visibleSlots.map((slot, sIdx) => {
                           const isSpecial = (slot.time_window || '').includes('04:00PM') || (slot.notes || '').toLowerCase().includes('payday');
                           const typeInfo = getContentTypeInfo(slot.content_type, isSpecial);
-                          const cardStyle = getSlotCardStyle(slot);
+                          const isCompleted = slot.computed_status === 'completed';
+                          const isScheduled = slot.computed_status === 'scheduled';
+                          const isMissed = slot.computed_status === 'missed';
+
+                          // Option 3: Find linked or matching post for thumbnail
+                          const linked = slot.linked_post || (cell.posts || []).find((p) => {
+                            const postBrandId = p.brand_id ? String(p.brand_id) : '';
+                            const slotBrandId = slot.brand_id ? String(slot.brand_id) : '';
+                            return (!slotBrandId || postBrandId === slotBrandId) && (p.status === 'published' || p.status === 'scheduled');
+                          });
+
+                          let thumbUrl = null;
+                          if (linked) {
+                            const media = resolveAllMediaUrls(linked.media_url);
+                            thumbUrl = linked.thumbnail_url || media[0] || linked.product_image;
+                          }
+
                           const IconComp = typeInfo.icon;
+
+                          // Card background & borders for Option 3
+                          let cardBg = '#ffffff';
+                          let cardBorder = '1.5px dashed #cbd5e1';
+                          let brandColor = '#475569';
+                          let labelColor = '#64748b';
+                          let isDashed = true;
+
+                          if (isCompleted) {
+                            cardBg = '#f0fdf4';
+                            cardBorder = '1px solid #86efac';
+                            brandColor = '#15803d';
+                            labelColor = '#166534';
+                            isDashed = false;
+                          } else if (isScheduled) {
+                            cardBg = '#eff6ff';
+                            cardBorder = '1px solid #93c5fd';
+                            brandColor = '#1d4ed8';
+                            labelColor = '#1e40af';
+                            isDashed = false;
+                          } else if (isMissed) {
+                            cardBg = '#fef2f2';
+                            cardBorder = '1px solid #fca5a5';
+                            brandColor = '#b91c1c';
+                            labelColor = '#991b1b';
+                            isDashed = false;
+                          }
 
                           return (
                             <div
@@ -772,7 +750,7 @@ export const BrandCalendarPage = () => {
                                 }
                               }}
                               style={{
-                                backgroundColor: cardStyle.cardBg,
+                                backgroundColor: cardBg,
                                 borderRadius: '6px',
                                 padding: '3px 7px',
                                 fontSize: '11px',
@@ -781,17 +759,102 @@ export const BrandCalendarPage = () => {
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
                                 gap: '6px',
-                                boxShadow: cardStyle.isDashed ? 'none' : '0 1px 2px rgba(0,0,0,0.04)',
+                                boxShadow: isDashed ? 'none' : '0 1px 2px rgba(0,0,0,0.04)',
                                 cursor: 'pointer',
                                 position: 'relative',
-                                border: cardStyle.cardBorder,
+                                border: cardBorder,
                                 transition: 'all 0.15s ease'
                               }}
-                              title={`Click to ${slot.linked_post?.id ? 'view post' : 'create post'} for ${slot.brand_name} (${cardStyle.badgeText})`}
+                              title={`Click to ${slot.linked_post?.id ? 'view post' : 'create post'} for ${slot.brand_name} (${isCompleted ? 'Live on Facebook' : isScheduled ? 'Scheduled' : isMissed ? 'Overdue' : 'Planned deliverable'})`}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '5px', overflow: 'hidden' }}>
-                                {/* Content Type Icon */}
-                                <IconComp size={12} color={typeInfo.color} style={{ flexShrink: 0 }} />
+                                {/* Option 3: Mini Thumbnail / Icon with Facebook Badge */}
+                                {isCompleted && thumbUrl ? (
+                                  <div style={{ position: 'relative', width: '20px', height: '20px', flexShrink: 0 }}>
+                                    <SafeImage
+                                      src={thumbUrl}
+                                      alt="Post thumbnail"
+                                      style={{
+                                        width: '20px',
+                                        height: '20px',
+                                        borderRadius: '3px',
+                                        objectFit: 'cover',
+                                        border: '1px solid #10b981',
+                                      }}
+                                      fallbackText="FB"
+                                    />
+                                    <div style={{
+                                      position: 'absolute',
+                                      bottom: '-3px',
+                                      right: '-3px',
+                                      backgroundColor: '#ffffff',
+                                      borderRadius: '50%',
+                                      width: '9px',
+                                      height: '9px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
+                                    }}>
+                                      <FaFacebook size={7} color="#1877F2" />
+                                    </div>
+                                  </div>
+                                ) : isCompleted ? (
+                                  <div style={{
+                                    width: '18px',
+                                    height: '18px',
+                                    borderRadius: '3px',
+                                    backgroundColor: '#16a34a',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0,
+                                    boxShadow: '0 1px 2px rgba(22,163,74,0.3)'
+                                  }}>
+                                    <Check size={10} strokeWidth={3} color="#ffffff" />
+                                  </div>
+                                ) : isScheduled ? (
+                                  <div style={{
+                                    width: '18px',
+                                    height: '18px',
+                                    borderRadius: '3px',
+                                    backgroundColor: '#eff6ff',
+                                    border: '1px solid #93c5fd',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0
+                                  }}>
+                                    <Clock size={10} color="#2563eb" />
+                                  </div>
+                                ) : isMissed ? (
+                                  <div style={{
+                                    width: '18px',
+                                    height: '18px',
+                                    borderRadius: '3px',
+                                    backgroundColor: '#fee2e2',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0
+                                  }}>
+                                    <AlertTriangle size={10} color="#dc2626" />
+                                  </div>
+                                ) : (
+                                  <div style={{
+                                    width: '18px',
+                                    height: '18px',
+                                    borderRadius: '3px',
+                                    backgroundColor: '#f8fafc',
+                                    border: '1px dashed #cbd5e1',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0
+                                  }}>
+                                    <IconComp size={9} color="#94a3b8" />
+                                  </div>
+                                )}
 
                                 {/* Brand Name */}
                                 <span style={{
@@ -800,7 +863,7 @@ export const BrandCalendarPage = () => {
                                   textTransform: 'uppercase',
                                   letterSpacing: '0.3px',
                                   flexShrink: 0,
-                                  color: cardStyle.brandColor
+                                  color: brandColor
                                 }}>
                                   [{slot.brand_name || 'BRAND'}]
                                 </span>
@@ -812,35 +875,98 @@ export const BrandCalendarPage = () => {
                                   overflow: 'hidden',
                                   textOverflow: 'ellipsis',
                                   whiteSpace: 'nowrap',
-                                  color: cardStyle.labelColor
+                                  color: labelColor
                                 }}>
                                   {typeInfo.label}
                                 </span>
                               </div>
 
                               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                                <span
-                                  style={{
-                                    backgroundColor: cardStyle.badgeBg,
-                                    color: cardStyle.badgeColor,
-                                    fontSize: '8.5px',
-                                    fontWeight: '700',
-                                    padding: '1.5px 6px',
-                                    borderRadius: '9999px',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '2.5px',
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.3px',
-                                    border: cardStyle.isDashed ? '1px solid #cbd5e1' : 'none',
-                                    boxShadow: cardStyle.isDashed ? 'none' : '0 1px 2px rgba(0,0,0,0.12)',
-                                  }}
-                                >
-                                  {cardStyle.badgeIcon === 'check' && <Check size={9} strokeWidth={3} />}
-                                  {cardStyle.badgeIcon === 'clock' && <Clock size={9} strokeWidth={2.5} />}
-                                  {cardStyle.badgeIcon === 'alert' && <AlertTriangle size={9} strokeWidth={2.5} />}
-                                  <span>{cardStyle.badgeText}</span>
-                                </span>
+                                {isCompleted && (
+                                  <span
+                                    style={{
+                                      backgroundColor: '#16a34a',
+                                      color: '#ffffff',
+                                      fontSize: '8.5px',
+                                      fontWeight: '700',
+                                      padding: '1.5px 6px',
+                                      borderRadius: '9999px',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '2.5px',
+                                      textTransform: 'uppercase',
+                                      letterSpacing: '0.3px',
+                                      boxShadow: '0 1px 2px rgba(22, 163, 74, 0.25)',
+                                    }}
+                                    title="Delivered & Live on Facebook"
+                                  >
+                                    <Check size={9} strokeWidth={3} /> LIVE
+                                  </span>
+                                )}
+
+                                {isScheduled && (
+                                  <span
+                                    style={{
+                                      backgroundColor: '#2563eb',
+                                      color: '#ffffff',
+                                      fontSize: '8.5px',
+                                      fontWeight: '700',
+                                      padding: '1.5px 6px',
+                                      borderRadius: '9999px',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '2.5px',
+                                      textTransform: 'uppercase',
+                                      letterSpacing: '0.3px',
+                                      boxShadow: '0 1px 2px rgba(37, 99, 235, 0.25)',
+                                    }}
+                                    title="Scheduled on Facebook"
+                                  >
+                                    <Clock size={9} strokeWidth={2.5} /> {slot.time_window || 'QUEUED'}
+                                  </span>
+                                )}
+
+                                {isMissed && (
+                                  <span
+                                    style={{
+                                      backgroundColor: '#dc2626',
+                                      color: '#ffffff',
+                                      fontSize: '8.5px',
+                                      fontWeight: '700',
+                                      padding: '1.5px 6px',
+                                      borderRadius: '9999px',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '2.5px',
+                                      textTransform: 'uppercase',
+                                      letterSpacing: '0.3px',
+                                      boxShadow: '0 1px 2px rgba(220, 38, 38, 0.25)',
+                                    }}
+                                    title="Overdue / Missed deliverable date"
+                                  >
+                                    <AlertTriangle size={9} strokeWidth={2.5} /> MISSED
+                                  </span>
+                                )}
+
+                                {!isCompleted && !isScheduled && !isMissed && (
+                                  <span
+                                    style={{
+                                      backgroundColor: '#f8fafc',
+                                      color: '#64748b',
+                                      border: '1px solid #cbd5e1',
+                                      fontSize: '8.5px',
+                                      fontWeight: '600',
+                                      padding: '1px 5px',
+                                      borderRadius: '9999px',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '2px',
+                                    }}
+                                    title="Planned deliverable (click to create post)"
+                                  >
+                                    {slot.time_window || 'To Do'}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           );
@@ -989,98 +1115,306 @@ export const BrandCalendarPage = () => {
                     {selectedDayDetail.slots.map((slot, sIdx) => {
                       const isSpecial = (slot.time_window || '').includes('04:00PM') || (slot.notes || '').toLowerCase().includes('payday');
                       const typeInfo = getContentTypeInfo(slot.content_type, isSpecial);
-                      const cardStyle = getSlotCardStyle(slot);
+                      const isCompleted = slot.computed_status === 'completed';
+                      const isScheduled = slot.computed_status === 'scheduled';
+                      const isMissed = slot.computed_status === 'missed';
+
+                      const linked = slot.linked_post || (selectedDayDetail.posts || []).find((p) => {
+                        const postBrandId = p.brand_id ? String(p.brand_id) : '';
+                        const slotBrandId = slot.brand_id ? String(slot.brand_id) : '';
+                        return (!slotBrandId || postBrandId === slotBrandId) && (p.status === 'published' || p.status === 'scheduled');
+                      });
+
+                      let thumbUrl = null;
+                      let fbUrl = null;
+                      if (linked) {
+                        const media = resolveAllMediaUrls(linked.media_url);
+                        thumbUrl = linked.thumbnail_url || media[0] || linked.product_image;
+                        fbUrl = getFacebookPostUrl(linked.fb_post_id, linked.post_url, linked.page_id || linked.fb_page_id);
+                      }
+
                       const IconComp = typeInfo.icon;
+
+                      // Option 3 styling
+                      let cardBg = '#ffffff';
+                      let cardBorder = '1.5px dashed #cbd5e1';
+                      let accentColor = '#94a3b8';
+                      let brandColor = '#475569';
+
+                      if (isCompleted) {
+                        cardBg = '#f0fdf4';
+                        cardBorder = '1px solid #86efac';
+                        accentColor = '#16a34a';
+                        brandColor = '#15803d';
+                      } else if (isScheduled) {
+                        cardBg = '#eff6ff';
+                        cardBorder = '1px solid #93c5fd';
+                        accentColor = '#2563eb';
+                        brandColor = '#1d4ed8';
+                      } else if (isMissed) {
+                        cardBg = '#fef2f2';
+                        cardBorder = '1px solid #fca5a5';
+                        accentColor = '#dc2626';
+                        brandColor = '#b91c1c';
+                      }
 
                       return (
                         <div
                           key={`modal-slot-${slot.id || sIdx}`}
                           style={{
-                            backgroundColor: cardStyle.cardBg,
-                            border: cardStyle.cardBorder,
-                            borderRadius: '8px',
+                            backgroundColor: cardBg,
+                            border: cardBorder,
+                            borderRadius: '10px',
                             padding: '12px 16px',
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
-                            boxShadow: cardStyle.isDashed ? 'none' : '0 1px 3px rgba(0,0,0,0.03)',
+                            gap: '12px',
+                            boxShadow: isCompleted || isScheduled ? '0 1px 3px rgba(0,0,0,0.04)' : 'none',
                             fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
                           }}
                         >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <div style={{
-                              width: '32px',
-                              height: '32px',
-                              borderRadius: '8px',
-                              backgroundColor: cardStyle.isDashed ? '#f1f5f9' : cardStyle.badgeBg,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0
-                            }}>
-                              <IconComp size={16} color={cardStyle.isDashed ? typeInfo.color : '#ffffff'} />
-                            </div>
-                            <div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.4px', textTransform: 'uppercase', color: '#64748b' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                            {/* Option 3: Mini Creative Thumbnail + Facebook Pill */}
+                            {isCompleted && thumbUrl ? (
+                              <div style={{ position: 'relative', width: '42px', height: '42px', flexShrink: 0 }}>
+                                <SafeImage
+                                  src={thumbUrl}
+                                  alt="Post thumbnail"
+                                  style={{
+                                    width: '42px',
+                                    height: '42px',
+                                    borderRadius: '6px',
+                                    objectFit: 'cover',
+                                    border: '1px solid #86efac',
+                                  }}
+                                  fallbackText="FB"
+                                />
+                                <div style={{
+                                  position: 'absolute',
+                                  bottom: '-4px',
+                                  right: '-4px',
+                                  backgroundColor: '#ffffff',
+                                  borderRadius: '50%',
+                                  width: '16px',
+                                  height: '16px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  boxShadow: '0 1px 3px rgba(0,0,0,0.25)'
+                                }}>
+                                  <FaFacebook size={12} color="#1877F2" />
+                                </div>
+                              </div>
+                            ) : isCompleted ? (
+                              <div style={{
+                                width: '42px',
+                                height: '42px',
+                                borderRadius: '6px',
+                                backgroundColor: '#16a34a',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                                boxShadow: '0 2px 4px rgba(22,163,74,0.25)'
+                              }}>
+                                <Check size={20} strokeWidth={3} color="#ffffff" />
+                              </div>
+                            ) : isScheduled ? (
+                              <div style={{
+                                width: '42px',
+                                height: '42px',
+                                borderRadius: '6px',
+                                backgroundColor: '#dbeafe',
+                                border: '1px solid #93c5fd',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0
+                              }}>
+                                <Clock size={20} color="#2563eb" />
+                              </div>
+                            ) : isMissed ? (
+                              <div style={{
+                                width: '42px',
+                                height: '42px',
+                                borderRadius: '6px',
+                                backgroundColor: '#fee2e2',
+                                border: '1px solid #fca5a5',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0
+                              }}>
+                                <AlertTriangle size={20} color="#dc2626" />
+                              </div>
+                            ) : (
+                              <div style={{
+                                width: '42px',
+                                height: '42px',
+                                borderRadius: '6px',
+                                backgroundColor: '#f8fafc',
+                                border: '1.5px dashed #cbd5e1',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0
+                              }}>
+                                <IconComp size={18} color="#94a3b8" />
+                              </div>
+                            )}
+
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+                                <span style={{
+                                  fontSize: '11px',
+                                  fontWeight: '800',
+                                  letterSpacing: '0.4px',
+                                  textTransform: 'uppercase',
+                                  color: brandColor
+                                }}>
                                   [{slot.brand_name || 'Brand'}]
                                 </span>
-                                <span style={{
-                                  backgroundColor: cardStyle.badgeBg,
-                                  color: cardStyle.badgeColor,
-                                  fontSize: '9.5px',
-                                  fontWeight: '700',
-                                  padding: '1px 7px',
-                                  borderRadius: '9999px',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '3px',
-                                  textTransform: 'uppercase',
-                                  border: cardStyle.isDashed ? '1px solid #cbd5e1' : 'none',
-                                }}>
-                                  {cardStyle.badgeIcon === 'check' && <Check size={9} strokeWidth={3} />}
-                                  {cardStyle.badgeIcon === 'clock' && <Clock size={9} strokeWidth={2.5} />}
-                                  {cardStyle.badgeIcon === 'alert' && <AlertTriangle size={9} strokeWidth={2.5} />}
-                                  <span>{cardStyle.badgeText}</span>
-                                </span>
+
+                                {isCompleted && (
+                                  <span style={{
+                                    backgroundColor: '#16a34a',
+                                    color: '#ffffff',
+                                    fontSize: '9px',
+                                    fontWeight: '700',
+                                    padding: '1.5px 6px',
+                                    borderRadius: '9999px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.3px'
+                                  }}>
+                                    <Check size={9} strokeWidth={3} /> LIVE ON FB
+                                  </span>
+                                )}
+
+                                {isScheduled && (
+                                  <span style={{
+                                    backgroundColor: '#2563eb',
+                                    color: '#ffffff',
+                                    fontSize: '9px',
+                                    fontWeight: '700',
+                                    padding: '1.5px 6px',
+                                    borderRadius: '9999px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px',
+                                    textTransform: 'uppercase'
+                                  }}>
+                                    <Clock size={9} strokeWidth={2.5} /> SCHEDULED
+                                  </span>
+                                )}
+
+                                {isMissed && (
+                                  <span style={{
+                                    backgroundColor: '#dc2626',
+                                    color: '#ffffff',
+                                    fontSize: '9px',
+                                    fontWeight: '700',
+                                    padding: '1.5px 6px',
+                                    borderRadius: '9999px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px',
+                                    textTransform: 'uppercase'
+                                  }}>
+                                    <AlertTriangle size={9} strokeWidth={2.5} /> MISSED
+                                  </span>
+                                )}
+
+                                {!isCompleted && !isScheduled && !isMissed && (
+                                  <span style={{
+                                    backgroundColor: '#f1f5f9',
+                                    color: '#64748b',
+                                    border: '1px solid #cbd5e1',
+                                    fontSize: '9px',
+                                    fontWeight: '600',
+                                    padding: '1px 5px',
+                                    borderRadius: '9999px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                  }}>
+                                    TO DO
+                                  </span>
+                                )}
                               </div>
-                              <div style={{ fontSize: '14px', fontWeight: '600', marginTop: '2px', color: '#0f172a' }}>
+
+                              <div style={{ fontSize: '14px', fontWeight: '600', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {typeInfo.label} {slot.time_window ? `(${slot.time_window})` : ''}
                               </div>
                             </div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedDayDetail(null);
-                              if (slot.linked_post?.id) {
-                                navigate(`/planner/edit/${slot.linked_post.id}`);
-                              } else {
-                                navigate(`/planner/create?date=${selectedDayDetail.dateKey}`, {
-                                  state: {
-                                    returnPath: '/calendar',
-                                    defaultBrandId: slot.brand_id,
-                                    defaultContentType: slot.content_type,
-                                    defaultTime: slot.time_window,
-                                    plannedSlotId: slot.id,
-                                  }
-                                });
-                              }
-                            }}
-                            style={{
-                              backgroundColor: slot.linked_post?.id ? '#ecfdf5' : '#ffffff',
-                              color: slot.linked_post?.id ? '#059669' : '#2563eb',
-                              border: slot.linked_post?.id ? '1px solid #10b981' : '1px solid #cbd5e1',
-                              borderRadius: '6px',
-                              padding: '7px 14px',
-                              fontSize: '12px',
-                              fontWeight: '700',
-                              cursor: 'pointer',
-                              boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
-                            }}
-                          >
-                            {slot.linked_post?.id ? 'View Post' : '+ Create Post'}
-                          </button>
+
+                          {/* Action Buttons */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                            {fbUrl && (
+                              <a
+                                href={fbUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  backgroundColor: '#1877F2',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  padding: '7px 11px',
+                                  fontSize: '12px',
+                                  fontWeight: '700',
+                                  textDecoration: 'none',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  boxShadow: '0 1px 2px rgba(24,119,242,0.3)',
+                                  transition: 'background-color 0.15s ease'
+                                }}
+                                title="Open post on Facebook"
+                              >
+                                <FaFacebook size={12} /> View on FB
+                              </a>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedDayDetail(null);
+                                if (slot.linked_post?.id) {
+                                  navigate(`/planner/edit/${slot.linked_post.id}`);
+                                } else {
+                                  navigate(`/planner/create?date=${selectedDayDetail.dateKey}`, {
+                                    state: {
+                                      returnPath: '/calendar',
+                                      defaultBrandId: slot.brand_id,
+                                      defaultContentType: slot.content_type,
+                                      defaultTime: slot.time_window,
+                                      plannedSlotId: slot.id,
+                                    }
+                                  });
+                                }
+                              }}
+                              style={{
+                                backgroundColor: isCompleted ? '#ffffff' : isScheduled ? '#eff6ff' : '#2563eb',
+                                color: isCompleted ? '#15803d' : isScheduled ? '#1d4ed8' : '#ffffff',
+                                border: isCompleted ? '1px solid #86efac' : isScheduled ? '1px solid #93c5fd' : 'none',
+                                borderRadius: '6px',
+                                padding: '7px 14px',
+                                fontSize: '12px',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                boxShadow: isCompleted ? '0 1px 2px rgba(0,0,0,0.04)' : '0 1px 2px rgba(37,99,235,0.2)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                              }}
+                            >
+                              {slot.linked_post?.id ? 'Edit in Planner' : '+ Create Post'}
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
