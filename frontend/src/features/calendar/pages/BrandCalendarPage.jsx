@@ -981,63 +981,6 @@ export const BrandCalendarPage = () => {
         </div>
       </div>
 
-      {/* ====================================================================
-          BRAND DELIVERABLES & OPERATIONS HUB LINK BANNER
-         ==================================================================== */}
-      <div
-        style={{
-          marginTop: '24px',
-          padding: '16px 20px',
-          backgroundColor: '#eff6ff',
-          borderRadius: '12px',
-          border: '1px solid #bfdbfe',
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '12px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div
-            style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '10px',
-              backgroundColor: '#dbeafe',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Target size={22} color="#2563eb" />
-          </div>
-          <div>
-            <div style={{ fontSize: '14px', fontWeight: '800', color: '#1e40af' }}>
-              Full Brand Quotas & Deliverables Hub
-            </div>
-            <div style={{ fontSize: '12.5px', color: '#3b82f6', marginTop: '2px' }}>
-              Looking to audit contract quotas, view agency daily agendas, or inline-reschedule dates across 100–500 clients?
-            </div>
-          </div>
-        </div>
-        <Button
-          variant="secondary"
-          onClick={() => navigate('/stats/brands?tab=missions')}
-          style={{
-            backgroundColor: '#ffffff',
-            borderColor: '#93c5fd',
-            color: '#1d4ed8',
-            fontWeight: '700',
-            fontSize: '13px',
-            padding: '8px 16px',
-          }}
-        >
-          Open Brand Deliverables Hub →
-        </Button>
-      </div>
-
       {/* Set Blueprint Modal */}
       <SetMissionModal
         isOpen={isModalOpen}
