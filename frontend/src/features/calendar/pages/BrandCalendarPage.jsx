@@ -611,8 +611,8 @@ export const BrandCalendarPage = () => {
                 key={idx}
                 style={{
                   backgroundColor: isCurrentMonth ? '#ffffff' : '#f1f5f9',
-                  minHeight: '120px',
-                  padding: '6px 7px',
+                  minHeight: '145px',
+                  padding: '8px 8px',
                   display: 'flex',
                   flexDirection: 'column',
                   position: 'relative',
