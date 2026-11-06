@@ -277,12 +277,12 @@ export const BrandCalendarPage = () => {
   const getContentTypeInfo = (contentType, isSpecial = false) => {
     const type = (contentType || '').toLowerCase();
     if (type === 'video' || type === 'reel') {
-      return { label: 'Video', icon: Video, color: '#9333ea' };
+      return { label: 'Video', icon: Video, color: '#9333ea' }; // Purple for video/reels
     }
     if (type === 'live') {
-      return { label: isSpecial ? 'Payday Live' : 'Live Stream', icon: Radio, color: isSpecial ? '#d97706' : '#2563eb' };
+      return { label: isSpecial ? 'Payday Live' : 'Live Stream', icon: Radio, color: isSpecial ? '#d97706' : '#0284c7' }; // Amber/Sky Blue for live
     }
-    return { label: 'Poster', icon: Image, color: '#059669' };
+    return { label: 'Poster', icon: Image, color: '#6366f1' }; // Indigo for poster (NEVER green!)
   };
 
   return (
