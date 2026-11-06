@@ -275,7 +275,7 @@ export const BrandCalendarPage = () => {
   };
 
   return (
-    <div className="page-container brand-calendar-page" style={{ paddingBottom: '60px' }}>
+    <div className="page-container brand-calendar-page" style={{ paddingBottom: '16px' }}>
       {/* Main Header Row */}
       <div className="planner-header-row">
         <div className="planner-header-title-wrap">
@@ -562,7 +562,7 @@ export const BrandCalendarPage = () => {
         borderRadius: '12px',
         overflow: 'hidden',
         boxShadow: '0 2px 6px -1px rgba(0,0,0,0.06)',
-        marginBottom: '24px'
+        marginBottom: '16px'
       }}>
         {/* Days of week Header (Modern Executive Royal Blue Bar) */}
         <div style={{
@@ -611,8 +611,8 @@ export const BrandCalendarPage = () => {
                 key={idx}
                 style={{
                   backgroundColor: isCurrentMonth ? '#ffffff' : '#f1f5f9',
-                  minHeight: '140px',
-                  padding: '7px 8px',
+                  minHeight: '120px',
+                  padding: '6px 7px',
                   display: 'flex',
                   flexDirection: 'column',
                   position: 'relative',
