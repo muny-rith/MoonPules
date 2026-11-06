@@ -130,3 +130,4 @@ This plan establishes an enterprise-grade **Stale-While-Revalidate (SWR)** cachi
 4. **Hard Refresh (F5) Test:**
    - Press `Ctrl + F5` on any page.
    - *Expected:* SessionStorage rehydrates data in < 1ms, preventing cold-start blank screens.
+
