@@ -246,19 +246,34 @@ const deleteSlot = async (slotId) => {
 };
 
 /**
- * Get published/scheduled posts for brand in given month/year
+ * Helper to compute [startOfMonth, startOfNextMonth] ISO range strings
+ */
+const getMonthDateRange = (month, year) => {
+  const m = parseInt(month, 10);
+  const y = parseInt(year, 10);
+  const startStr = `${y}-${String(m).padStart(2, '0')}-01 00:00:00`;
+  const nextMonth = m === 12 ? 1 : m + 1;
+  const nextYear = m === 12 ? y + 1 : y;
+  const endStr = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01 00:00:00`;
+  return { startStr, endStr };
+};
+
+/**
+ * Get published/scheduled posts for brand in given month/year using high-speed B-Tree index
  */
 const getBrandPostsForMonth = async (brandId, month, year) => {
+  const { startStr, endStr } = getMonthDateRange(month, year);
+
   let queryStr = `
-    SELECT id, brand_id, product_id, status, media_type, published_time, scheduled_time, message, media_url
+    SELECT id, brand_id, product_id, status, media_type, published_time, scheduled_time, message, media_url, thumbnail_url, fb_post_id, page_id, post_url
     FROM tb_post_tracker
     WHERE (
-      (published_time IS NOT NULL AND EXTRACT(MONTH FROM published_time) = $1 AND EXTRACT(YEAR FROM published_time) = $2)
+      (published_time IS NOT NULL AND published_time >= $1 AND published_time < $2)
       OR
-      (scheduled_time IS NOT NULL AND EXTRACT(MONTH FROM scheduled_time) = $1 AND EXTRACT(YEAR FROM scheduled_time) = $2)
+      (scheduled_time IS NOT NULL AND scheduled_time >= $1 AND scheduled_time < $2)
     )
   `;
-  const params = [month, year];
+  const params = [startStr, endStr];
 
   if (brandId && brandId !== 'all') {
     params.push(brandId);
@@ -266,6 +281,93 @@ const getBrandPostsForMonth = async (brandId, month, year) => {
   }
 
   const result = await db.query(queryStr, params);
+  return result.rows;
+};
+
+/**
+ * Find first unlinked planned slot matching post's brand, date, and content_type
+ */
+const findUnlinkedSlotForPost = async ({ brand_id, planned_date, content_type }) => {
+  let normalizedType = 'photo';
+  const t = (content_type || '').toLowerCase();
+  if (t === 'live') normalizedType = 'live';
+  else if (t === 'video' || t === 'reel') normalizedType = 'video';
+  else normalizedType = 'photo';
+
+  const result = await db.query(
+    `SELECT s.*, m.brand_id, m.brand_name
+     FROM tb_brand_mission_slot s
+     JOIN tb_brand_mission m ON m.id = s.mission_id
+     WHERE m.brand_id = $1
+       AND s.planned_date = $2
+       AND s.content_type = $3
+       AND s.linked_post_id IS NULL
+     ORDER BY s.id ASC
+     LIMIT 1`,
+    [brand_id, planned_date, normalizedType]
+  );
+  return result.rows[0] || null;
+};
+
+/**
+ * Persistently link a slot to a post with updated status
+ */
+const linkSlotToPost = async (slotId, postId, status = 'completed') => {
+  const result = await db.query(
+    `UPDATE tb_brand_mission_slot
+     SET linked_post_id = $1,
+         slot_status = $2,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = $3
+     RETURNING *`,
+    [postId, status, slotId]
+  );
+  return result.rows[0] || null;
+};
+
+/**
+ * Unlink any slots currently linked to a specific post ID (e.g. on post delete or reschedule)
+ */
+const unlinkSlotByPostId = async (postId) => {
+  const result = await db.query(
+    `UPDATE tb_brand_mission_slot
+     SET linked_post_id = NULL,
+         slot_status = 'planned',
+         updated_at = CURRENT_TIMESTAMP
+     WHERE linked_post_id = $1
+     RETURNING *`,
+    [postId]
+  );
+  return result.rows;
+};
+
+/**
+ * Get slot linked to a specific post ID
+ */
+const getSlotByLinkedPostId = async (postId) => {
+  const result = await db.query(
+    `SELECT * FROM tb_brand_mission_slot WHERE linked_post_id = $1 LIMIT 1`,
+    [postId]
+  );
+  return result.rows[0] || null;
+};
+
+/**
+ * Fetch all slots for all missions in a month with 1 batch query (Eliminating N+1 in audit)
+ */
+const getAllSlotsWithMissionsForMonth = async (month, year) => {
+  const result = await db.query(
+    `SELECT s.*, 
+            m.brand_id, m.brand_name,
+            p.id as post_id, p.fb_post_id, p.status as post_status, p.published_time, p.scheduled_time, 
+            p.message as post_message, p.media_url, p.thumbnail_url, p.page_id, p.post_url, p.media_type
+     FROM tb_brand_mission_slot s
+     JOIN tb_brand_mission m ON m.id = s.mission_id
+     LEFT JOIN tb_post_tracker p ON p.id = s.linked_post_id
+     WHERE m.month = $1 AND m.year = $2
+     ORDER BY s.planned_date ASC, s.id ASC`,
+    [parseInt(month, 10), parseInt(year, 10)]
+  );
   return result.rows;
 };
 
@@ -282,5 +384,11 @@ module.exports = {
   createSlot,
   deleteSlot,
   recalculateMissionTargets,
+  getMonthDateRange,
+  findUnlinkedSlotForPost,
+  linkSlotToPost,
+  unlinkSlotByPostId,
+  getSlotByLinkedPostId,
+  getAllSlotsWithMissionsForMonth,
 };
 

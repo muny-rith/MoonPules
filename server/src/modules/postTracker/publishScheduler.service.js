@@ -1,5 +1,6 @@
 const repository = require('./postTracker.repository');
 const facebookService = require('../facebook/facebook.service');
+const missionsService = require('../missions/missions.service');
 
 // Map of active in-memory timers: postId -> TimeoutId
 const activeTimers = new Map();
@@ -54,6 +55,7 @@ const executePublish = async (postId) => {
           );
         } catch (_) {}
 
+        missionsService.reconcilePostWithMission(updatedPost).catch(err => console.warn('[Scheduler] reconcile error:', err.message));
         return updatedPost;
       } else {
         // The post was scheduled natively on Facebook, but is not yet published (e.g. Publish Now was triggered early).
@@ -88,6 +90,7 @@ const executePublish = async (postId) => {
 
     // Update database to published
     const updatedPost = await repository.markPostAsPublished(post.id, permanentFbPostId, new Date());
+    missionsService.reconcilePostWithMission(updatedPost).catch(err => console.warn('[Scheduler] reconcile error:', err.message));
 
     // Fetch initial metrics
     try {

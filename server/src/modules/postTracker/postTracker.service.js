@@ -4,6 +4,7 @@ const productsService = require('../products/products.service');
 const publishScheduler = require('./publishScheduler.service');
 const storageService = require('../storage/supabaseStorage.service');
 const { getDateRangeBounds } = require('../../utils/filterUtils');
+const missionsService = require('../missions/missions.service');
 
 const parseMediaUrls = (mediaUrl) => {
   if (!mediaUrl) return [];
@@ -182,7 +183,9 @@ const createAndSchedulePost = async (postData) => {
 
   if (publish_now) {
     // Execute immediate publication and do not swallow errors
-    return await publishScheduler.executePublish(created.id);
+    const published = await publishScheduler.executePublish(created.id);
+    missionsService.reconcilePostWithMission(published || created).catch(err => console.warn('[createPost] reconcile error:', err.message));
+    return published;
   } else {
     // If scheduled >= 10 minutes in future, try native Facebook Graph API scheduling
     const targetMs = targetScheduledTime.getTime();
@@ -201,7 +204,9 @@ const createAndSchedulePost = async (postData) => {
         if (fbResult && fbResult.fb_post_id) {
           console.log(`[Scheduler] ✅ Natively scheduled on Facebook for post ${created.id}! FB Post ID: ${fbResult.fb_post_id}`);
           await repository.setScheduledPostFbId(created.id, fbResult.fb_post_id);
-          return await repository.getTrackedPostById(created.id);
+          const fullPost = await repository.getTrackedPostById(created.id);
+          missionsService.reconcilePostWithMission(fullPost || created).catch(err => console.warn('[createPost] reconcile error:', err.message));
+          return fullPost;
         }
       } catch (fbErr) {
         console.warn(`[Scheduler] Native FB scheduling attempt failed (${fbErr.message}). Falling back to MoonPulse in-memory scheduler.`);
@@ -210,6 +215,7 @@ const createAndSchedulePost = async (postData) => {
 
     // Arm precision timer to execute at exact scheduled_time
     publishScheduler.armPostTimer(created);
+    missionsService.reconcilePostWithMission(created).catch(err => console.warn('[createPost] reconcile error:', err.message));
     return created;
   }
 };
@@ -315,6 +321,8 @@ const markPost = async (postData) => {
 
   const products = await productsService.listProducts();
   const prod = products.find(p => String(p.id) === String(product_id));
+
+  missionsService.reconcilePostWithMission(trackedPost).catch(err => console.warn('[MarkPost] reconcile error:', err.message));
 
   return {
     ...trackedPost,
@@ -545,6 +553,9 @@ const editPostData = async (id, data) => {
     publishScheduler.cancelPostTimer(id);
   }
 
+  // Auto-reconcile mission slot if date, brand, or status was modified
+  missionsService.reconcilePostWithMission(updated).catch(err => console.warn('[EditPost] reconcile error:', err.message));
+
   return updated;
 };
 
@@ -600,6 +611,11 @@ const removePost = async (id) => {
 
   // 1. Delete post from DB first so reference checks reflect remaining active posts
   const result = await repository.deleteTrackedPost(id);
+
+  // Auto-unlink any mission slots that were tied to this post
+  missionsService.unreconcilePost(id).catch((err) => {
+    console.warn(`[DeletePost] unreconcilePost error for post ${id}:`, err.message);
+  });
 
   // 2. Clean up media and thumbnail files ONLY if not referenced by any other post
   const filesToCheck = [];
