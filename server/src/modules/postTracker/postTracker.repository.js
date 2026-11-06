@@ -415,6 +415,21 @@ const setScheduledPostFbId = async (id, fbPostId) => {
 };
 
 const markPostAsPublished = async (id, fbPostId, publishedTime) => {
+  if (fbPostId) {
+    const existingWithFbId = await db.query(
+      'SELECT id FROM tb_post_tracker WHERE fb_post_id = $1 AND id != $2',
+      [fbPostId, id]
+    );
+    if (existingWithFbId.rows.length > 0) {
+      console.warn(`[markPostAsPublished] Post ${id} has fb_post_id ${fbPostId} which is already claimed by post ${existingWithFbId.rows[0].id}. Archiving duplicate post ${id}.`);
+      const archived = await db.query(
+        `UPDATE tb_post_tracker SET status = 'archived', publish_error = 'Duplicate of post ' || $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *`,
+        [existingWithFbId.rows[0].id, id]
+      );
+      return archived.rows[0];
+    }
+  }
+
   const result = await db.query(`
     UPDATE tb_post_tracker
     SET fb_post_id = $1, status = 'published', published_time = $2, publish_error = NULL, updated_at = CURRENT_TIMESTAMP

@@ -13,10 +13,33 @@ const checkScheduledPosts = async () => {
   for (const row of scheduledRows) {
     if (!row.fb_post_id) continue;
     try {
-      const fbStatus = await facebookService.checkPublished(row.fb_post_id, row.page_id);
+      const fbStatus = await facebookService.checkPublished(row.fb_post_id, row.page_id, row);
       if (fbStatus.is_published) {
-        await postTrackerService.setPostPublished(row.id, fbStatus.created_time);
-        console.log(`[Cron] Post ${row.id} (${row.fb_post_id}) marked as published.`);
+        const permanentId = fbStatus.permanent_fb_post_id || row.fb_post_id;
+        await postTrackerService.markPostAsPublished(row.id, permanentId, fbStatus.created_time || new Date());
+        try {
+          const metrics = await facebookService.getPostMetrics(permanentId, row.page_id);
+          let views = null;
+          let reach = null;
+          try {
+            const insights = await facebookService.getInsights(permanentId, row.page_id);
+            const viewsData = insights.data?.find((m) => m.name === 'post_media_view');
+            const reachData = insights.data?.find((m) => m.name === 'post_total_media_view_unique');
+            views = viewsData?.values?.[0]?.value ?? null;
+            reach = reachData?.values?.[0]?.value ?? null;
+          } catch (_) {}
+
+          await postTrackerService.updateMetrics(
+            row.id,
+            metrics.likes,
+            metrics.comments,
+            metrics.shares,
+            views,
+            reach,
+            fbStatus.media_type || row.media_type || 'photo'
+          );
+        } catch (_) {}
+        console.log(`[Cron] Post ${row.id} (${permanentId}) marked as published.`);
       }
     } catch (err) {
       if (err.isTokenExpired) {
@@ -117,6 +140,10 @@ const syncCoolTier = async () => {
 const syncPostStatus = async (filters = {}) => {
   console.log(`[ScopedSync] Triggered with filters:`, filters);
   try {
+    // 1. First sweep scheduled posts so any live posts are reconciled and marked published
+    await checkScheduledPosts();
+
+    // 2. Fetch and sync scoped published posts
     const postsToSync = await postTrackerService.getPostsForScopedSync(filters);
     await syncPostsList(postsToSync, 'UserScoped');
     return { count: postsToSync.length };

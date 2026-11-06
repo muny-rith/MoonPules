@@ -49,8 +49,135 @@ const isLivePostSignal = (statusType, attType) => {
          at === 'video_broadcast';
 };
 
-const checkPublished = async (postId, pageId) => {
-  const { access_token } = await getPageCredentials(pageId);
+const reconcileScheduledPost = async (pageId, postDetails) => {
+  if (!postDetails) return null;
+  const { access_token, fb_page_id } = await getPageCredentials(pageId);
+
+  try {
+    // 1. Check if the post is still in the scheduled queue on Facebook
+    try {
+      const scheduledRes = await fbClient.getFbData(
+        `/${fb_page_id}/scheduled_posts?limit=50&fields=id,message,created_time`,
+        access_token
+      );
+      const scheduledList = scheduledRes?.data || [];
+      const cleanTargetMsg = (postDetails.message || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      const targetPrefix = cleanTargetMsg.slice(0, 50);
+
+      const stillScheduled = scheduledList.find((sp) => {
+        if (sp.id === String(postDetails.fb_post_id) || sp.id === String(postDetails.fb_post_id).split('_')[1]) {
+          return true;
+        }
+        if (targetPrefix) {
+          const spMsg = (sp.message || '').replace(/\s+/g, ' ').trim().toLowerCase();
+          return spMsg.startsWith(targetPrefix);
+        }
+        return false;
+      });
+
+      if (stillScheduled) {
+        console.log(`[reconcileScheduledPost] Post ${postDetails.id || postDetails.fb_post_id} is still in Facebook scheduled queue (ID: ${stillScheduled.id}).`);
+        return {
+          is_published: false,
+          created_time: null,
+          permanent_fb_post_id: stillScheduled.id,
+        };
+      }
+    } catch (_) {
+      // scheduled_posts endpoint error ignored, proceed to feed check
+    }
+
+    const rawMessage = (postDetails.message || '').trim();
+    const cleanMsg = rawMessage.replace(/\s+/g, ' ').trim().toLowerCase();
+    const cleanPrefix = cleanMsg.slice(0, 60);
+
+    const targetTimeMs = postDetails.scheduled_time
+      ? new Date(postDetails.scheduled_time).getTime()
+      : (postDetails.published_time ? new Date(postDetails.published_time).getTime() : 0);
+
+    // 2. Query page's recent published feed posts
+    let feedEndpoint = `/${fb_page_id}/posts?limit=50&fields=id,message,created_time,status_type,full_picture,attachments{media_type,type,media,target{id}}`;
+    if (targetTimeMs && targetTimeMs < Date.now() - 2 * 24 * 60 * 60 * 1000) {
+      const untilSec = Math.floor(targetTimeMs / 1000) + 7 * 86400;
+      const sinceSec = Math.floor(targetTimeMs / 1000) - 3 * 86400;
+      feedEndpoint = `/${fb_page_id}/posts?limit=100&since=${sinceSec}&until=${untilSec}&fields=id,message,created_time,status_type,full_picture,attachments{media_type,type,media,target{id}}`;
+    }
+
+    const feed = await fbClient.getFbData(
+      feedEndpoint,
+      access_token
+    );
+
+    const feedPosts = feed?.data || [];
+    if (feedPosts.length === 0) return null;
+
+    let match = null;
+
+    // A. Priority 1: Match by Message (Prefix or Contains)
+    if (cleanPrefix) {
+      match = feedPosts.find((fp) => {
+        const fpMsg = (fp.message || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        if (!fpMsg) return false;
+        const msgMatches =
+          fpMsg === cleanMsg ||
+          fpMsg.startsWith(cleanPrefix) ||
+          cleanMsg.startsWith(fpMsg.slice(0, 60)) ||
+          (cleanPrefix.length >= 25 && fpMsg.includes(cleanPrefix.slice(0, 40)));
+
+        if (!msgMatches) return false;
+
+        // If time is provided, make sure it's within a 48-hour window
+        if (targetTimeMs) {
+          const fpTimeMs = new Date(fp.created_time).getTime();
+          const diffHours = Math.abs(fpTimeMs - targetTimeMs) / (1000 * 60 * 60);
+          return diffHours <= 48;
+        }
+
+        return true;
+      });
+    }
+
+    // B. Priority 2: Match by time window (within 10m) if no message
+    if (!match && targetTimeMs && !cleanPrefix) {
+      match = feedPosts.find((fp) => {
+        const fpTimeMs = new Date(fp.created_time).getTime();
+        return Math.abs(fpTimeMs - targetTimeMs) <= 10 * 60 * 1000;
+      });
+    }
+
+    if (match) {
+      console.log(`[reconcileScheduledPost] ✅ Successfully reconciled post ${postDetails.id || ''} on Page ${pageId}: Old ID [${postDetails.fb_post_id}] -> Permanent Live FB ID [${match.id}]`);
+
+      let mediaType = 'photo';
+      const attMedia = match.attachments?.data?.[0]?.media_type?.toLowerCase();
+      const attType = match.attachments?.data?.[0]?.type?.toLowerCase();
+      const statusType = match.status_type?.toLowerCase();
+
+      if (isLivePostSignal(statusType, attType)) {
+        mediaType = 'live';
+      } else if (attMedia === 'video' || statusType === 'added_video') {
+        mediaType = 'video';
+      }
+
+      const pictureUrl = match.full_picture || match.attachments?.data?.[0]?.media?.image?.src || null;
+
+      return {
+        is_published: true,
+        created_time: new Date(match.created_time),
+        media_type: mediaType,
+        picture_url: pictureUrl,
+        permanent_fb_post_id: match.id,
+      };
+    }
+  } catch (err) {
+    console.warn(`[reconcileScheduledPost] Error reconciling post on Page ${pageId}:`, err.message);
+  }
+
+  return null;
+};
+
+const checkPublished = async (postId, pageId, postDetails = null) => {
+  const { access_token, fb_page_id } = await getPageCredentials(pageId);
   const postIdStr = String(postId).trim();
   const isVideoId = !postIdStr.includes('_');
 
@@ -69,6 +196,7 @@ const checkPublished = async (postId, pageId) => {
         created_time: createdDate,
         media_type: isLive ? 'live' : 'video',
         picture_url: data.picture || null,
+        permanent_fb_post_id: postIdStr,
       };
     } catch (err) {
       console.warn(`[checkPublished] Video query failed for ${postIdStr}: ${err.message}. Trying feed post check...`);
@@ -111,6 +239,7 @@ const checkPublished = async (postId, pageId) => {
       created_time: createdDate,
       media_type: mediaType,
       picture_url: pictureUrl,
+      permanent_fb_post_id: postIdStr,
     };
   } catch (feedErr) {
     if (feedErr.message?.includes('is_published') || feedErr.message?.includes('status_type') || feedErr.message?.includes('nonexisting field')) {
@@ -128,9 +257,41 @@ const checkPublished = async (postId, pageId) => {
           created_time: createdDate,
           media_type: isLive ? 'live' : 'video',
           picture_url: data.picture || null,
+          permanent_fb_post_id: postIdStr,
         };
       } catch (_) {}
     }
+
+    // ── FALLBACK RECONCILIATION FOR SCHEDULED POSTS WHOSE ID WAS CHANGED BY FACEBOOK ON PUBLISH ──
+    const isNotFoundOrDeleted =
+      feedErr.isPostDeleted ||
+      feedErr.message?.includes('Object does not exist') ||
+      feedErr.message?.includes('does not exist') ||
+      feedErr.fbError?.code === 10 ||
+      (feedErr.fbError?.code === 100 && feedErr.fbError?.error_subcode === 33);
+
+    if (isNotFoundOrDeleted) {
+      let resolvedDetails = postDetails;
+      if (!resolvedDetails) {
+        try {
+          const postRow = await db.query(
+            'SELECT id, brand_id, product_id, page_id, message, scheduled_time, published_time, media_url, fb_post_id, media_type FROM tb_post_tracker WHERE fb_post_id = $1 OR fb_post_id = $2 LIMIT 1',
+            [postIdStr, postIdStr.includes('_') ? postIdStr.split('_')[1] : `${fb_page_id}_${postIdStr}`]
+          );
+          if (postRow.rows.length > 0) {
+            resolvedDetails = postRow.rows[0];
+          }
+        } catch (_) {}
+      }
+
+      if (resolvedDetails) {
+        const reconciled = await reconcileScheduledPost(pageId, resolvedDetails);
+        if (reconciled) {
+          return reconciled;
+        }
+      }
+    }
+
     throw feedErr;
   }
 };
@@ -825,6 +986,7 @@ module.exports = {
   getScheduledPosts,
   getRecentPosts,
   checkPublished,
+  reconcileScheduledPost,
   getPostMediaType,
   getPostMedia,
   getInsights,

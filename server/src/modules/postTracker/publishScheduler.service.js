@@ -24,18 +24,19 @@ const executePublish = async (postId) => {
   // If post already has an fb_post_id (natively scheduled on Facebook or marked)
   if (post.fb_post_id) {
     try {
-      const fbStatus = await facebookService.checkPublished(post.fb_post_id, post.page_id);
+      const fbStatus = await facebookService.checkPublished(post.fb_post_id, post.page_id, post);
       if (fbStatus.is_published) {
-        console.log(`[Scheduler] Post ${postId} was already published on Facebook (${post.fb_post_id}). Marking as published.`);
-        const updatedPost = await repository.markPostAsPublished(post.id, post.fb_post_id, fbStatus.created_time || new Date());
+        const permanentId = fbStatus.permanent_fb_post_id || post.fb_post_id;
+        console.log(`[Scheduler] Post ${postId} was already published on Facebook (${permanentId}). Marking as published.`);
+        const updatedPost = await repository.markPostAsPublished(post.id, permanentId, fbStatus.created_time || new Date());
 
         // Fetch initial metrics
         try {
-          const metrics = await facebookService.getPostMetrics(post.fb_post_id, post.page_id);
+          const metrics = await facebookService.getPostMetrics(permanentId, post.page_id);
           let views = null;
           let reach = null;
           try {
-            const insights = await facebookService.getInsights(post.fb_post_id, post.page_id);
+            const insights = await facebookService.getInsights(permanentId, post.page_id);
             const viewsData = insights.data?.find((m) => m.name === 'post_media_view');
             const reachData = insights.data?.find((m) => m.name === 'post_total_media_view_unique');
             views = viewsData?.values?.[0]?.value ?? null;
@@ -183,23 +184,26 @@ const initScheduler = async () => {
       console.log(`[Scheduler] Found ${dueFbPosts.length} overdue Facebook scheduled posts. Checking status...`);
       for (const p of dueFbPosts) {
         try {
-          const fbStatus = await facebookService.checkPublished(p.fb_post_id, p.page_id);
+          const fbStatus = await facebookService.checkPublished(p.fb_post_id, p.page_id, p);
           if (fbStatus.is_published) {
-            await repository.updateTrackedPostStatus(p.id, 'published', fbStatus.created_time || new Date());
-            const metrics = await facebookService.getPostMetrics(p.fb_post_id, p.page_id);
-            const insights = await facebookService.getInsights(p.fb_post_id, p.page_id);
-            const viewsData = insights.data?.find((m) => m.name === 'post_media_view');
-            const reachData = insights.data?.find((m) => m.name === 'post_total_media_view_unique');
-            await repository.updateTrackedPostMetrics(
-              p.id,
-              metrics.likes,
-              metrics.comments,
-              metrics.shares,
-              viewsData?.values?.[0]?.value ?? null,
-              reachData?.values?.[0]?.value ?? null,
-              fbStatus.media_type || p.media_type
-            );
-            console.log(`[Scheduler] Overdue FB post ${p.id} marked as published.`);
+            const permanentId = fbStatus.permanent_fb_post_id || p.fb_post_id;
+            await repository.markPostAsPublished(p.id, permanentId, fbStatus.created_time || new Date());
+            try {
+              const metrics = await facebookService.getPostMetrics(permanentId, p.page_id);
+              const insights = await facebookService.getInsights(permanentId, p.page_id);
+              const viewsData = insights.data?.find((m) => m.name === 'post_media_view');
+              const reachData = insights.data?.find((m) => m.name === 'post_total_media_view_unique');
+              await repository.updateTrackedPostMetrics(
+                p.id,
+                metrics.likes,
+                metrics.comments,
+                metrics.shares,
+                viewsData?.values?.[0]?.value ?? null,
+                reachData?.values?.[0]?.value ?? null,
+                fbStatus.media_type || p.media_type
+              );
+            } catch (_) {}
+            console.log(`[Scheduler] Overdue FB post ${p.id} marked as published (${permanentId}).`);
           }
         } catch (fbErr) {
           console.warn(`[Scheduler] Error checking overdue FB post ${p.id}:`, fbErr.message);
@@ -230,23 +234,26 @@ const initScheduler = async () => {
         const dueFb = await repository.getDueScheduledFbPosts();
         for (const p of dueFb) {
           try {
-            const fbStatus = await facebookService.checkPublished(p.fb_post_id, p.page_id);
+            const fbStatus = await facebookService.checkPublished(p.fb_post_id, p.page_id, p);
             if (fbStatus.is_published) {
-              console.log(`[Scheduler Safety Sweep] FB scheduled post ${p.id} is now published on Facebook.`);
-              await repository.updateTrackedPostStatus(p.id, 'published', fbStatus.created_time || new Date());
-              const metrics = await facebookService.getPostMetrics(p.fb_post_id, p.page_id);
-              const insights = await facebookService.getInsights(p.fb_post_id, p.page_id);
-              const viewsData = insights.data?.find((m) => m.name === 'post_media_view');
-              const reachData = insights.data?.find((m) => m.name === 'post_total_media_view_unique');
-              await repository.updateTrackedPostMetrics(
-                p.id,
-                metrics.likes,
-                metrics.comments,
-                metrics.shares,
-                viewsData?.values?.[0]?.value ?? null,
-                reachData?.values?.[0]?.value ?? null,
-                fbStatus.media_type || p.media_type
-              );
+              const permanentId = fbStatus.permanent_fb_post_id || p.fb_post_id;
+              console.log(`[Scheduler Safety Sweep] FB scheduled post ${p.id} is now published on Facebook (${permanentId}).`);
+              await repository.markPostAsPublished(p.id, permanentId, fbStatus.created_time || new Date());
+              try {
+                const metrics = await facebookService.getPostMetrics(permanentId, p.page_id);
+                const insights = await facebookService.getInsights(permanentId, p.page_id);
+                const viewsData = insights.data?.find((m) => m.name === 'post_media_view');
+                const reachData = insights.data?.find((m) => m.name === 'post_total_media_view_unique');
+                await repository.updateTrackedPostMetrics(
+                  p.id,
+                  metrics.likes,
+                  metrics.comments,
+                  metrics.shares,
+                  viewsData?.values?.[0]?.value ?? null,
+                  reachData?.values?.[0]?.value ?? null,
+                  fbStatus.media_type || p.media_type
+                );
+              } catch (_) {}
             }
           } catch (err) {
             console.warn(`[Scheduler Safety Sweep] Checking FB post ${p.id} status:`, err.message);

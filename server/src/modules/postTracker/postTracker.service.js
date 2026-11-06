@@ -379,8 +379,15 @@ const getPostsForScopedSync = async (filters = {}) => {
 };
 
 
-const setPostPublished = async (id, publishedTime) => {
+const setPostPublished = async (id, publishedTime, fbPostId = null) => {
+  if (fbPostId) {
+    return await repository.markPostAsPublished(id, fbPostId, publishedTime || new Date());
+  }
   return await repository.updateTrackedPostStatus(id, 'published', publishedTime || new Date());
+};
+
+const markPostAsPublished = async (id, fbPostId, publishedTime) => {
+  return await repository.markPostAsPublished(id, fbPostId, publishedTime || new Date());
 };
 
 const updatePost = async (id, { status, published_time }) => {
@@ -631,6 +638,7 @@ module.exports = {
   getCoolPublishedPosts,
   getPostsForScopedSync,
   setPostPublished,
+  markPostAsPublished,
   updatePost,
   updateMetrics,
   editPostData,

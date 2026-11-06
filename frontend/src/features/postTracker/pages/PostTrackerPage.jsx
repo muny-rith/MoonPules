@@ -627,28 +627,26 @@ export const PostTrackerPage = () => {
                             <ExternalLink size={14} />
                           </a>
                         )}
-                        {post.status === POST_STATUS.PUBLISHED && (
-                          <button
-                            title="Refresh Metrics from Facebook"
-                            onClick={(e) => handleRefreshSinglePost(e, post.id)}
-                            disabled={refreshingId === post.id}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              width: '28px',
-                              height: '28px',
-                              borderRadius: '6px',
-                              color: '#0891b2',
-                              backgroundColor: '#ecfeff',
-                              border: '1px solid #a5f3fc',
-                              cursor: refreshingId === post.id ? 'not-allowed' : 'pointer',
-                              transition: 'all 0.2s',
-                            }}
-                          >
-                            <RefreshCw size={13} className={refreshingId === post.id ? 'spin-animation' : ''} />
-                          </button>
-                        )}
+                        <button
+                          title={post.status === POST_STATUS.PUBLISHED ? "Refresh Metrics from Facebook" : "Check & Sync Status with Facebook"}
+                          onClick={(e) => handleRefreshSinglePost(e, post.id)}
+                          disabled={refreshingId === post.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '6px',
+                            color: '#0891b2',
+                            backgroundColor: '#ecfeff',
+                            border: '1px solid #a5f3fc',
+                            cursor: refreshingId === post.id ? 'not-allowed' : 'pointer',
+                            transition: 'all 0.2s',
+                          }}
+                        >
+                          <RefreshCw size={13} className={refreshingId === post.id ? 'spin-animation' : ''} />
+                        </button>
                         <button
                           title="Edit Post"
                           onClick={(e) => {
@@ -889,17 +887,15 @@ export const PostTrackerPage = () => {
                         <ExternalLink size={14} />
                       </a>
                     )}
-                    {post.status === POST_STATUS.PUBLISHED && (
-                      <button
-                        onClick={(e) => handleRefreshSinglePost(e, post.id)}
-                        disabled={refreshingId === post.id}
-                        className="btn-icon-action"
-                        title="Refresh Facebook Metrics"
-                        style={{ color: '#0891b2', backgroundColor: '#ecfeff' }}
-                      >
-                        <RefreshCw size={14} className={refreshingId === post.id ? 'spin-animation' : ''} />
-                      </button>
-                    )}
+                    <button
+                      onClick={(e) => handleRefreshSinglePost(e, post.id)}
+                      disabled={refreshingId === post.id}
+                      className="btn-icon-action"
+                      title={post.status === POST_STATUS.PUBLISHED ? "Refresh Facebook Metrics" : "Check & Sync Status with Facebook"}
+                      style={{ color: '#0891b2', backgroundColor: '#ecfeff' }}
+                    >
+                      <RefreshCw size={14} className={refreshingId === post.id ? 'spin-animation' : ''} />
+                    </button>
                     <button onClick={(e) => { e.stopPropagation(); navigate(`/tasks/edit/${post.id}`, { state: { from: location.pathname + location.search } }); }} className="btn-icon-action" title="Edit Post">
                       <Edit2 size={14} />
                     </button>

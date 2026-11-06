@@ -274,9 +274,38 @@ const triggerSync = async (req, res, next) => {
 const refreshSinglePost = async (req, res, next) => {
   try {
     const { id } = req.params;
-    await syncPostStatus({ postId: id });
+    const post = await service.getPostById(id);
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+
+    if (post.status === 'scheduled') {
+      if (post.fb_post_id) {
+        const facebookService = require('../facebook/facebook.service');
+        const fbStatus = await facebookService.checkPublished(post.fb_post_id, post.page_id, post);
+        if (fbStatus.is_published) {
+          const permanentId = fbStatus.permanent_fb_post_id || post.fb_post_id;
+          await service.markPostAsPublished(post.id, permanentId, fbStatus.created_time || new Date());
+          try {
+            const metrics = await facebookService.getPostMetrics(permanentId, post.page_id);
+            const insights = await facebookService.getInsights(permanentId, post.page_id);
+            const viewsData = insights.data?.find((m) => m.name === 'post_media_view');
+            const reachData = insights.data?.find((m) => m.name === 'post_total_media_view_unique');
+            await service.updateMetrics(
+              post.id,
+              metrics.likes,
+              metrics.comments,
+              metrics.shares,
+              viewsData?.values?.[0]?.value ?? null,
+              reachData?.values?.[0]?.value ?? null,
+              fbStatus.media_type || post.media_type || 'photo'
+            );
+          } catch (_) {}
+        }
+      }
+    } else {
+      await syncPostStatus({ postId: id });
+    }
+
     const updated = await service.getPostById(id);
-    if (!updated) return res.status(404).json({ error: 'Post not found' });
     res.json(updated);
   } catch (error) {
     next(error);
