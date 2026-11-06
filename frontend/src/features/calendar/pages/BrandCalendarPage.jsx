@@ -767,94 +767,18 @@ export const BrandCalendarPage = () => {
                               }}
                               title={`Click to ${slot.linked_post?.id ? 'view post' : 'create post'} for ${slot.brand_name} (${isCompleted ? 'Live on Facebook' : isScheduled ? 'Scheduled' : isMissed ? 'Overdue' : 'Planned deliverable'})`}
                             >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', overflow: 'hidden' }}>
-                                {/* Option 3: Mini Thumbnail / Icon with Facebook Badge */}
-                                {isCompleted && thumbUrl ? (
-                                  <div style={{ position: 'relative', width: '20px', height: '20px', flexShrink: 0 }}>
-                                    <SafeImage
-                                      src={thumbUrl}
-                                      alt="Post thumbnail"
-                                      style={{
-                                        width: '20px',
-                                        height: '20px',
-                                        borderRadius: '3px',
-                                        objectFit: 'cover',
-                                        border: '1px solid #e2e8f0',
-                                      }}
-                                      fallbackText="FB"
-                                    />
-                                    <div style={{
-                                      position: 'absolute',
-                                      bottom: '-3px',
-                                      right: '-3px',
-                                      backgroundColor: '#ffffff',
-                                      borderRadius: '50%',
-                                      width: '9px',
-                                      height: '9px',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
-                                    }}>
-                                      <FaFacebook size={7} color="#1877F2" />
-                                    </div>
-                                  </div>
-                                ) : isCompleted ? (
-                                  <div style={{
-                                    width: '18px',
-                                    height: '18px',
-                                    borderRadius: '3px',
-                                    backgroundColor: '#16a34a',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+                                {/* Content-Type Color Accent Bar */}
+                                <span
+                                  style={{
+                                    width: '3.5px',
+                                    height: '14px',
+                                    backgroundColor: typeInfo.color,
+                                    borderRadius: '2px',
                                     flexShrink: 0,
-                                    boxShadow: '0 1px 2px rgba(22,163,74,0.3)'
-                                  }}>
-                                    <Check size={10} strokeWidth={3} color="#ffffff" />
-                                  </div>
-                                ) : isScheduled ? (
-                                  <div style={{
-                                    width: '18px',
-                                    height: '18px',
-                                    borderRadius: '3px',
-                                    backgroundColor: '#eff6ff',
-                                    border: '1px solid #93c5fd',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    flexShrink: 0
-                                  }}>
-                                    <Clock size={10} color="#2563eb" />
-                                  </div>
-                                ) : isMissed ? (
-                                  <div style={{
-                                    width: '18px',
-                                    height: '18px',
-                                    borderRadius: '3px',
-                                    backgroundColor: '#fee2e2',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    flexShrink: 0
-                                  }}>
-                                    <AlertTriangle size={10} color="#dc2626" />
-                                  </div>
-                                ) : (
-                                  <div style={{
-                                    width: '18px',
-                                    height: '18px',
-                                    borderRadius: '3px',
-                                    backgroundColor: '#f8fafc',
-                                    border: '1px dashed #cbd5e1',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    flexShrink: 0
-                                  }}>
-                                    <IconComp size={9} color="#94a3b8" />
-                                  </div>
-                                )}
+                                  }}
+                                  title={`${typeInfo.label} deliverable`}
+                                />
 
                                 {/* Brand Name */}
                                 <span style={{
