@@ -6,6 +6,7 @@ import { useToast } from '../../../shared/context/ToastContext';
 import { ProductPicker } from '../../product/component/ProductPicker';
 import { BrandPicker } from '../../product/component/BrandPicker';
 import { usePostTracker } from '../hooks/usePostTracker';
+import { invalidatePostAndMissionCaches } from '../../../shared/utils/cacheSync';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   Upload,
@@ -778,6 +779,7 @@ export const EditPostPage = () => {
   const handleDeletePost = async (postId) => {
     try {
       await api.deletePost(postId || id);
+      await invalidatePostAndMissionCaches();
       toast.success('Post removed successfully!');
       navigate(returnPath);
     } catch (err) {

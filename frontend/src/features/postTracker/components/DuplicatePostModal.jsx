@@ -18,6 +18,7 @@ import * as api from '../api/postTrackerApi';
 import { Modal, Button } from '../../../shared/components/ui';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
 import { resolveMediaUrl, isVideoMedia } from '../../../shared/utils/mediaUrl';
+import { invalidatePostAndMissionCaches } from '../../../shared/utils/cacheSync';
 import { MetaSchedulePicker } from './MetaSchedulePicker';
 
 export const DuplicatePostModal = ({
@@ -123,6 +124,9 @@ export const DuplicatePostModal = ({
           })
         )
       );
+
+      // Invalidate all cache tiers so Planner, Calendar, and Post Tracker show the new duplicate
+      await invalidatePostAndMissionCaches();
 
       onClose();
       if (onSuccess) onSuccess();

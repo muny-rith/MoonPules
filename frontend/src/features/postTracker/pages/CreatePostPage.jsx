@@ -8,6 +8,7 @@ import { parseFbPostUrl } from '../utils/parseFbPostUrl';
 import { ProductPicker } from '../../product/component/ProductPicker';
 import { BrandPicker } from '../../product/component/BrandPicker';
 import { usePostTracker } from '../hooks/usePostTracker';
+import { invalidatePostAndMissionCaches } from '../../../shared/utils/cacheSync';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Send,
@@ -919,6 +920,9 @@ export const CreatePostPage = () => {
       }
 
       clearMessageDraft();
+      // Ensure all cache tiers (TanStack Query, session, modules) are instantly refreshed
+      await invalidatePostAndMissionCaches();
+
       const successMessage = publishMode === 'schedule'
         ? 'Post scheduled successfully!'
         : 'Post created and tracked successfully!';

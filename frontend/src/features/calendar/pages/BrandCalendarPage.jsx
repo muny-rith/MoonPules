@@ -28,6 +28,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import * as missionApi from '../../missions/api/missionApi';
 import { useBrands, usePages, useCalendarSlots, useMonthAudit } from '../../../shared/hooks/queries';
 import { queryKeys } from '../../../shared/utils/queryKeys';
+import { invalidatePostAndMissionCaches, invalidateMissionCaches } from '../../../shared/utils/cacheSync';
 import { usePostTracker } from '../../postTracker/hooks/usePostTracker';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
 import { Select, Button, Modal } from '../../../shared/components/ui';
@@ -112,10 +113,7 @@ export const BrandCalendarPage = () => {
   const { posts } = usePostTracker({ range: 'all' });
 
   const handleRefresh = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.missions.all }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.posts.all }),
-    ]);
+    await invalidatePostAndMissionCaches();
   };
 
   // Date Navigation
@@ -1007,7 +1005,7 @@ export const BrandCalendarPage = () => {
         initialYear={yearNumber}
         initialBrandId={selectedBrandId !== 'all' ? selectedBrandId : (brands[0] ? String(brands[0].brand_id || brands[0].id) : '')}
         onSaved={() => {
-          queryClient.invalidateQueries({ queryKey: queryKeys.missions.all });
+          invalidateMissionCaches();
         }}
       />
 

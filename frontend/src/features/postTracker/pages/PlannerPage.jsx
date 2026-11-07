@@ -411,7 +411,7 @@ export const PlannerPage = () => {
 
       return true;
     });
-  }, [posts, selectedPageId, contentTypeFilter, searchQuery]);
+  }, [posts, selectedPageId, contentTypeFilter, brandFilter, searchQuery]);
 
   // Group filtered posts by local dateKey "YYYY-MM-DD"
   const postsByDate = useMemo(() => {

@@ -1,6 +1,7 @@
 import { useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../../shared/utils/queryKeys';
+import { invalidatePostAndMissionCaches } from '../../../shared/utils/cacheSync';
 import * as api from '../api/postTrackerApi';
 
 export const usePostTracker = (initialParams = { range: 'this_month' }) => {
@@ -22,13 +23,10 @@ export const usePostTracker = (initialParams = { range: 'this_month' }) => {
     select: (data) => (Array.isArray(data) ? data : []),
   });
 
-  // Invalidate posts & missions when any mutation occurs
+  // Invalidate posts, missions, stats & local caches when any mutation occurs
   const invalidateAll = useCallback(async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.posts.all }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.missions.all }),
-    ]);
-  }, [queryClient]);
+    await invalidatePostAndMissionCaches();
+  }, []);
 
   // Create post mutation
   const createMutation = useMutation({

@@ -25,6 +25,7 @@ import * as brandStatsService from '../../statistics/services/brandStatsService'
 import { SetMissionModal } from './SetMissionModal';
 import { SlotDatePopover } from './SlotDatePopover';
 import { AddSlotModal } from './AddSlotModal';
+import { invalidateMissionCaches } from '../../../shared/utils/cacheSync';
 
 // In-memory cache for BrandUnifiedExpandableHub (0ms instant back navigation)
 const hubCache = new Map();
@@ -323,6 +324,7 @@ export const BrandUnifiedExpandableHub = () => {
       time_window: slotData.time_window,
       notes: slotData.notes,
     });
+    await invalidateMissionCaches();
     setAllSlots((prev) =>
       prev.map((s) =>
         s.id === slotData.id
@@ -341,6 +343,7 @@ export const BrandUnifiedExpandableHub = () => {
 
   const handleDeleteSlot = async (slotId) => {
     await missionApi.deleteSlot(slotId);
+    await invalidateMissionCaches();
     setAllSlots((prev) => prev.filter((s) => s.id !== slotId));
     setAuditList((prev) =>
       prev.map((a) => {
@@ -359,6 +362,7 @@ export const BrandUnifiedExpandableHub = () => {
 
   const handleAddSlot = async (slotData) => {
     const res = await missionApi.createSlot(slotData);
+    await invalidateMissionCaches();
     if (res?.data) {
       setAllSlots((prev) => [...prev, res.data]);
     }

@@ -13,6 +13,7 @@ import { SetMissionModal } from './SetMissionModal';
 import { SlotDatePopover } from './SlotDatePopover';
 import { AddSlotModal } from './AddSlotModal';
 import { Button } from '../../../shared/components/ui';
+import { invalidateMissionCaches } from '../../../shared/utils/cacheSync';
 
 export const BrandDeliverablesHub = () => {
   const navigate = useNavigate();
@@ -250,18 +251,21 @@ export const BrandDeliverablesHub = () => {
       time_window: slotData.time_window,
       notes: slotData.notes,
     });
+    await invalidateMissionCaches();
     await loadData();
   };
 
   // Handle slot delete
   const handleDeleteSlot = async (slotId) => {
     await missionApi.deleteSlot(slotId);
+    await invalidateMissionCaches();
     await loadData();
   };
 
   // Handle slot create
   const handleCreateSlot = async (payload) => {
     await missionApi.createSlot(payload);
+    await invalidateMissionCaches();
     await loadData();
   };
 

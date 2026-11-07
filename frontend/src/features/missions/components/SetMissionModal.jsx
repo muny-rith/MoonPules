@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useBrands } from '../../../shared/hooks/queries';
 import { useToast } from '../../../shared/context/ToastContext';
 import { queryKeys } from '../../../shared/utils/queryKeys';
+import { invalidateMissionCaches } from '../../../shared/utils/cacheSync';
 import * as missionApi from '../api/missionApi';
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, Select, Input, DatePicker } from '../../../shared/components/ui';
 
@@ -212,7 +213,7 @@ export const SetMissionModal = ({
       };
 
       const result = await missionApi.saveMission(payload);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.missions.all });
+      await invalidateMissionCaches();
       toast.success('Brand Schedule Blueprint saved successfully!');
       if (onSaved) onSaved(result);
       onClose();

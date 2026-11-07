@@ -28,6 +28,7 @@ import {
   getCachedBrandDetail,
   clearBrandCache
 } from '../services/brandStatsService';
+import { invalidateMissionCaches } from '../../../shared/utils/cacheSync';
 import { BrandInsightsChart } from '../components/BrandInsightsChart';
 import { syncPosts, refreshPostById } from '../../postTracker/api/postTrackerApi';
 import { ExportModal } from '../components/ExportModal';
@@ -231,18 +232,21 @@ export const BrandDetailPage = () => {
       time_window: slotData.time_window,
       notes: slotData.notes,
     });
+    await invalidateMissionCaches();
     await loadBrandMission();
     await fetchDetail(true);
   };
 
   const handleDeleteSlot = async (slotId) => {
     await missionApi.deleteSlot(slotId);
+    await invalidateMissionCaches();
     await loadBrandMission();
     await fetchDetail(true);
   };
 
   const handleAddSlot = async (newSlot) => {
     await missionApi.createSlot(newSlot);
+    await invalidateMissionCaches();
     await loadBrandMission();
     await fetchDetail(true);
   };
