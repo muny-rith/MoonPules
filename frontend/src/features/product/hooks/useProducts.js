@@ -1,14 +1,34 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import * as productService from '../services/productService';
 import { useUrlFilters } from '../../../shared/hooks/useUrlFilters';
 
 export const useProducts = () => {
-  const initialProds = productService.getCachedProducts();
-  const initialCats = productService.getCachedProductCategories();
-  const [products, setProducts] = useState(() => initialProds || []);
-  const [categories, setCategories] = useState(() => initialCats || []);
-  const [loading, setLoading] = useState(() => !initialProds);
-  const [error, setError] = useState(null);
+  // TanStack Query: Cached products & categories
+  const {
+    data: products = [],
+    isLoading: prodsLoading,
+    error: prodsError,
+    refetch: refetchProds,
+  } = useQuery({
+    queryKey: ['products', 'list'],
+    queryFn: () => productService.fetchProducts(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const {
+    data: categories = [],
+    isLoading: catsLoading,
+    error: catsError,
+    refetch: refetchCats,
+  } = useQuery({
+    queryKey: ['products', 'categories'],
+    queryFn: () => productService.fetchProductCategories(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const loading = prodsLoading || catsLoading;
+  const error = prodsError?.message || catsError?.message || null;
 
   // URL-synced filters
   const { filters, setFilter, resetFilters } = useUrlFilters(
@@ -35,37 +55,9 @@ export const useProducts = () => {
   const setStockFilter = useCallback((val) => setFilter('stock', val), [setFilter]);
   const setViewMode = useCallback((val) => setFilter('view', val), [setFilter]);
 
-  const loadData = useCallback(async (force = false) => {
-    try {
-      const hasCached = !!productService.getCachedProducts();
-      if (!hasCached || force) {
-        setLoading(true);
-      }
-      setError(null);
-      const [prodsData, catsData] = await Promise.all([
-        productService.fetchProducts({}, force),
-        productService.fetchProductCategories(force)
-      ]);
-      setProducts(prodsData || []);
-      setCategories(catsData || []);
-    } catch (err) {
-      console.error('Failed to load products:', err);
-      if (!productService.getCachedProducts()) {
-        setError(err?.response?.data?.error || err.message || 'Failed to fetch products');
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   const reload = useCallback(() => {
-    productService.clearProductCache();
-    return loadData(true);
-  }, [loadData]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+    return Promise.all([refetchProds(), refetchCats()]);
+  }, [refetchProds, refetchCats]);
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {

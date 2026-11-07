@@ -6,5 +6,6 @@ export * from './components/BrandDeliverablesHub';
 export * from './components/BrandUnifiedExpandableHub';
 export * from './components/SlotDatePopover';
 export * from './components/AddSlotModal';
+export * from './hooks/useSlotMutations';
 
 

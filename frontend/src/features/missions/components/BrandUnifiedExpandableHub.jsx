@@ -20,28 +20,14 @@ import {
 import { Input, Select, Button, Skeleton } from '../../../shared/components/ui';
 import { BrandUnifiedTableSkeleton } from '../../../shared/components/skeletons';
 import * as missionApi from '../api/missionApi';
-import * as productService from '../../product/services/productService';
-import * as brandStatsService from '../../statistics/services/brandStatsService';
+import { useBrands, useMonthAudit, useCalendarSlots, useBrandStats } from '../../../shared/hooks/queries';
 import { SetMissionModal } from './SetMissionModal';
 import { SlotDatePopover } from './SlotDatePopover';
 import { AddSlotModal } from './AddSlotModal';
 import { invalidateMissionCaches } from '../../../shared/utils/cacheSync';
 
-// In-memory cache for BrandUnifiedExpandableHub (0ms instant back navigation)
-const hubCache = new Map();
-const HUB_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
-export const clearHubCache = () => {
-  hubCache.clear();
-};
-
-const getCachedHub = (month, year) => {
-  const item = hubCache.get(`hub_${month}_${year}`);
-  if (item && Date.now() - item.timestamp < HUB_CACHE_TTL) {
-    return item.data;
-  }
-  return null;
-};
+// Legacy helper for backwards compatibility (no-op since TanStack Query manages cache)
+export const clearHubCache = () => {};
 
 export const BrandUnifiedExpandableHub = () => {
   const navigate = useNavigate();
@@ -60,26 +46,40 @@ export const BrandUnifiedExpandableHub = () => {
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
-  // Retrieve cached hub state for instant 0ms back-navigation
-  const initialCached = getCachedHub(month, year);
+  // TanStack Query: Master Brands, Monthly Audit, Calendar Slots, and Brand Stats
+  const { data: allMasterBrands = [] } = useBrands();
+  const { data: rawAudit = [], isLoading: auditLoading } = useMonthAudit(month, year);
+  const { data: rawSlots = [], isLoading: slotsLoading } = useCalendarSlots('all', month, year);
+
+  const startOfMonth = useMemo(() => new Date(year, month - 1, 1).toISOString(), [year, month]);
+  const endOfMonth = useMemo(() => new Date(year, month, 0, 23, 59, 59, 999).toISOString(), [year, month]);
+  const statsParams = useMemo(() => ({ startDate: startOfMonth, endDate: endOfMonth }), [startOfMonth, endOfMonth]);
+  const { data: statsList = [], isLoading: statsLoading } = useBrandStats(statsParams);
+
+  const loading = auditLoading || slotsLoading || statsLoading;
+
+  // Local state for optimistic mutation overrides
+  const [auditList, setAuditList] = useState([]);
+  const [allSlots, setAllSlots] = useState([]);
+
+  useEffect(() => {
+    setAuditList(rawAudit);
+  }, [rawAudit]);
+
+  useEffect(() => {
+    setAllSlots(rawSlots);
+  }, [rawSlots]);
 
   // Filters & State
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('active_brands'); // 'active_brands' | 'planned' | 'on_track' | 'at_risk' | 'completed' | 'all'
   const [sortBy, setSortBy] = useState('brand_name'); // 'brand_name' (default) | 'views_desc' | 'reach_desc' | 'completion' | 'slots'
-  const [loading, setLoading] = useState(() => !initialCached);
 
   // Expanded Rows State (Set of brand_ids)
   const [expandedBrandIds, setExpandedBrandIds] = useState(() => new Set());
 
   // Multi-select for Combined View
   const [selectedBrandIds, setSelectedBrandIds] = useState([]);
-
-  // Raw data from APIs (initialized instantly from cache if available)
-  const [allMasterBrands, setAllMasterBrands] = useState(() => initialCached?.brands || []);
-  const [auditList, setAuditList] = useState(() => initialCached?.audit || []);
-  const [allSlots, setAllSlots] = useState(() => initialCached?.slots || []);
-  const [statsList, setStatsList] = useState(() => initialCached?.stats || []);
 
   // Modals & Popovers
   const [activeBlueprintModal, setActiveBlueprintModal] = useState({ isOpen: false, brandId: null });
@@ -89,44 +89,6 @@ export const BrandUnifiedExpandableHub = () => {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
-
-  // Load Data with Stale-While-Revalidate
-  const loadData = async (force = false) => {
-    try {
-      const cached = getCachedHub(month, year);
-      if (!cached || force) {
-        setLoading(true);
-      }
-      const startOfMonth = new Date(year, month - 1, 1).toISOString();
-      const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999).toISOString();
-
-      const [brands, audit, slots, stats] = await Promise.all([
-        productService.fetchBrands().catch(() => []),
-        missionApi.getMonthAudit(month, year).catch(() => []),
-        missionApi.getCalendarSlots('all', month, year).catch(() => []),
-        brandStatsService.getBrandStats({ startDate: startOfMonth, endDate: endOfMonth }, force).catch(() => []),
-      ]);
-
-      setAllMasterBrands(brands || []);
-      setAuditList(audit || []);
-      setAllSlots(slots || []);
-      setStatsList(stats || []);
-
-      // Cache data for instant re-render on back navigation
-      hubCache.set(`hub_${month}_${year}`, {
-        data: { brands: brands || [], audit: audit || [], slots: slots || [], stats: stats || [] },
-        timestamp: Date.now()
-      });
-    } catch (err) {
-      console.error('Failed to load unified brand hub data:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, [month, year]);
 
   // Merge Brands, Missions, and Performance Analytics
   const mergedBrands = useMemo(() => {
@@ -1295,7 +1257,7 @@ export const BrandUnifiedExpandableHub = () => {
         initialYear={year}
         onClose={() => setActiveBlueprintModal({ isOpen: false, brandId: null })}
         onSaved={() => {
-          loadData(true);
+          invalidateMissionCaches();
         }}
       />
     </div>

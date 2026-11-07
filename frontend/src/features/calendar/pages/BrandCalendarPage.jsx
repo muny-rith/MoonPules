@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link, useSearchParams } from 'react-router-dom';
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -57,11 +57,21 @@ export const BrandCalendarPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const brandParam = searchParams.get('brand_id') || searchParams.get('brand') || 'all';
+  const monthParam = parseInt(searchParams.get('month'), 10);
+  const yearParam = parseInt(searchParams.get('year'), 10);
+
   // Active Month & Year
   const [currentDate, setCurrentDate] = useState(() => {
-    // Default to October 2026 if today is in late 2026, or current real month
     const d = new Date();
     d.setDate(1);
+    if (!isNaN(monthParam) && monthParam >= 1 && monthParam <= 12) {
+      d.setMonth(monthParam - 1);
+    }
+    if (!isNaN(yearParam) && yearParam >= 2000) {
+      d.setFullYear(yearParam);
+    }
     return d;
   });
 
@@ -69,8 +79,22 @@ export const BrandCalendarPage = () => {
   const yearNumber = currentDate.getFullYear();
   const monthName = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
-  // Filters
-  const [selectedBrandId, setSelectedBrandId] = useState('all'); // 'all' shows all brands
+  // Filters (synced with URL)
+  const [selectedBrandId, setSelectedBrandIdState] = useState(brandParam);
+
+  const setSelectedBrandId = (newId) => {
+    setSelectedBrandIdState(newId);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (newId && newId !== 'all') {
+        next.set('brand_id', newId);
+      } else {
+        next.delete('brand_id');
+      }
+      return next;
+    }, { replace: true });
+  };
+
   const [selectedPageId, setSelectedPageId] = useState('all');   // 'all' shows all pages
   const [missionStatusFilter, setMissionStatusFilter] = useState('all'); // 'all' | 'completed' | 'pending'
   const [selectedContentType, setSelectedContentType] = useState('all');
@@ -116,23 +140,33 @@ export const BrandCalendarPage = () => {
     await invalidatePostAndMissionCaches();
   };
 
-  // Date Navigation
+  // Date Navigation with URL preservation
+  const updateDateAndUrl = (newDate) => {
+    setCurrentDate(newDate);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('month', String(newDate.getMonth() + 1));
+      next.set('year', String(newDate.getFullYear()));
+      return next;
+    }, { replace: true });
+  };
+
   const handlePrevMonth = () => {
     const prev = new Date(currentDate);
     prev.setMonth(prev.getMonth() - 1);
-    setCurrentDate(prev);
+    updateDateAndUrl(prev);
   };
 
   const handleNextMonth = () => {
     const next = new Date(currentDate);
     next.setMonth(next.getMonth() + 1);
-    setCurrentDate(next);
+    updateDateAndUrl(next);
   };
 
   const handleCurrentMonth = () => {
     const d = new Date();
     d.setDate(1);
-    setCurrentDate(d);
+    updateDateAndUrl(d);
   };
 
   // Build Calendar Matrix for the active month (Monday to Sunday)

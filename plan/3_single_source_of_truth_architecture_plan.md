@@ -151,3 +151,4 @@ flowchart LR
 3. **Brand Filter Smoothness:** Switching Brand dropdown in `/planner` filters cards instantly (0ms delay).
 4. **Vite Production Build:** `npm run build` must succeed with 0 errors and 0 warnings.
 5. **Session Persistence:** Hard refreshing (F5) on any page must rehydrate data in `< 1ms` without skeleton flashes.
+

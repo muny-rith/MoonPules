@@ -1,127 +1,42 @@
 import api from '../../../shared/utils/apiClient';
 
-// In-memory cache storage for Brand Statistics
-const brandCache = new Map();
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache lifetime
+/**
+ * Brand Statistics API Service
+ * Clean stateless API service. Caching is handled exclusively by TanStack Query.
+ */
 
-const getCacheKey = (prefix, params = {}) => {
-  return `${prefix}_${JSON.stringify(params)}`;
-};
+// Legacy helper for backwards compatibility (no-op since TanStack Query manages cache)
+export const clearBrandCache = () => {};
+export const getCachedBrandStats = () => null;
+export const getCachedBrandDetail = () => null;
 
 /**
- * Retrieve cached brand stats if valid
+ * Fetch all brand statistics from API
  */
-export const getCachedBrandStats = (params = {}) => {
-  const item = brandCache.get(getCacheKey('brand_stats', params));
-  if (item && Date.now() - item.timestamp < CACHE_TTL_MS) {
-    return item.data;
-  }
-  return null;
-};
-
-/**
- * Retrieve cached brand detail by ID or combined key if valid
- * Supports exact parameter match with smart fallback to most recent valid data for 0ms back-navigation
- */
-export const getCachedBrandDetail = (key, params = null) => {
-  if (params && Object.keys(params).length > 0) {
-    const cacheKey = getCacheKey(`brand_detail_${key}`, params);
-    const item = brandCache.get(cacheKey);
-    if (item && Date.now() - item.timestamp < CACHE_TTL_MS) {
-      return item.data;
-    }
-  }
-
-  // Fallback: If no exact param match, retrieve the most recent fresh entry for this brand
-  const prefix = `brand_detail_${key}_`;
-  for (const [k, item] of brandCache.entries()) {
-    if (k.startsWith(prefix) && Date.now() - item.timestamp < CACHE_TTL_MS) {
-      return item.data;
-    }
-  }
-  return null;
-};
-
-/**
- * Clear all brand caches (used when user clicks Sync)
- */
-export const clearBrandCache = () => {
-  brandCache.clear();
-};
-
-/**
- * Fetch all brand statistics (served from memory cache if fresh, otherwise from API)
- */
-export const getBrandStats = async (params = {}, forceRefresh = false) => {
-  let actualParams = params;
-  let force = forceRefresh;
-  if (typeof params === 'boolean') {
-    force = params;
-    actualParams = {};
-  }
-
-  const cacheKey = getCacheKey('brand_stats', actualParams);
-  if (!force) {
-    const cached = brandCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-      return cached.data;
-    }
-  }
-
+export const getBrandStats = async (params = {}) => {
+  const actualParams = typeof params === 'boolean' ? {} : params;
   const response = await api.get('/statistics/brands', { params: actualParams });
-  const data = response.data.data;
-  brandCache.set(cacheKey, { data, timestamp: Date.now() });
-  return data;
+  return response.data?.data || [];
 };
 
 /**
- * Fetch single brand detail with caching
+ * Fetch single brand detail from API
  */
-export const getBrandDetail = async (id, params = {}, forceRefresh = false) => {
-  let actualParams = params;
-  let force = forceRefresh;
-  if (typeof params === 'boolean') {
-    force = params;
-    actualParams = {};
-  }
-
-  const cacheKey = getCacheKey(`brand_detail_${id}`, actualParams);
-  if (!force) {
-    const cached = brandCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-      return cached.data;
-    }
-  }
-
+export const getBrandDetail = async (id, params = {}) => {
+  const actualParams = typeof params === 'boolean' ? {} : params;
   const response = await api.get(`/statistics/brands/${id}`, { params: actualParams });
-  const data = response.data.data;
-  brandCache.set(cacheKey, { data, timestamp: Date.now() });
-  return data;
+  return response.data?.data || null;
 };
 
 /**
- * Fetch combined brand details with caching
+ * Fetch combined brand details by aggregating multiple brands
  */
-export const getCombinedBrandDetail = async (brandIds, params = {}, forceRefresh = false) => {
-  let actualParams = params;
-  let force = forceRefresh;
-  if (typeof params === 'boolean') {
-    force = params;
-    actualParams = {};
-  }
-
+export const getCombinedBrandDetail = async (brandIds, params = {}) => {
+  const actualParams = typeof params === 'boolean' ? {} : params;
   const sortedIds = [...brandIds].sort();
-  const cacheKey = getCacheKey(`brand_detail_combined_${sortedIds.join(',')}`, actualParams);
 
-  if (!force) {
-    const cached = brandCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-      return cached.data;
-    }
-  }
-
-  // Fetch details for all selected brands in parallel with actualParams and force flag
-  const allDetails = await Promise.all(sortedIds.map((bId) => getBrandDetail(bId, actualParams, force)));
+  // Fetch details for all selected brands in parallel
+  const allDetails = await Promise.all(sortedIds.map((bId) => getBrandDetail(bId, actualParams)));
   const validDetails = allDetails.filter(Boolean);
 
   if (validDetails.length === 0) {
@@ -160,7 +75,7 @@ export const getCombinedBrandDetail = async (brandIds, params = {}, forceRefresh
   const totalViews = combinedPosts.reduce((sum, p) => sum + (p.views_count || 0), 0);
   const totalReach = combinedPosts.reduce((sum, p) => sum + (p.reach_count || 0), 0);
 
-  const combinedDetail = {
+  return {
     brand_id: 'combined',
     brand_name: validDetails.map((d) => d.brand_name).filter(Boolean).join(' & '),
     image_url: validDetails[0]?.image_url || validDetails[0]?.logo_url,
@@ -180,12 +95,9 @@ export const getCombinedBrandDetail = async (brandIds, params = {}, forceRefresh
     products: combinedProducts,
     posts: combinedPosts,
   };
-
-  brandCache.set(cacheKey, { data: combinedDetail, timestamp: Date.now() });
-  return combinedDetail;
 };
 
 export const getBrandProfitability = async () => {
   const response = await api.get('/profit/brands');
-  return response.data.data;
+  return response.data?.data || [];
 };

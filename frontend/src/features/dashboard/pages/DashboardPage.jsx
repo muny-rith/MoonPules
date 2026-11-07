@@ -9,6 +9,7 @@ import { DashboardTopStatsSkeleton, DashboardScheduleSkeleton } from '../../../s
 import apiClient from '../../../shared/utils/apiClient';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
+import { useDashboardStats, useDashboardProfit } from '../../../shared/hooks/queries';
 import { syncPosts } from '../../postTracker/api/postTrackerApi';
 import '../dashboard.css';
 
@@ -154,42 +155,18 @@ const SchedulePostList = ({ posts, loading }) => {
   );
 };
 
-// In-memory cache for Dashboard
-const dashboardCache = new Map();
-const DASHBOARD_TTL = 3 * 60 * 1000; // 3 minutes
-
-const getCachedDashboard = (range, plat) => {
-  const item = dashboardCache.get(`dash_${range}_${plat}`);
-  if (item && Date.now() - item.timestamp < DASHBOARD_TTL) {
-    return item.data;
-  }
-  return null;
-};
-
-const getCachedProfit = (range, plat) => {
-  const item = dashboardCache.get(`profit_${range}_${plat}`);
-  if (item && Date.now() - item.timestamp < DASHBOARD_TTL) {
-    return item.data;
-  }
-  return null;
-};
-
-export const clearDashboardCache = () => {
-  dashboardCache.clear();
-};
+// Legacy helper for backwards compatibility (no-op since TanStack Query manages cache)
+export const clearDashboardCache = () => {};
 
 export const DashboardPage = () => {
   // Global filters
   const [dateRange, setDateRange] = useState('this_week');
   const [platform, setPlatform] = useState('all');
 
-  const initialStats = getCachedDashboard('this_week', 'all');
-  const initialProfit = getCachedProfit('this_week', 'all');
+  // TanStack Query: Cached & deduplicated dashboard statistics and profit data
+  const { data: stats = null, isLoading: loading, refetch: refetchStats } = useDashboardStats(dateRange, platform);
+  const { data: profitData = null, isLoading: profitLoading, refetch: refetchProfit } = useDashboardProfit(dateRange, platform);
 
-  const [stats, setStats] = useState(() => initialStats || null);
-  const [profitData, setProfitData] = useState(() => initialProfit || null);
-  const [loading, setLoading] = useState(() => !initialStats);
-  const [profitLoading, setProfitLoading] = useState(() => !initialProfit);
   const [isSyncing, setIsSyncing] = useState(false);
   const { user } = useAuth();
   const toast = useToast();
@@ -210,59 +187,6 @@ export const DashboardPage = () => {
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
 
-  const fetchDashboard = async (range = dateRange, plat = platform, force = false) => {
-    try {
-      const cached = getCachedDashboard(range, plat);
-      if (!cached || force) {
-        setLoading(true);
-      } else if (!force) {
-        setStats(cached);
-        return;
-      }
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Phnom_Penh';
-      const res = await apiClient.get('/statistics/dashboard', {
-        params: { range, platform: plat, timezone }
-      });
-      if (res.data && res.data.success) {
-        setStats(res.data.data);
-        dashboardCache.set(`dash_${range}_${plat}`, { data: res.data.data, timestamp: Date.now() });
-      }
-    } catch (err) {
-      console.error('Failed to fetch dashboard stats', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchProfit = async (range = dateRange, plat = platform, force = false) => {
-    try {
-      const cached = getCachedProfit(range, plat);
-      if (!cached || force) {
-        setProfitLoading(true);
-      } else if (!force) {
-        setProfitData(cached);
-        return;
-      }
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Phnom_Penh';
-      const res = await apiClient.get('/profit/dashboard', {
-        params: { range, platform: plat, timezone }
-      });
-      if (res.data && res.data.success) {
-        setProfitData(res.data.data);
-        dashboardCache.set(`profit_${range}_${plat}`, { data: res.data.data, timestamp: Date.now() });
-      }
-    } catch (err) {
-      console.error('Failed to fetch profit data', err);
-    } finally {
-      setProfitLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchDashboard(dateRange, platform);
-    fetchProfit(dateRange, platform);
-  }, [dateRange, platform]);
-
   const handleSync = async () => {
     try {
       setIsSyncing(true);
@@ -272,8 +196,7 @@ export const DashboardPage = () => {
         platform: platform !== 'all' ? platform : undefined,
         timezone: tz,
       });
-      clearDashboardCache();
-      await Promise.all([fetchDashboard(dateRange, platform, true), fetchProfit(dateRange, platform, true)]);
+      await Promise.all([refetchStats(), refetchProfit()]);
       toast.success('Synced latest posts with Facebook successfully!');
     } catch (err) {
       console.error('Failed to sync posts', err);
