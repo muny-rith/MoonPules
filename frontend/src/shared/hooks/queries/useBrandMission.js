@@ -13,3 +13,4 @@ export const useBrandMission = (brandId, month, year, options = {}) => {
     ...options,
   });
 };
+

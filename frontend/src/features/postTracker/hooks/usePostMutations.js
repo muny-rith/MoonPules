@@ -56,3 +56,4 @@ export const usePostMutations = () => {
     isSyncing: syncPostsMutation.isPending,
   };
 };
+

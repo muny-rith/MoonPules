@@ -42,3 +42,4 @@ export const useDashboardProfit = (range = 'this_week', platform = 'all', option
     ...options,
   });
 };
+

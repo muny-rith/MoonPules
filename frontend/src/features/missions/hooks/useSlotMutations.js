@@ -47,3 +47,4 @@ export const useSlotMutations = () => {
     isSavingMission: saveMissionMutation.isPending,
   };
 };
+

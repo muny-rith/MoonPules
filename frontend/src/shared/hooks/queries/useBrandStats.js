@@ -37,3 +37,4 @@ export const useBrandDetail = (brandId, params = {}, options = {}) => {
     ...options,
   });
 };
+
