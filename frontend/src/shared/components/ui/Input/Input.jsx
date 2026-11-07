@@ -40,6 +40,7 @@ const Input = forwardRef(
     {
       label,
       floatingLabel = false,
+      size = 'md',
       type = 'text',
       value,
       onChange,
@@ -104,11 +105,11 @@ const Input = forwardRef(
     const hasRightIcon = Boolean(rightIcon || isPasswordToggle || canClear);
 
     return (
-      <div className={`form-group ${className}`.trim()}>
+      <div className={`form-group ${!label ? 'm-0' : ''} ${className}`.trim()}>
         {label && !floatingLabel && <label className="form-label">{label}</label>}
 
         <div
-          className={`input-wrapper ${error ? 'error' : ''} ${
+          className={`input-wrapper ${size ? `input-${size}` : ''} ${error ? 'error' : ''} ${
             hasLeftIcon ? 'has-left-icon' : ''
           } ${hasRightIcon ? 'has-right-icon' : ''}`.trim()}
         >

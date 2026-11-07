@@ -14,7 +14,9 @@
 /* input */
 .input-wrapper .input {
   width: 100%;
-  padding: 10px 14px;
+  height: 38px;
+  min-height: 38px;
+  padding: 0 14px;
   border: 1px solid #cbd5e1;
   border-radius: var(--radius, 8px);
   outline: none;
@@ -26,13 +28,28 @@
   box-sizing: border-box;
 }
 
+/* size variants matching Select component */
+.input-wrapper.input-sm .input {
+  height: 32px;
+  min-height: 32px;
+  font-size: 12.5px;
+  padding: 0 10px;
+}
+
+.input-wrapper.input-lg .input {
+  height: 44px;
+  min-height: 44px;
+  font-size: 15px;
+  padding: 0 16px;
+}
+
 /* add space for icons when present */
 .input-wrapper.has-left-icon .input {
-  padding-left: 40px;
+  padding-left: 38px;
 }
 
 .input-wrapper.has-right-icon .input {
-  padding-right: 40px;
+  padding-right: 38px;
 }
 
 /* Hide native browser search cancel button to prevent duplicate X icons */
@@ -69,6 +86,8 @@
 /* icons */
 .input-wrapper .icon {
   position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -116,6 +135,7 @@
   width: 100%;
 }
 
+.form-group:not(:has(.form-label)):not(:has(.floating-label)),
 .form-group.m-0,
 .form-group.no-margin {
   margin-bottom: 0 !important;
