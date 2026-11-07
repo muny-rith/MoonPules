@@ -133,7 +133,6 @@ const getMissionWithProgress = async (brandId, month, year) => {
         thumbnail_url: matchingPost.thumbnail_url,
         fb_post_id: matchingPost.fb_post_id,
         page_id: matchingPost.page_id,
-        post_url: matchingPost.post_url,
       };
     } else if (matchingPost && matchingPost.status === 'scheduled') {
       computedStatus = 'scheduled';
@@ -145,7 +144,6 @@ const getMissionWithProgress = async (brandId, month, year) => {
         thumbnail_url: matchingPost.thumbnail_url,
         fb_post_id: matchingPost.fb_post_id,
         page_id: matchingPost.page_id,
-        post_url: matchingPost.post_url,
       };
     } else if (slotDateStr < todayStr) {
       computedStatus = 'missed';
@@ -283,7 +281,6 @@ const getCalendarSlots = async (brandId, month, year) => {
           thumbnail_url: slot.thumbnail_url,
           fb_post_id: slot.fb_post_id,
           page_id: slot.page_id,
-          post_url: slot.post_url,
         },
         is_planned_slot: true,
       };
@@ -306,7 +303,6 @@ const getCalendarSlots = async (brandId, month, year) => {
         thumbnail_url: matchingPost.thumbnail_url,
         fb_post_id: matchingPost.fb_post_id,
         page_id: matchingPost.page_id,
-        post_url: matchingPost.post_url,
       };
     } else if (matchingPost && matchingPost.status === 'scheduled') {
       computedStatus = 'scheduled';
@@ -318,7 +314,6 @@ const getCalendarSlots = async (brandId, month, year) => {
         thumbnail_url: matchingPost.thumbnail_url,
         fb_post_id: matchingPost.fb_post_id,
         page_id: matchingPost.page_id,
-        post_url: matchingPost.post_url,
       };
     } else if (slotDateStr < todayStr) {
       computedStatus = 'missed';
@@ -436,7 +431,6 @@ const getMonthAudit = async (month, year) => {
             thumbnail_url: slot.thumbnail_url,
             fb_post_id: slot.fb_post_id,
             page_id: slot.page_id,
-            post_url: slot.post_url,
           },
         };
       }

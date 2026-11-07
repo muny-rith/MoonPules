@@ -79,7 +79,7 @@ const getSlotsByMissionId = async (missionId) => {
 const getSlotsForBrandAndMonth = async (brandId, month, year) => {
   let queryStr = `
     SELECT s.*, m.brand_id, m.brand_name,
-           p.fb_post_id, p.status as post_status, p.published_time, p.scheduled_time, p.message as post_message, p.media_url
+           p.fb_post_id, p.status as post_status, p.published_time, p.scheduled_time, p.message as post_message, p.media_url, p.thumbnail_url, p.page_id, p.media_type
     FROM tb_brand_mission_slot s
     JOIN tb_brand_mission m ON m.id = s.mission_id
     LEFT JOIN tb_post_tracker p ON p.id = s.linked_post_id
@@ -265,7 +265,7 @@ const getBrandPostsForMonth = async (brandId, month, year) => {
   const { startStr, endStr } = getMonthDateRange(month, year);
 
   let queryStr = `
-    SELECT id, brand_id, product_id, status, media_type, published_time, scheduled_time, message, media_url, thumbnail_url, fb_post_id, page_id, post_url
+    SELECT id, brand_id, product_id, status, media_type, published_time, scheduled_time, message, media_url, thumbnail_url, fb_post_id, page_id
     FROM tb_post_tracker
     WHERE (
       (published_time IS NOT NULL AND published_time >= $1 AND published_time < $2)
@@ -395,7 +395,7 @@ const getAllSlotsWithMissionsForMonth = async (month, year) => {
     `SELECT s.*, 
             m.brand_id, m.brand_name,
             p.id as post_id, p.fb_post_id, p.status as post_status, p.published_time, p.scheduled_time, 
-            p.message as post_message, p.media_url, p.thumbnail_url, p.page_id, p.post_url, p.media_type
+            p.message as post_message, p.media_url, p.thumbnail_url, p.page_id, p.media_type
      FROM tb_brand_mission_slot s
      JOIN tb_brand_mission m ON m.id = s.mission_id
      LEFT JOIN tb_post_tracker p ON p.id = s.linked_post_id
