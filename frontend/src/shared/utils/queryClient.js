@@ -32,7 +32,7 @@ const rehydrateFromSessionStorage = () => {
     if (Array.isArray(parsed)) {
       parsed.forEach(({ queryKey, data, timestamp }) => {
         if (now - timestamp < MAX_AGE_MS && data !== undefined) {
-          queryClient.setQueryData(queryKey, data);
+          queryClient.setQueryData(queryKey, data, { updatedAt: timestamp });
         }
       });
     }

@@ -755,8 +755,16 @@ export const BrandCalendarPage = () => {
                   {/* Strict Client Deliverables — Display planned brand mission slots */}
                   {isCurrentMonth && (() => {
                     const filteredSlots = daySlots.filter((slot) => {
-                      if (missionStatusFilter === 'completed') return slot.computed_status === 'completed';
-                      if (missionStatusFilter === 'pending') return slot.computed_status !== 'completed';
+                      const slotLinked = slot.linked_post || (cell.posts || []).find((p) => {
+                        const postBrandId = p.brand_id ? String(p.brand_id) : '';
+                        const slotBrandId = slot.brand_id ? String(slot.brand_id) : '';
+                        if (slotBrandId && postBrandId !== slotBrandId) return false;
+                        if (p.status !== 'published' && p.status !== 'scheduled') return false;
+                        return isPostCompatibleWithSlot(slot.content_type, p.media_type);
+                      });
+                      const completed = slot.computed_status === 'completed' || slotLinked?.status === 'published';
+                      if (missionStatusFilter === 'completed') return completed;
+                      if (missionStatusFilter === 'pending') return !completed;
                       return true;
                     });
 
@@ -772,9 +780,6 @@ export const BrandCalendarPage = () => {
                         {visibleSlots.map((slot, sIdx) => {
                           const isSpecial = (slot.time_window || '').includes('04:00PM') || (slot.notes || '').toLowerCase().includes('payday');
                           const typeInfo = getContentTypeInfo(slot.content_type, isSpecial);
-                          const isCompleted = slot.computed_status === 'completed';
-                          const isScheduled = slot.computed_status === 'scheduled';
-                          const isMissed = slot.computed_status === 'missed';
 
                           const linked = slot.linked_post || (cell.posts || []).find((p) => {
                             const postBrandId = p.brand_id ? String(p.brand_id) : '';
@@ -783,6 +788,10 @@ export const BrandCalendarPage = () => {
                             if (p.status !== 'published' && p.status !== 'scheduled') return false;
                             return isPostCompatibleWithSlot(slot.content_type, p.media_type);
                           });
+
+                          const isCompleted = slot.computed_status === 'completed' || linked?.status === 'published';
+                          const isScheduled = !isCompleted && (slot.computed_status === 'scheduled' || linked?.status === 'scheduled');
+                          const isMissed = !isCompleted && !isScheduled && (slot.computed_status === 'missed' || (cell.dateKey < todayKey && !linked));
 
                           let thumbUrl = null;
                           if (linked) {
@@ -1073,9 +1082,6 @@ export const BrandCalendarPage = () => {
                     {selectedDayDetail.slots.map((slot, sIdx) => {
                       const isSpecial = (slot.time_window || '').includes('04:00PM') || (slot.notes || '').toLowerCase().includes('payday');
                       const typeInfo = getContentTypeInfo(slot.content_type, isSpecial);
-                      const isCompleted = slot.computed_status === 'completed';
-                      const isScheduled = slot.computed_status === 'scheduled';
-                      const isMissed = slot.computed_status === 'missed';
 
                       const linked = slot.linked_post || (selectedDayDetail.posts || []).find((p) => {
                         const postBrandId = p.brand_id ? String(p.brand_id) : '';
@@ -1084,6 +1090,10 @@ export const BrandCalendarPage = () => {
                         if (p.status !== 'published' && p.status !== 'scheduled') return false;
                         return isPostCompatibleWithSlot(slot.content_type, p.media_type);
                       });
+
+                      const isCompleted = slot.computed_status === 'completed' || linked?.status === 'published';
+                      const isScheduled = !isCompleted && (slot.computed_status === 'scheduled' || linked?.status === 'scheduled');
+                      const isMissed = !isCompleted && !isScheduled && (slot.computed_status === 'missed' || (selectedDayDetail.dateKey < todayKey && !linked));
 
                       let thumbUrl = null;
                       let fbUrl = null;

@@ -31,6 +31,11 @@ export const invalidatePostAndMissionCaches = async () => {
     if (typeof window !== 'undefined' && window.__moonpulse_mission_cache) {
       window.__moonpulse_mission_cache.clear();
     }
+
+    // 4. Clear persisted sessionStorage query cache so stale snapshots never resurrect
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      window.sessionStorage.removeItem('MOONPULSE_SESSION_QUERY_CACHE');
+    }
   } catch (err) {
     console.warn('[cacheSync] Failed to invalidate all caches cleanly:', err);
   }
@@ -48,6 +53,10 @@ export const invalidateMissionCaches = async () => {
     }
     if (typeof window !== 'undefined' && window.__moonpulse_mission_cache) {
       window.__moonpulse_mission_cache.clear();
+    }
+
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      window.sessionStorage.removeItem('MOONPULSE_SESSION_QUERY_CACHE');
     }
   } catch (err) {
     console.warn('[cacheSync] Failed to invalidate mission caches:', err);

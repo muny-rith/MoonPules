@@ -184,7 +184,11 @@ const createAndSchedulePost = async (postData) => {
   if (publish_now) {
     // Execute immediate publication and do not swallow errors
     const published = await publishScheduler.executePublish(created.id);
-    missionsService.reconcilePostWithMission(published || created).catch(err => console.warn('[createPost] reconcile error:', err.message));
+    try {
+      await missionsService.reconcilePostWithMission(published || created);
+    } catch (err) {
+      console.warn('[createPost] reconcile error:', err.message);
+    }
     return published;
   } else {
     // If scheduled >= 10 minutes in future, try native Facebook Graph API scheduling
@@ -205,7 +209,11 @@ const createAndSchedulePost = async (postData) => {
           console.log(`[Scheduler] ✅ Natively scheduled on Facebook for post ${created.id}! FB Post ID: ${fbResult.fb_post_id}`);
           await repository.setScheduledPostFbId(created.id, fbResult.fb_post_id);
           const fullPost = await repository.getTrackedPostById(created.id);
-          missionsService.reconcilePostWithMission(fullPost || created).catch(err => console.warn('[createPost] reconcile error:', err.message));
+          try {
+            await missionsService.reconcilePostWithMission(fullPost || created);
+          } catch (err) {
+            console.warn('[createPost] reconcile error:', err.message);
+          }
           return fullPost;
         }
       } catch (fbErr) {
@@ -215,7 +223,11 @@ const createAndSchedulePost = async (postData) => {
 
     // Arm precision timer to execute at exact scheduled_time
     publishScheduler.armPostTimer(created);
-    missionsService.reconcilePostWithMission(created).catch(err => console.warn('[createPost] reconcile error:', err.message));
+    try {
+      await missionsService.reconcilePostWithMission(created);
+    } catch (err) {
+      console.warn('[createPost] reconcile error:', err.message);
+    }
     return created;
   }
 };
@@ -322,7 +334,11 @@ const markPost = async (postData) => {
   const products = await productsService.listProducts();
   const prod = products.find(p => String(p.id) === String(product_id));
 
-  missionsService.reconcilePostWithMission(trackedPost).catch(err => console.warn('[MarkPost] reconcile error:', err.message));
+  try {
+    await missionsService.reconcilePostWithMission(trackedPost);
+  } catch (err) {
+    console.warn('[MarkPost] reconcile error:', err.message);
+  }
 
   return {
     ...trackedPost,
@@ -554,7 +570,11 @@ const editPostData = async (id, data) => {
   }
 
   // Auto-reconcile mission slot if date, brand, or status was modified
-  missionsService.reconcilePostWithMission(updated).catch(err => console.warn('[EditPost] reconcile error:', err.message));
+  try {
+    await missionsService.reconcilePostWithMission(updated);
+  } catch (err) {
+    console.warn('[EditPost] reconcile error:', err.message);
+  }
 
   return updated;
 };
