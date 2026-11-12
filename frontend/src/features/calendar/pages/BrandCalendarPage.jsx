@@ -53,6 +53,17 @@ const isPostCompatibleWithSlot = (slotContentType, postMediaType) => {
   return true;
 };
 
+const findMatchingPostForSlot = (slot, posts = []) => {
+  if (slot.linked_post) return slot.linked_post;
+  const slotBrandId = slot.brand_id ? String(slot.brand_id) : '';
+  return (posts || []).find((p) => {
+    const postBrandId = p.brand_id ? String(p.brand_id) : '';
+    if (slotBrandId && postBrandId !== slotBrandId) return false;
+    if (p.status !== 'published' && p.status !== 'scheduled') return false;
+    return isPostCompatibleWithSlot(slot.content_type, p.media_type);
+  }) || null;
+};
+
 export const BrandCalendarPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -755,13 +766,7 @@ export const BrandCalendarPage = () => {
                   {/* Strict Client Deliverables — Display planned brand mission slots */}
                   {isCurrentMonth && (() => {
                     const filteredSlots = daySlots.filter((slot) => {
-                      const slotLinked = slot.linked_post || (cell.posts || []).find((p) => {
-                        const postBrandId = p.brand_id ? String(p.brand_id) : '';
-                        const slotBrandId = slot.brand_id ? String(slot.brand_id) : '';
-                        if (slotBrandId && postBrandId !== slotBrandId) return false;
-                        if (p.status !== 'published' && p.status !== 'scheduled') return false;
-                        return isPostCompatibleWithSlot(slot.content_type, p.media_type);
-                      });
+                      const slotLinked = findMatchingPostForSlot(slot, dayPosts);
                       const completed = slot.computed_status === 'completed' || slotLinked?.status === 'published';
                       if (missionStatusFilter === 'completed') return completed;
                       if (missionStatusFilter === 'pending') return !completed;
@@ -781,13 +786,7 @@ export const BrandCalendarPage = () => {
                           const isSpecial = (slot.time_window || '').includes('04:00PM') || (slot.notes || '').toLowerCase().includes('payday');
                           const typeInfo = getContentTypeInfo(slot.content_type, isSpecial);
 
-                          const linked = slot.linked_post || (cell.posts || []).find((p) => {
-                            const postBrandId = p.brand_id ? String(p.brand_id) : '';
-                            const slotBrandId = slot.brand_id ? String(slot.brand_id) : '';
-                            if (slotBrandId && postBrandId !== slotBrandId) return false;
-                            if (p.status !== 'published' && p.status !== 'scheduled') return false;
-                            return isPostCompatibleWithSlot(slot.content_type, p.media_type);
-                          });
+                          const linked = findMatchingPostForSlot(slot, dayPosts);
 
                           const isCompleted = slot.computed_status === 'completed' || linked?.status === 'published';
                           const isScheduled = !isCompleted && (slot.computed_status === 'scheduled' || linked?.status === 'scheduled');
@@ -1083,13 +1082,7 @@ export const BrandCalendarPage = () => {
                       const isSpecial = (slot.time_window || '').includes('04:00PM') || (slot.notes || '').toLowerCase().includes('payday');
                       const typeInfo = getContentTypeInfo(slot.content_type, isSpecial);
 
-                      const linked = slot.linked_post || (selectedDayDetail.posts || []).find((p) => {
-                        const postBrandId = p.brand_id ? String(p.brand_id) : '';
-                        const slotBrandId = slot.brand_id ? String(slot.brand_id) : '';
-                        if (slotBrandId && postBrandId !== slotBrandId) return false;
-                        if (p.status !== 'published' && p.status !== 'scheduled') return false;
-                        return isPostCompatibleWithSlot(slot.content_type, p.media_type);
-                      });
+                      const linked = findMatchingPostForSlot(slot, selectedDayDetail.posts);
 
                       const isCompleted = slot.computed_status === 'completed' || linked?.status === 'published';
                       const isScheduled = !isCompleted && (slot.computed_status === 'scheduled' || linked?.status === 'scheduled');

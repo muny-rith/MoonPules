@@ -1,15 +1,6 @@
 const db = require('../config/db');
 const missionsRepo = require('../modules/missions/missions.repository');
-
-const formatLocalDateStr = (d) => {
-  if (!d) return '';
-  const dateObj = new Date(d);
-  if (isNaN(dateObj.getTime())) return '';
-  const y = dateObj.getFullYear();
-  const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-  const day = String(dateObj.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-};
+const { formatLocalDateStr } = require('../modules/missions/missions.service');
 
 const backfillMissionLinks = async () => {
   try {

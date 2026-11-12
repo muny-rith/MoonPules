@@ -49,6 +49,25 @@ const getZonedNowParts = (timeZone) => {
   }
 };
 
+const YMD_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+const parseCustomBound = (value, isEndOfDay, timeZone) => {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    const match = value.trim().match(YMD_PATTERN);
+    if (match) {
+      const year = parseInt(match[1], 10);
+      const month = parseInt(match[2], 10);
+      const day = parseInt(match[3], 10);
+      return isEndOfDay
+        ? zonedToUtc(year, month, day, 23, 59, 59, 999, timeZone)
+        : zonedToUtc(year, month, day, 0, 0, 0, 0, timeZone);
+    }
+  }
+  const parsed = new Date(value);
+  return isNaN(parsed.getTime()) ? null : parsed;
+};
+
 const getDateRangeBounds = (range, clientTimezone, customStart, customEnd) => {
   const tz = clientTimezone || process.env.TZ || 'Asia/Phnom_Penh';
   const parts = getZonedNowParts(tz);
@@ -59,14 +78,8 @@ const getDateRangeBounds = (range, clientTimezone, customStart, customEnd) => {
   let prevEnd = null;
 
   if (customStart || customEnd) {
-    if (customStart) {
-      const s = new Date(customStart);
-      start = isNaN(s.getTime()) ? null : new Date(s.setHours(0, 0, 0, 0));
-    }
-    if (customEnd) {
-      const e = new Date(customEnd);
-      end = isNaN(e.getTime()) ? null : new Date(e.setHours(23, 59, 59, 999));
-    }
+    start = parseCustomBound(customStart, false, tz);
+    end = parseCustomBound(customEnd, true, tz);
     return { start, end, prevStart: null, prevEnd: null };
   }
 

@@ -245,17 +245,20 @@ const deleteSlot = async (slotId) => {
   return slot;
 };
 
+const CAMBODIA_OFFSET_MS = 7 * 60 * 60 * 1000;
+
 /**
- * Helper to compute [startOfMonth, startOfNextMonth] ISO range strings
+ * Helper to compute [startOfMonth, startOfNextMonth] UTC ISO range strings aligned to Asia/Phnom_Penh (UTC+7)
  */
 const getMonthDateRange = (month, year) => {
   const m = parseInt(month, 10);
   const y = parseInt(year, 10);
-  const startStr = `${y}-${String(m).padStart(2, '0')}-01 00:00:00`;
-  const nextMonth = m === 12 ? 1 : m + 1;
-  const nextYear = m === 12 ? y + 1 : y;
-  const endStr = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01 00:00:00`;
-  return { startStr, endStr };
+  const startUtcMs = Date.UTC(y, m - 1, 1, 0, 0, 0) - CAMBODIA_OFFSET_MS;
+  const endUtcMs = Date.UTC(y, m, 1, 0, 0, 0) - CAMBODIA_OFFSET_MS;
+  return {
+    startStr: new Date(startUtcMs).toISOString(),
+    endStr: new Date(endUtcMs).toISOString(),
+  };
 };
 
 /**

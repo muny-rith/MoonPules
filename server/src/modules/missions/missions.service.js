@@ -1,13 +1,26 @@
 const missionsRepo = require('./missions.repository');
 
+const APP_TIME_ZONE = 'Asia/Phnom_Penh';
+const appDateFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: APP_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+// Format dates consistently in agency local time (UTC+7) regardless of server TZ (e.g. Render UTC)
 const formatLocalDateStr = (d) => {
   if (!d) return '';
+  if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.trim())) {
+    return d.trim();
+  }
   const dateObj = new Date(d);
   if (isNaN(dateObj.getTime())) return '';
-  const y = dateObj.getFullYear();
-  const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-  const day = String(dateObj.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  const parts = appDateFormatter.formatToParts(dateObj);
+  const y = parts.find((p) => p.type === 'year')?.value;
+  const m = parts.find((p) => p.type === 'month')?.value;
+  const day = parts.find((p) => p.type === 'day')?.value;
+  return y && m && day ? `${y}-${m}-${day}` : '';
 };
 
 /**
@@ -646,6 +659,7 @@ const deleteSlot = async (slotId) => {
 };
 
 module.exports = {
+  formatLocalDateStr,
   getMissionWithProgress,
   saveMissionWithSlots,
   getCalendarSlots,
