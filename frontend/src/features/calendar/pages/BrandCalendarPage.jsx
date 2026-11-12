@@ -732,7 +732,14 @@ export const BrandCalendarPage = () => {
                   {/* Quick Add Button */}
                   {isCurrentMonth && (
                     <button
-                      onClick={() => navigate(`/planner/create?date=${cell.dateKey}`)}
+                      onClick={() =>
+                        navigate(`/planner/create?date=${cell.dateKey}`, {
+                          state: {
+                            from: location.pathname,
+                            ...(selectedBrandId !== 'all' ? { prefillBrandId: selectedBrandId } : {}),
+                          },
+                        })
+                      }
                       style={{
                         background: 'none',
                         border: '1px solid transparent',
@@ -819,8 +826,8 @@ export const BrandCalendarPage = () => {
                             <div
                               key={`slot-${slot.id || sIdx}`}
                               onClick={() => {
-                                if (slot.linked_post?.id) {
-                                  navigate(`/planner/edit/${slot.linked_post.id}`);
+                                if (linked?.id) {
+                                  navigate(`/planner/edit/${linked.id}`);
                                 } else {
                                   navigate(`/planner/create?date=${cell.dateKey}`, {
                                     state: {
@@ -1348,8 +1355,8 @@ export const BrandCalendarPage = () => {
                               type="button"
                               onClick={() => {
                                 setSelectedDayDetail(null);
-                                if (slot.linked_post?.id) {
-                                  navigate(`/planner/edit/${slot.linked_post.id}`);
+                                if (linked?.id) {
+                                  navigate(`/planner/edit/${linked.id}`);
                                 } else {
                                   navigate(`/planner/create?date=${selectedDayDetail.dateKey}`, {
                                     state: {
@@ -1381,7 +1388,7 @@ export const BrandCalendarPage = () => {
                                 gap: '4px',
                               }}
                             >
-                              {slot.linked_post?.id ? 'Edit in Planner' : '+ Create Post'}
+                              {linked?.id ? 'Edit in Planner' : '+ Create Post'}
                             </button>
                           </div>
                         </div>

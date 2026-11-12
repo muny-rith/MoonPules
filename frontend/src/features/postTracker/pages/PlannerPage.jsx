@@ -530,6 +530,16 @@ export const PlannerPage = () => {
     }
   };
 
+  const navigateToCreate = (dateKey = '') => {
+    const url = dateKey ? `/planner/create?date=${dateKey}` : '/planner/create';
+    navigate(url, {
+      state: {
+        from: location.pathname + location.search,
+        ...(brandFilter !== 'all' ? { prefillBrandId: brandFilter } : {}),
+      },
+    });
+  };
+
   // Date Navigation Handlers
   const handlePrev = () => {
     if (viewMode === 'week') {
@@ -633,7 +643,7 @@ export const PlannerPage = () => {
             variant="primary"
             size="sm"
             icon={<Plus size={16} />}
-            onClick={() => navigate('/planner/create', { state: { from: location.pathname + location.search } })}
+            onClick={() => navigateToCreate()}
           >
             Schedule Post
           </Button>
@@ -776,7 +786,7 @@ export const PlannerPage = () => {
                         title={`Schedule post for ${day.dayName} ${day.dayNumber}`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/planner/create?date=${day.dateKey}`);
+                          navigateToCreate(day.dateKey);
                         }}
                       >
                         <Plus size={14} />
@@ -846,7 +856,7 @@ export const PlannerPage = () => {
                     ) : !hasContent ? (
                       <div
                         className="planner-empty-day"
-                        onClick={() => navigate(`/planner/create?date=${day.dateKey}`, { state: { from: location.pathname + location.search } })}
+                        onClick={() => navigateToCreate(day.dateKey)}
                       >
                         <Plus size={18} />
                         <span>Schedule post</span>
@@ -1035,7 +1045,7 @@ export const PlannerPage = () => {
                         {dayPosts.length === 0 && (
                           <div
                             className="planner-empty-day-compact"
-                            onClick={() => navigate(`/planner/create?date=${day.dateKey}`, { state: { from: location.pathname + location.search } })}
+                            onClick={() => navigateToCreate(day.dateKey)}
                             title={`Schedule extra post for ${day.dayName}`}
                           >
                             <Plus size={13} />

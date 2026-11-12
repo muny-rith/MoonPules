@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as api from '../api/postTrackerApi';
 import * as productService from '../../product/services/productService';
-import { usePages } from '../../../shared/hooks/queries';
+import { usePages, useBrands } from '../../../shared/hooks/queries';
 import { useSessionDraft } from '../../../shared/hooks/useSessionDraft';
 import { useToast } from '../../../shared/context/ToastContext';
 import { parseFbPostUrl } from '../utils/parseFbPostUrl';
+import { findBrandById, resolveActiveHashtagBrand } from '../utils/resolveTargetBrand';
 import { ProductPicker } from '../../product/component/ProductPicker';
 import { BrandPicker } from '../../product/component/BrandPicker';
 import { usePostTracker } from '../hooks/usePostTracker';
@@ -119,6 +120,7 @@ export const CreatePostPage = () => {
 
   // Data states
   const { data: pages = [] } = usePages();
+  const { data: brandsList = [] } = useBrands();
   const [selectedPageIds, setSelectedPageIds] = useState([]);
   const hasInitializedPages = useRef(false);
 
@@ -144,9 +146,10 @@ export const CreatePostPage = () => {
   const [productsList, setProductsList] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
 
-    // Attribution Target: 'product' | 'brand'
-  const [trackingTarget, setTrackingTarget] = useState(() => (location.state?.prefillBrandId ? 'brand' : 'product'));
-  const [brandId, setBrandId] = useState(() => (location.state?.prefillBrandId ? String(location.state.prefillBrandId) : ''));
+  // Attribution Target: 'product' | 'brand'
+  const prefillBrandId = location.state?.prefillBrandId || location.state?.defaultBrandId || '';
+  const [trackingTarget, setTrackingTarget] = useState(() => (prefillBrandId ? 'brand' : 'product'));
+  const [brandId, setBrandId] = useState(() => (prefillBrandId ? String(prefillBrandId) : ''));
   const [selectedBrand, setSelectedBrand] = useState(null);
 
   // Costs
@@ -247,6 +250,15 @@ export const CreatePostPage = () => {
       setSelectedProduct(null);
     }
   }, [productId, productsList]);
+
+  useEffect(() => {
+    setSelectedBrand(findBrandById(brandsList, brandId));
+  }, [brandId, brandsList]);
+
+  const activeHashtagBrand = useMemo(
+    () => resolveActiveHashtagBrand({ trackingTarget, selectedBrand, selectedProduct, brandsList }),
+    [trackingTarget, selectedBrand, selectedProduct, brandsList]
+  );
 
   // Handle pre-filling from Duplicated Post (Idea A & C)
   useEffect(() => {
@@ -1987,8 +1999,8 @@ export const CreatePostPage = () => {
           isOpen={showHashtagModal}
           onClose={() => setShowHashtagModal(false)}
           onAddHashtags={handleAddHashtagsFromModal}
-          selectedProduct={selectedProduct}
-          selectedBrand={selectedBrand}
+          selectedProduct={trackingTarget === 'product' ? selectedProduct : null}
+          selectedBrand={activeHashtagBrand}
         />
       )}
 

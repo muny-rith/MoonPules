@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as api from '../api/postTrackerApi';
 import * as productService from '../../product/services/productService';
-import { usePages } from '../../../shared/hooks/queries';
+import { usePages, useBrands } from '../../../shared/hooks/queries';
 import { useToast } from '../../../shared/context/ToastContext';
+import { findBrandById, resolveActiveHashtagBrand } from '../utils/resolveTargetBrand';
 import { ProductPicker } from '../../product/component/ProductPicker';
 import { BrandPicker } from '../../product/component/BrandPicker';
 import { usePostTracker } from '../hooks/usePostTracker';
@@ -119,6 +120,7 @@ export const EditPostPage = () => {
   const [originalPost, setOriginalPost] = useState(null);
     // Shared state
   const { data: pages = [] } = usePages();
+  const { data: brandsList = [] } = useBrands();
   const [pageId, setPageId] = useState('');
 
   const pageOptions = useMemo(() => {
@@ -226,6 +228,15 @@ export const EditPostPage = () => {
       setSelectedProduct(null);
     }
   }, [productId, productsList]);
+
+  useEffect(() => {
+    setSelectedBrand(findBrandById(brandsList, brandId));
+  }, [brandId, brandsList]);
+
+  const activeHashtagBrand = useMemo(
+    () => resolveActiveHashtagBrand({ trackingTarget, selectedBrand, selectedProduct, brandsList }),
+    [trackingTarget, selectedBrand, selectedProduct, brandsList]
+  );
 
   const loadPost = async () => {
     try {
@@ -1819,8 +1830,8 @@ export const EditPostPage = () => {
           isOpen={showHashtagModal}
           onClose={() => setShowHashtagModal(false)}
           onAddHashtags={handleAddHashtagsFromModal}
-          selectedProduct={selectedProduct}
-          selectedBrand={selectedBrand}
+          selectedProduct={trackingTarget === 'product' ? selectedProduct : null}
+          selectedBrand={activeHashtagBrand}
         />
       )}
 
