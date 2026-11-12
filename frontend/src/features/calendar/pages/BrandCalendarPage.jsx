@@ -37,8 +37,30 @@ import { getFacebookPostUrl } from '../../../shared/utils/facebookUrl';
 import { FaFacebook } from 'react-icons/fa';
 import { SetMissionModal } from '../../missions/components/SetMissionModal';
 import '../../postTracker/planner.css';
+import '../calendar.css';
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+const MISSION_STATUS_TABS = [
+  {
+    key: 'all',
+    label: 'All Missions',
+    icon: Target,
+    title: 'Show all planned brand deliverables',
+  },
+  {
+    key: 'completed',
+    label: 'Completed',
+    icon: CheckCircle2,
+    title: 'Show only delivered/published posts',
+  },
+  {
+    key: 'pending',
+    label: 'Pending',
+    icon: Clock,
+    title: 'Show pending brand deliverables',
+  },
+];
 
 const isPostCompatibleWithSlot = (slotContentType, postMediaType) => {
   const sType = (slotContentType || '').toLowerCase();
@@ -62,6 +84,56 @@ const findMatchingPostForSlot = (slot, posts = []) => {
     if (p.status !== 'published' && p.status !== 'scheduled') return false;
     return isPostCompatibleWithSlot(slot.content_type, p.media_type);
   }) || null;
+};
+
+const getContentTypeInfo = (contentType, isSpecial = false) => {
+  const type = (contentType || '').toLowerCase();
+  if (type === 'video' || type === 'reel') {
+    return { label: 'Video', icon: Video, variant: 'video' }; // Purple for video/reels
+  }
+  if (type === 'live') {
+    return {
+      label: isSpecial ? 'Payday Live' : 'Live Stream',
+      icon: Radio,
+      variant: isSpecial ? 'payday' : 'live', // Amber/Sky Blue for live
+    };
+  }
+  return { label: 'Poster', icon: Image, variant: 'poster' }; // Indigo for poster (NEVER green!)
+};
+
+/**
+ * Derive visual state and matched post metadata for a planned mission slot.
+ */
+const resolveSlotDisplay = (slot, dateKey, todayKey, posts) => {
+  const isSpecial =
+    (slot.time_window || '').includes('04:00PM') ||
+    (slot.notes || '').toLowerCase().includes('payday');
+  const typeInfo = getContentTypeInfo(slot.content_type, isSpecial);
+  const linked = findMatchingPostForSlot(slot, posts);
+
+  const isCompleted = slot.computed_status === 'completed' || linked?.status === 'published';
+  const isScheduled =
+    !isCompleted && (slot.computed_status === 'scheduled' || linked?.status === 'scheduled');
+  const isMissed =
+    !isCompleted && !isScheduled && (slot.computed_status === 'missed' || (dateKey < todayKey && !linked));
+
+  const stateClass = isCompleted
+    ? 'is-completed'
+    : isScheduled
+      ? 'is-scheduled'
+      : isMissed
+        ? 'is-missed'
+        : 'is-planned';
+
+  const statusSummary = isCompleted
+    ? 'Live on Facebook'
+    : isScheduled
+      ? 'Scheduled'
+      : isMissed
+        ? 'Overdue'
+        : 'Planned deliverable';
+
+  return { typeInfo, linked, isCompleted, isScheduled, isMissed, stateClass, statusSummary };
 };
 
 export const BrandCalendarPage = () => {
@@ -318,25 +390,13 @@ export const BrandCalendarPage = () => {
     return { namePart, timeStr };
   };
 
-  // Content Type Info (Icon & Label)
-  const getContentTypeInfo = (contentType, isSpecial = false) => {
-    const type = (contentType || '').toLowerCase();
-    if (type === 'video' || type === 'reel') {
-      return { label: 'Video', icon: Video, color: '#9333ea' }; // Purple for video/reels
-    }
-    if (type === 'live') {
-      return { label: isSpecial ? 'Payday Live' : 'Live Stream', icon: Radio, color: isSpecial ? '#d97706' : '#0284c7' }; // Amber/Sky Blue for live
-    }
-    return { label: 'Poster', icon: Image, color: '#6366f1' }; // Indigo for poster (NEVER green!)
-  };
-
   return (
-    <div className="page-container brand-calendar-page" style={{ paddingBottom: '16px' }}>
+    <div className="page-container brand-calendar-page">
       {/* Main Header Row */}
       <div className="planner-header-row">
         <div className="planner-header-title-wrap">
-          <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <CalendarIcon size={28} color="#2563eb" /> Brand Calendar
+          <h1 className="brand-cal-title">
+            <CalendarIcon size={28} className="brand-cal-title-icon" /> Brand Calendar
           </h1>
           <p>Monthly client campaign roadmap & deliverable tracking for all contracted brands.</p>
         </div>
@@ -346,9 +406,8 @@ export const BrandCalendarPage = () => {
             href="/K-FREE_October_2026_Schedule.pdf"
             target="_blank"
             rel="noopener noreferrer"
-            className="planner-btn-secondary"
+            className="planner-btn-secondary brand-cal-export-btn"
             title="Download or Print PDF Calendar"
-            style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <Download size={15} /> Export PDF
           </a>
@@ -364,7 +423,7 @@ export const BrandCalendarPage = () => {
       </div>
 
       {/* Toolbar: Navigation, Month Picker, Brand Filter */}
-      <div className="planner-toolbar-card" style={{ marginBottom: '16px' }}>
+      <div className="planner-toolbar-card brand-cal-toolbar">
         {/* Navigation Group */}
         <div className="planner-nav-group">
           <div className="planner-nav-btns">
@@ -380,14 +439,14 @@ export const BrandCalendarPage = () => {
           </div>
 
           <div className="planner-current-period">
-            <span style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>{monthName}</span>
+            <span className="brand-cal-month-title">{monthName}</span>
           </div>
         </div>
 
         {/* Filters Group */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        <div className="brand-cal-filters-group">
           {/* Brand Filter */}
-          <div style={{ width: '210px' }}>
+          <div className="brand-cal-filter-select">
             <Select
               value={selectedBrandId}
               options={brandOptions}
@@ -397,7 +456,7 @@ export const BrandCalendarPage = () => {
           </div>
 
           {/* Page Filter */}
-          <div style={{ width: '210px' }}>
+          <div className="brand-cal-filter-select">
             <Select
               value={selectedPageId}
               options={pageOptions}
@@ -407,83 +466,22 @@ export const BrandCalendarPage = () => {
           </div>
 
           {/* Deliverables Status Filter */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            backgroundColor: '#f1f5f9',
-            padding: '3px',
-            borderRadius: '8px',
-            border: '1px solid #cbd5e1'
-          }}>
-            <button
-              type="button"
-              onClick={() => setMissionStatusFilter('all')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '6px 12px',
-                borderRadius: '6px',
-                fontSize: '12px',
-                fontWeight: missionStatusFilter === 'all' ? '700' : '500',
-                backgroundColor: missionStatusFilter === 'all' ? '#ffffff' : 'transparent',
-                color: missionStatusFilter === 'all' ? '#1d4ed8' : '#64748b',
-                boxShadow: missionStatusFilter === 'all' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
-              }}
-              title="Show all planned brand deliverables"
-            >
-              <Target size={13} color={missionStatusFilter === 'all' ? '#2563eb' : '#64748b'} />
-              <span>All Missions</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setMissionStatusFilter('completed')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '6px 12px',
-                borderRadius: '6px',
-                fontSize: '12px',
-                fontWeight: missionStatusFilter === 'completed' ? '700' : '500',
-                backgroundColor: missionStatusFilter === 'completed' ? '#ffffff' : 'transparent',
-                color: missionStatusFilter === 'completed' ? '#16a34a' : '#64748b',
-                boxShadow: missionStatusFilter === 'completed' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
-              }}
-              title="Show only delivered/published posts"
-            >
-              <CheckCircle2 size={13} color={missionStatusFilter === 'completed' ? '#16a34a' : '#64748b'} />
-              <span>Completed</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setMissionStatusFilter('pending')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '6px 12px',
-                borderRadius: '6px',
-                fontSize: '12px',
-                fontWeight: missionStatusFilter === 'pending' ? '700' : '500',
-                backgroundColor: missionStatusFilter === 'pending' ? '#ffffff' : 'transparent',
-                color: missionStatusFilter === 'pending' ? '#d97706' : '#64748b',
-                boxShadow: missionStatusFilter === 'pending' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
-              }}
-              title="Show pending brand deliverables"
-            >
-              <Clock size={13} color={missionStatusFilter === 'pending' ? '#d97706' : '#64748b'} />
-              <span>Pending</span>
-            </button>
+          <div className="brand-cal-status-tabs">
+            {MISSION_STATUS_TABS.map(({ key, label, icon: TabIcon, title }) => {
+              const isActive = missionStatusFilter === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setMissionStatusFilter(key)}
+                  className={`brand-cal-status-tab is-${key} ${isActive ? 'is-active' : ''}`}
+                  title={title}
+                >
+                  <TabIcon size={13} />
+                  <span>{label}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Quick Refresh */}
@@ -500,55 +498,28 @@ export const BrandCalendarPage = () => {
       </div>
 
       {/* ALL-BRANDS MISSION PROGRESS OVERVIEW BAR */}
-      <div style={{
-        padding: '14px 20px',
-        backgroundColor: '#ffffff',
-        border: '1px solid #e2e8f0',
-        borderRadius: '10px',
-        marginBottom: '18px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
+      <div className="brand-cal-audit-card">
+        <div className="brand-cal-audit-header">
+          <div className="brand-cal-audit-title-group">
+            <span className="brand-cal-audit-title">
               🎯 {monthName} — Monthly Missions for All Brands
             </span>
-            <span style={{ fontSize: '12px', color: '#64748b' }}>
+            <span className="brand-cal-audit-count">
               ({auditSummary.length} brands planned)
             </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div className="brand-cal-audit-actions">
             <button
               onClick={() => navigate('/stats/brands?tab=missions')}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#2563eb',
-                fontSize: '12px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
+              className="brand-cal-link-btn"
               title="Open the full 500-brand deliverables matrix"
             >
               <span>Manage in Brands Hub</span> →
             </button>
             <button
               onClick={() => setIsModalOpen(true)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#2563eb',
-                fontSize: '12px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
+              className="brand-cal-link-btn"
             >
               <Plus size={14} /> Add / Edit Blueprint
             </button>
@@ -556,48 +527,41 @@ export const BrandCalendarPage = () => {
         </div>
 
         {auditSummary.length === 0 ? (
-          <div style={{ fontSize: '12.5px', color: '#94a3b8', fontStyle: 'italic' }}>
+          <div className="brand-cal-audit-empty">
             No brand schedule blueprint has been saved yet for {monthName}. Click <strong>+ Plan Schedule Blueprint</strong> to set posting days.
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '10px' }}>
+          <div className="brand-cal-audit-grid">
             {auditSummary.map((b) => {
               const is100 = b.completion_rate === 100 && b.total_slots > 0;
               const hasMissed = b.missed_slots > 0;
+              const statusClass = is100 ? 'is-done' : (hasMissed ? 'is-missed' : 'is-progress');
 
               return (
                 <div
                   key={b.brand_id}
-                  style={{
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    backgroundColor: is100 ? '#f0fdf4' : (hasMissed ? '#fef2f2' : '#f8fafc'),
-                    border: `1px solid ${is100 ? '#bbf7d0' : (hasMissed ? '#fecaca' : '#e2e8f0')}`,
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}
+                  className={`brand-cal-audit-item ${statusClass}`}
                 >
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a' }}>
+                    <div className="brand-cal-audit-brand">
                       {b.brand_name}
                     </div>
-                    <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
+                    <div className="brand-cal-audit-subtext">
                       {b.completed_slots} / {b.total_slots} days published
                     </div>
                   </div>
 
                   <div>
                     {is100 ? (
-                      <span style={{ fontSize: '11px', fontWeight: '800', color: '#16a34a', backgroundColor: '#dcfce7', padding: '3px 8px', borderRadius: '12px' }}>
+                      <span className="brand-cal-audit-pill is-done">
                         100% DONE 🏆
                       </span>
                     ) : hasMissed ? (
-                      <span style={{ fontSize: '11px', fontWeight: '800', color: '#dc2626', backgroundColor: '#fee2e2', padding: '3px 8px', borderRadius: '12px' }}>
+                      <span className="brand-cal-audit-pill is-missed">
                         {b.missed_slots} Missed ⚠️
                       </span>
                     ) : (
-                      <span style={{ fontSize: '11px', fontWeight: '800', color: '#2563eb', backgroundColor: '#dbeafe', padding: '3px 8px', borderRadius: '12px' }}>
+                      <span className="brand-cal-audit-pill is-progress">
                         {b.completion_rate}% In Progress
                       </span>
                     )}
@@ -612,35 +576,13 @@ export const BrandCalendarPage = () => {
       {/* ====================================================================
           MASTER CALENDAR GRID (Monday to Sunday - All Brands)
          ==================================================================== */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        border: '1.5px solid #cbd5e1',
-        borderRadius: '12px',
-        overflow: 'hidden',
-        boxShadow: '0 2px 6px -1px rgba(0,0,0,0.06)',
-        marginBottom: '16px'
-      }}>
+      <div className="brand-cal-grid-wrapper">
         {/* Days of week Header (Modern Executive Royal Blue Bar) */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(7, 1fr)',
-          background: 'linear-gradient(135deg, #1e40af 0%, #2563eb 100%)',
-          color: '#ffffff',
-          textAlign: 'center',
-          fontWeight: '800',
-          fontSize: '12px',
-          letterSpacing: '0.08em',
-          padding: '11px 0',
-          borderBottom: '1px solid #1d4ed8',
-          boxShadow: '0 2px 4px rgba(30, 58, 138, 0.15)'
-        }}>
+        <div className="brand-cal-weekdays-bar">
           {DAY_NAMES.map((d, index) => (
             <div
               key={d}
-              style={{
-                color: index >= 5 ? '#bfdbfe' : '#ffffff',
-                borderRight: index < 6 ? '1px solid rgba(255, 255, 255, 0.12)' : 'none'
-              }}
+              className={`brand-cal-weekday-cell ${index >= 5 ? 'is-weekend' : ''}`}
             >
               {d.toUpperCase()}
             </div>
@@ -648,12 +590,7 @@ export const BrandCalendarPage = () => {
         </div>
 
         {/* Calendar Cells Grid — Crisp 1px #cbd5e1 dividers so every cell is clearly framed */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(7, 1fr)',
-          backgroundColor: '#cbd5e1',
-          gap: '1px'
-        }}>
+        <div className="brand-cal-days-grid">
           {calendarCells.map((cell, idx) => {
             const data = itemsByDate.get(cell.dateKey) || { slots: [], posts: [] };
             const daySlots = data.slots;
@@ -665,64 +602,23 @@ export const BrandCalendarPage = () => {
             return (
               <div
                 key={idx}
-                style={{
-                  backgroundColor: isCurrentMonth ? '#ffffff' : '#f1f5f9',
-                  minHeight: '190px',
-                  padding: '8px 8px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  position: 'relative',
-                  borderTop: isToday && isCurrentMonth ? '3px solid #2563eb' : 'none'
-                }}
+                className={`brand-cal-day-cell ${!isCurrentMonth ? 'is-other-month' : ''} ${isToday && isCurrentMonth ? 'is-today' : ''}`}
               >
                 {/* Day Number Header */}
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '6px',
-                  paddingBottom: '4px',
-                  borderBottom: isCurrentMonth ? '1px solid #f1f5f9' : 'none'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <div className={`brand-cal-day-header ${!isCurrentMonth ? 'is-other-month' : ''}`}>
+                  <div className="brand-cal-day-num-wrap">
                     {isCurrentMonth && cell.dayNumber === 1 && (
-                      <span style={{
-                        fontSize: '11px',
-                        color: '#2563eb',
-                        fontWeight: '800',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.04em',
-                        backgroundColor: '#eff6ff',
-                        padding: '1px 6px',
-                        borderRadius: '4px',
-                        border: '1px solid #bfdbfe'
-                      }}>
+                      <span className="brand-cal-month-first-badge">
                         {currentDate.toLocaleString('default', { month: 'short' })} 01
                       </span>
                     )}
                     {!(isCurrentMonth && cell.dayNumber === 1) && (
                       isToday && isCurrentMonth ? (
-                        <span style={{
-                          backgroundColor: '#2563eb',
-                          color: '#ffffff',
-                          width: '24px',
-                          height: '24px',
-                          borderRadius: '50%',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '12px',
-                          fontWeight: '800',
-                          boxShadow: '0 2px 4px rgba(37,99,235,0.35)'
-                        }}>
+                        <span className="brand-cal-today-badge">
                           {cell.dayNumber}
                         </span>
                       ) : (
-                        <span style={{
-                          fontSize: '13px',
-                          fontWeight: isCurrentMonth ? '700' : '500',
-                          color: isCurrentMonth ? '#1e293b' : '#94a3b8'
-                        }}>
+                        <span className={`brand-cal-day-num ${!isCurrentMonth ? 'is-other-month' : ''}`}>
                           {cell.dayNumber < 10 ? `0${cell.dayNumber}` : cell.dayNumber}
                         </span>
                       )
@@ -732,6 +628,7 @@ export const BrandCalendarPage = () => {
                   {/* Quick Add Button */}
                   {isCurrentMonth && (
                     <button
+                      type="button"
                       onClick={() =>
                         navigate(`/planner/create?date=${cell.dateKey}`, {
                           state: {
@@ -740,27 +637,7 @@ export const BrandCalendarPage = () => {
                           },
                         })
                       }
-                      style={{
-                        background: 'none',
-                        border: '1px solid transparent',
-                        color: '#94a3b8',
-                        cursor: 'pointer',
-                        padding: '2px 4px',
-                        borderRadius: '4px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        transition: 'all 0.15s ease'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#f1f5f9';
-                        e.currentTarget.style.borderColor = '#cbd5e1';
-                        e.currentTarget.style.color = '#2563eb';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                        e.currentTarget.style.borderColor = 'transparent';
-                        e.currentTarget.style.color = '#94a3b8';
-                      }}
+                      className="brand-cal-quick-add-btn"
                       title={`Schedule post for ${cell.dateKey}`}
                     >
                       <Plus size={13} />
@@ -769,7 +646,7 @@ export const BrandCalendarPage = () => {
                 </div>
 
                 {/* Event Badges List for this day */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', flex: 1 }}>
+                <div className="brand-cal-slots-list">
                   {/* Strict Client Deliverables — Display planned brand mission slots */}
                   {isCurrentMonth && (() => {
                     const filteredSlots = daySlots.filter((slot) => {
@@ -790,37 +667,14 @@ export const BrandCalendarPage = () => {
                     return (
                       <>
                         {visibleSlots.map((slot, sIdx) => {
-                          const isSpecial = (slot.time_window || '').includes('04:00PM') || (slot.notes || '').toLowerCase().includes('payday');
-                          const typeInfo = getContentTypeInfo(slot.content_type, isSpecial);
-
-                          const linked = findMatchingPostForSlot(slot, dayPosts);
-
-                          const isCompleted = slot.computed_status === 'completed' || linked?.status === 'published';
-                          const isScheduled = !isCompleted && (slot.computed_status === 'scheduled' || linked?.status === 'scheduled');
-                          const isMissed = !isCompleted && !isScheduled && (slot.computed_status === 'missed' || (cell.dateKey < todayKey && !linked));
-
-                          let thumbUrl = null;
-                          if (linked) {
-                            const media = resolveAllMediaUrls(linked.media_url);
-                            thumbUrl = linked.thumbnail_url || media[0] || linked.product_image;
-                          }
-
-                          const IconComp = typeInfo.icon;
-
-                          // High-contrast, easily visible cards with solid border
-                          let cardBg = '#ffffff';
-                          let cardBorder = '1px solid #cbd5e1';
-
-                          if (isCompleted) {
-                            cardBg = '#ffffff';
-                            cardBorder = '1px solid #cbd5e1';
-                          } else if (isScheduled) {
-                            cardBg = '#f8faff';
-                            cardBorder = '1px solid #93c5fd';
-                          } else if (isMissed) {
-                            cardBg = '#fff8f8';
-                            cardBorder = '1px solid #fca5a5';
-                          }
+                          const {
+                            typeInfo,
+                            linked,
+                            isCompleted,
+                            isScheduled,
+                            isMissed,
+                            statusSummary,
+                          } = resolveSlotDisplay(slot, cell.dateKey, todayKey, dayPosts);
 
                           return (
                             <div
@@ -839,89 +693,30 @@ export const BrandCalendarPage = () => {
                                   });
                                 }
                               }}
-                              style={{
-                                backgroundColor: cardBg,
-                                borderRadius: '6px',
-                                padding: '4px 7px',
-                                fontSize: '11px',
-                                fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                gap: '6px',
-                                boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-                                cursor: 'pointer',
-                                position: 'relative',
-                                border: cardBorder,
-                                transition: 'all 0.15s ease'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.borderColor = '#94a3b8';
-                                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.08)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.borderColor = cardBorder.split(' ')[2];
-                                e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.04)';
-                              }}
-                              title={`Click to ${slot.linked_post?.id ? 'view post' : 'create post'} for ${slot.brand_name} (${isCompleted ? 'Live on Facebook' : isScheduled ? 'Scheduled' : isMissed ? 'Overdue' : 'Planned deliverable'})`}
+                              className={`brand-cal-slot-card ${isScheduled ? 'is-scheduled' : ''}`}
+                              title={`Click to ${linked?.id ? 'view post' : 'create post'} for ${slot.brand_name} (${statusSummary})`}
                             >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
-                                {/* Content-Type Color Accent Line */}
+                              <div className="brand-cal-slot-main">
                                 <span
-                                  style={{
-                                    width: '3.5px',
-                                    height: '14px',
-                                    backgroundColor: typeInfo.color,
-                                    borderRadius: '2px',
-                                    flexShrink: 0,
-                                  }}
+                                  className={`brand-cal-slot-accent is-${typeInfo.variant}`}
                                   title={`${typeInfo.label} deliverable`}
                                 />
 
-                                {/* High-contrast Brand Name */}
-                                <span style={{
-                                  fontSize: '11px',
-                                  fontWeight: '700',
-                                  letterSpacing: '0.1px',
-                                  flexShrink: 0,
-                                  color: '#0f172a',
-                                  whiteSpace: 'nowrap'
-                                }}>
+                                <span className="brand-cal-slot-brand">
                                   {slot.brand_name || 'Brand'}
                                 </span>
 
-                                <span style={{ color: '#94a3b8', fontSize: '9px', flexShrink: 0 }}>·</span>
+                                <span className="brand-cal-slot-dot">·</span>
 
-                                {/* Content Label */}
-                                <span style={{
-                                  fontWeight: '600',
-                                  fontSize: '10.5px',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                  color: '#475569'
-                                }}>
+                                <span className="brand-cal-slot-type">
                                   {typeInfo.label}
                                 </span>
                               </div>
 
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+                              <div className="brand-cal-slot-status-wrap">
                                 {isCompleted && (
                                   <span
-                                    style={{
-                                      backgroundColor: '#dcfce7',
-                                      color: '#15803d',
-                                      border: '1px solid #86efac',
-                                      fontSize: '8.5px',
-                                      fontWeight: '700',
-                                      padding: '1.5px 6px',
-                                      borderRadius: '4px',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '2.5px',
-                                      textTransform: 'uppercase',
-                                      letterSpacing: '0.2px',
-                                    }}
+                                    className="brand-cal-status-pill is-live"
                                     title="Delivered & Live on Facebook"
                                   >
                                     <Check size={8.5} strokeWidth={3} /> LIVE
@@ -930,20 +725,7 @@ export const BrandCalendarPage = () => {
 
                                 {isScheduled && (
                                   <span
-                                    style={{
-                                      backgroundColor: '#dbeafe',
-                                      color: '#1d4ed8',
-                                      border: '1px solid #93c5fd',
-                                      fontSize: '8.5px',
-                                      fontWeight: '700',
-                                      padding: '1.5px 6px',
-                                      borderRadius: '4px',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '2.5px',
-                                      textTransform: 'uppercase',
-                                      letterSpacing: '0.2px',
-                                    }}
+                                    className="brand-cal-status-pill is-scheduled"
                                     title="Scheduled on Facebook"
                                   >
                                     <Clock size={8.5} strokeWidth={2.5} /> {slot.time_window || 'QUEUED'}
@@ -952,20 +734,7 @@ export const BrandCalendarPage = () => {
 
                                 {isMissed && (
                                   <span
-                                    style={{
-                                      backgroundColor: '#fee2e2',
-                                      color: '#b91c1c',
-                                      border: '1px solid #fca5a5',
-                                      fontSize: '8.5px',
-                                      fontWeight: '700',
-                                      padding: '1.5px 6px',
-                                      borderRadius: '4px',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '2.5px',
-                                      textTransform: 'uppercase',
-                                      letterSpacing: '0.2px',
-                                    }}
+                                    className="brand-cal-status-pill is-missed"
                                     title="Overdue / Missed deliverable date"
                                   >
                                     <AlertTriangle size={8.5} strokeWidth={2.5} /> MISSED
@@ -974,18 +743,7 @@ export const BrandCalendarPage = () => {
 
                                 {!isCompleted && !isScheduled && !isMissed && (
                                   <span
-                                    style={{
-                                      backgroundColor: '#f1f5f9',
-                                      color: '#475569',
-                                      border: '1px solid #e2e8f0',
-                                      fontSize: '8.5px',
-                                      fontWeight: '600',
-                                      padding: '1.5px 5px',
-                                      borderRadius: '4px',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '2px',
-                                    }}
+                                    className="brand-cal-status-pill is-planned"
                                     title="Planned deliverable (click to create post)"
                                   >
                                     {slot.time_window || 'Planned'}
@@ -1008,30 +766,7 @@ export const BrandCalendarPage = () => {
                                 posts: dayPosts,
                               });
                             }}
-                            style={{
-                              backgroundColor: '#f1f5f9',
-                              color: '#2563eb',
-                              fontSize: '10.5px',
-                              fontWeight: '700',
-                              padding: '3px 6px',
-                              borderRadius: '4px',
-                              border: '1px solid #cbd5e1',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              width: '100%',
-                              marginTop: '2px',
-                              transition: 'all 0.15s ease'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = '#e2e8f0';
-                              e.currentTarget.style.borderColor = '#94a3b8';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = '#f1f5f9';
-                              e.currentTarget.style.borderColor = '#cbd5e1';
-                            }}
+                            className="brand-cal-more-btn"
                           >
                             +{remainingCount} more ...
                           </button>
@@ -1077,23 +812,28 @@ export const BrandCalendarPage = () => {
               onClose={() => setSelectedDayDetail(null)}
             />
 
-            <Modal.Body style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <Modal.Body className="brand-cal-modal-body">
               {/* Planned Targets */}
               {selectedDayDetail.slots.length > 0 && (
                 <div>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  <h4 className="brand-cal-modal-section-title">
                     🎯 Planned Schedule Targets
                   </h4>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div className="brand-cal-modal-list">
                     {selectedDayDetail.slots.map((slot, sIdx) => {
-                      const isSpecial = (slot.time_window || '').includes('04:00PM') || (slot.notes || '').toLowerCase().includes('payday');
-                      const typeInfo = getContentTypeInfo(slot.content_type, isSpecial);
-
-                      const linked = findMatchingPostForSlot(slot, selectedDayDetail.posts);
-
-                      const isCompleted = slot.computed_status === 'completed' || linked?.status === 'published';
-                      const isScheduled = !isCompleted && (slot.computed_status === 'scheduled' || linked?.status === 'scheduled');
-                      const isMissed = !isCompleted && !isScheduled && (slot.computed_status === 'missed' || (selectedDayDetail.dateKey < todayKey && !linked));
+                      const {
+                        typeInfo,
+                        linked,
+                        isCompleted,
+                        isScheduled,
+                        isMissed,
+                        stateClass,
+                      } = resolveSlotDisplay(
+                        slot,
+                        selectedDayDetail.dateKey,
+                        todayKey,
+                        selectedDayDetail.posts
+                      );
 
                       let thumbUrl = null;
                       let fbUrl = null;
@@ -1104,247 +844,91 @@ export const BrandCalendarPage = () => {
                       }
 
                       const IconComp = typeInfo.icon;
-
-                      // Clean, calm cards in modal (white background, no full green)
-                      let cardBg = '#ffffff';
-                      let cardBorder = '1.5px dashed #cbd5e1';
-                      let brandColor = '#475569';
-
-                      if (isCompleted) {
-                        cardBg = '#ffffff';
-                        cardBorder = '1px solid #e2e8f0';
-                        brandColor = '#0f172a';
-                      } else if (isScheduled) {
-                        cardBg = '#ffffff';
-                        cardBorder = '1px solid #bfdbfe';
-                        brandColor = '#0f172a';
-                      } else if (isMissed) {
-                        cardBg = '#ffffff';
-                        cardBorder = '1px solid #fecaca';
-                        brandColor = '#0f172a';
-                      }
+                      const isActiveState = isCompleted || isScheduled || isMissed;
 
                       return (
                         <div
                           key={`modal-slot-${slot.id || sIdx}`}
-                          style={{
-                            backgroundColor: cardBg,
-                            border: cardBorder,
-                            borderRadius: '10px',
-                            padding: '12px 16px',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            gap: '12px',
-                            boxShadow: isCompleted || isScheduled ? '0 1px 3px rgba(0,0,0,0.04)' : 'none',
-                            fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-                          }}
+                          className={`brand-cal-modal-slot ${stateClass}`}
                         >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-                            {/* Option 3: Mini Creative Thumbnail + Facebook Pill */}
+                          <div className="brand-cal-modal-slot-left">
                             {isCompleted && thumbUrl ? (
-                              <div style={{ position: 'relative', width: '42px', height: '42px', flexShrink: 0 }}>
+                              <div className="brand-cal-modal-thumb-wrap">
                                 <SafeImage
                                   src={thumbUrl}
                                   alt="Post thumbnail"
-                                  style={{
-                                    width: '42px',
-                                    height: '42px',
-                                    borderRadius: '6px',
-                                    objectFit: 'cover',
-                                    border: '1px solid #e2e8f0',
-                                  }}
+                                  className="brand-cal-modal-thumb-img"
                                   fallbackText="FB"
                                 />
-                                <div style={{
-                                  position: 'absolute',
-                                  bottom: '-4px',
-                                  right: '-4px',
-                                  backgroundColor: '#ffffff',
-                                  borderRadius: '50%',
-                                  width: '16px',
-                                  height: '16px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  boxShadow: '0 1px 3px rgba(0,0,0,0.25)'
-                                }}>
-                                  <FaFacebook size={12} color="#1877F2" />
+                                <div className="brand-cal-modal-fb-corner">
+                                  <FaFacebook size={12} />
                                 </div>
                               </div>
                             ) : isCompleted ? (
-                              <div style={{
-                                width: '42px',
-                                height: '42px',
-                                borderRadius: '6px',
-                                backgroundColor: '#16a34a',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flexShrink: 0,
-                                boxShadow: '0 2px 4px rgba(22,163,74,0.25)'
-                              }}>
-                                <Check size={20} strokeWidth={3} color="#ffffff" />
+                              <div className="brand-cal-modal-icon-box is-completed">
+                                <Check size={20} strokeWidth={3} />
                               </div>
                             ) : isScheduled ? (
-                              <div style={{
-                                width: '42px',
-                                height: '42px',
-                                borderRadius: '6px',
-                                backgroundColor: '#dbeafe',
-                                border: '1px solid #93c5fd',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flexShrink: 0
-                              }}>
-                                <Clock size={20} color="#2563eb" />
+                              <div className="brand-cal-modal-icon-box is-scheduled">
+                                <Clock size={20} />
                               </div>
                             ) : isMissed ? (
-                              <div style={{
-                                width: '42px',
-                                height: '42px',
-                                borderRadius: '6px',
-                                backgroundColor: '#fee2e2',
-                                border: '1px solid #fca5a5',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flexShrink: 0
-                              }}>
-                                <AlertTriangle size={20} color="#dc2626" />
+                              <div className="brand-cal-modal-icon-box is-missed">
+                                <AlertTriangle size={20} />
                               </div>
                             ) : (
-                              <div style={{
-                                width: '42px',
-                                height: '42px',
-                                borderRadius: '6px',
-                                backgroundColor: '#f8fafc',
-                                border: '1.5px dashed #cbd5e1',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flexShrink: 0
-                              }}>
-                                <IconComp size={18} color="#94a3b8" />
+                              <div className="brand-cal-modal-icon-box">
+                                <IconComp size={18} />
                               </div>
                             )}
 
-                            <div style={{ minWidth: 0, flex: 1 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
-                                <span style={{
-                                  fontSize: '11.5px',
-                                  fontWeight: '800',
-                                  letterSpacing: '0.2px',
-                                  color: brandColor
-                                }}>
+                            <div className="brand-cal-modal-slot-info">
+                              <div className="brand-cal-modal-slot-meta">
+                                <span className={`brand-cal-modal-slot-brand ${isActiveState ? 'is-active-state' : ''}`}>
                                   {slot.brand_name || 'Brand'}
                                 </span>
 
-                                <span style={{ color: '#cbd5e1', fontSize: '10px' }}>·</span>
+                                <span className="brand-cal-modal-slot-dot">·</span>
 
                                 {isCompleted && (
-                                  <span style={{
-                                    backgroundColor: '#ecfdf5',
-                                    color: '#059669',
-                                    border: '1px solid #a7f3d0',
-                                    fontSize: '9px',
-                                    fontWeight: '700',
-                                    padding: '1.5px 6px',
-                                    borderRadius: '4px',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '3px',
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.2px'
-                                  }}>
+                                  <span className="brand-cal-modal-badge is-live">
                                     <Check size={9} strokeWidth={3} /> LIVE ON FB
                                   </span>
                                 )}
 
                                 {isScheduled && (
-                                  <span style={{
-                                    backgroundColor: '#eff6ff',
-                                    color: '#2563eb',
-                                    border: '1px solid #bfdbfe',
-                                    fontSize: '9px',
-                                    fontWeight: '700',
-                                    padding: '1.5px 6px',
-                                    borderRadius: '4px',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '3px',
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.2px'
-                                  }}>
+                                  <span className="brand-cal-modal-badge is-scheduled">
                                     <Clock size={9} strokeWidth={2.5} /> SCHEDULED
                                   </span>
                                 )}
 
                                 {isMissed && (
-                                  <span style={{
-                                    backgroundColor: '#fef2f2',
-                                    color: '#dc2626',
-                                    border: '1px solid #fecaca',
-                                    fontSize: '9px',
-                                    fontWeight: '700',
-                                    padding: '1.5px 6px',
-                                    borderRadius: '4px',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '3px',
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.2px'
-                                  }}>
+                                  <span className="brand-cal-modal-badge is-missed">
                                     <AlertTriangle size={9} strokeWidth={2.5} /> MISSED
                                   </span>
                                 )}
 
-                                {!isCompleted && !isScheduled && !isMissed && (
-                                  <span style={{
-                                    backgroundColor: '#f8fafc',
-                                    color: '#64748b',
-                                    border: '1px solid #e2e8f0',
-                                    fontSize: '9px',
-                                    fontWeight: '600',
-                                    padding: '1.5px 6px',
-                                    borderRadius: '4px',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                  }}>
+                                {!isActiveState && (
+                                  <span className="brand-cal-modal-badge is-planned">
                                     PLANNED
                                   </span>
                                 )}
                               </div>
 
-                              <div style={{ fontSize: '14px', fontWeight: '600', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              <div className="brand-cal-modal-slot-subtitle">
                                 {typeInfo.label} {slot.time_window ? `(${slot.time_window})` : ''}
                               </div>
                             </div>
                           </div>
 
                           {/* Action Buttons */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                          <div className="brand-cal-modal-actions">
                             {fbUrl && (
                               <a
                                 href={fbUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                style={{
-                                  backgroundColor: '#1877F2',
-                                  color: '#ffffff',
-                                  border: 'none',
-                                  borderRadius: '6px',
-                                  padding: '7px 11px',
-                                  fontSize: '12px',
-                                  fontWeight: '700',
-                                  textDecoration: 'none',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  boxShadow: '0 1px 2px rgba(24,119,242,0.3)',
-                                  transition: 'background-color 0.15s ease'
-                                }}
+                                className="brand-cal-modal-fb-btn"
                                 title="Open post on Facebook"
                               >
                                 <FaFacebook size={12} /> View on FB
@@ -1373,20 +957,7 @@ export const BrandCalendarPage = () => {
                                   });
                                 }
                               }}
-                              style={{
-                                backgroundColor: isCompleted ? '#ffffff' : isScheduled ? '#eff6ff' : '#2563eb',
-                                color: isCompleted ? '#15803d' : isScheduled ? '#1d4ed8' : '#ffffff',
-                                border: isCompleted ? '1px solid #86efac' : isScheduled ? '1px solid #93c5fd' : 'none',
-                                borderRadius: '6px',
-                                padding: '7px 14px',
-                                fontSize: '12px',
-                                fontWeight: '700',
-                                cursor: 'pointer',
-                                boxShadow: isCompleted ? '0 1px 2px rgba(0,0,0,0.04)' : '0 1px 2px rgba(37,99,235,0.2)',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                              }}
+                              className={`brand-cal-modal-action-btn ${isCompleted ? 'is-completed' : isScheduled ? 'is-scheduled' : ''}`}
                             >
                               {linked?.id ? 'Edit in Planner' : '+ Create Post'}
                             </button>
@@ -1399,11 +970,11 @@ export const BrandCalendarPage = () => {
               )}
 
               {selectedDayDetail.slots.length === 0 && (
-                <div style={{ padding: '24px', textAlign: 'center', backgroundColor: '#f8fafc', borderRadius: '8px' }}>
-                  <p style={{ margin: '0 0 6px 0', fontSize: '14px', fontWeight: '600', color: '#334155' }}>
+                <div className="brand-cal-modal-empty">
+                  <p className="brand-cal-modal-empty-title">
                     No client deliverables scheduled for this day.
                   </p>
-                  <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
+                  <p className="brand-cal-modal-empty-desc">
                     General store posts and non-brand organic content are managed on the <strong>Planner</strong> page.
                   </p>
                 </div>
@@ -1415,11 +986,11 @@ export const BrandCalendarPage = () => {
                 if (brandPosts.length === 0) return null;
 
                 return (
-                  <div style={{ marginTop: selectedDayDetail.slots.length > 0 ? '16px' : '0' }}>
-                    <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  <div className={`brand-cal-related-posts ${selectedDayDetail.slots.length > 0 ? 'has-slots' : ''}`}>
+                    <h4 className="brand-cal-modal-section-title">
                       📄 Delivered Brand Posts ({brandPosts.length})
                     </h4>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div className="brand-cal-modal-list">
                       {brandPosts.map((p) => {
                         const { namePart, timeStr } = getPostCleanLabel(p);
                         const allMedia = resolveAllMediaUrls(p.media_url);
@@ -1433,74 +1004,47 @@ export const BrandCalendarPage = () => {
                               setSelectedDayDetail(null);
                               navigate(`/planner/edit/${p.id}`);
                             }}
-                            style={{
-                              padding: '10px 14px',
-                              backgroundColor: '#f8fafc',
-                              border: '1px solid #e2e8f0',
-                              borderRadius: '10px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              gap: '12px',
-                              cursor: 'pointer',
-                              transition: 'all 0.15s ease'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = '#eff6ff';
-                              e.currentTarget.style.borderColor = '#bfdbfe';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = '#f8fafc';
-                              e.currentTarget.style.borderColor = '#e2e8f0';
-                            }}
+                            className="brand-cal-related-post-card"
                           >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                            <div className="brand-cal-related-post-left">
                               {thumb ? (
                                 <SafeImage
                                   src={thumb}
                                   alt="thumb"
-                                  style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }}
+                                  className="brand-cal-related-thumb"
                                 />
                               ) : (
-                                <div style={{ width: '40px', height: '40px', borderRadius: '6px', backgroundColor: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                  <Tag size={16} color="#64748b" />
+                                <div className="brand-cal-related-thumb-placeholder">
+                                  <Tag size={16} />
                                 </div>
                               )}
-                              <div style={{ minWidth: 0, flex: 1 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <span style={{ fontWeight: '700', fontSize: '13px', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              <div className="brand-cal-related-info">
+                                <div className="brand-cal-related-header">
+                                  <span className="brand-cal-related-title">
                                     {namePart}
                                   </span>
                                   {timeStr && (
-                                    <span style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                    <span className="brand-cal-related-time">
                                       <Clock size={11} /> {timeStr}
                                     </span>
                                   )}
                                 </div>
                                 {p.message && (
-                                  <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  <p className="brand-cal-related-msg">
                                     {p.message}
                                   </p>
                                 )}
                               </div>
                             </div>
 
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                            <div className="brand-cal-related-actions">
                               {fbUrl && fbUrl !== '#' && (
                                 <a
                                   href={fbUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   onClick={(e) => e.stopPropagation()}
-                                  style={{
-                                    padding: '6px',
-                                    color: '#1877f2',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    borderRadius: '6px',
-                                    backgroundColor: '#ffffff',
-                                    border: '1px solid #e2e8f0'
-                                  }}
+                                  className="brand-cal-related-fb-link"
                                   title="Open on Facebook"
                                 >
                                   <ExternalLink size={14} />
