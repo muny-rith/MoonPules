@@ -22,6 +22,7 @@ import {
   Video,
   FileText,
   Target,
+  PauseCircle,
   X
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -36,6 +37,7 @@ import { resolveAllMediaUrls } from '../../../shared/utils/mediaUrl';
 import { getFacebookPostUrl } from '../../../shared/utils/facebookUrl';
 import { FaFacebook } from 'react-icons/fa';
 import { SetMissionModal } from '../../missions/components/SetMissionModal';
+import { CategorizeMissedModal } from '../../missions/components/CategorizeMissedModal';
 import '../../postTracker/planner.css';
 import '../calendar.css';
 
@@ -111,29 +113,34 @@ const resolveSlotDisplay = (slot, dateKey, todayKey, posts) => {
   const typeInfo = getContentTypeInfo(slot.content_type, isSpecial);
   const linked = findMatchingPostForSlot(slot, posts);
 
-  const isCompleted = slot.computed_status === 'completed' || linked?.status === 'published';
+  const isCompensated = slot.computed_status === 'compensated' || slot.is_compensated;
+  const isCompleted = !isCompensated && (slot.computed_status === 'completed' || linked?.status === 'published');
   const isScheduled =
-    !isCompleted && (slot.computed_status === 'scheduled' || linked?.status === 'scheduled');
+    !isCompleted && !isCompensated && (slot.computed_status === 'scheduled' || linked?.status === 'scheduled');
   const isMissed =
-    !isCompleted && !isScheduled && (slot.computed_status === 'missed' || (dateKey < todayKey && !linked));
+    !isCompleted && !isCompensated && !isScheduled && (slot.computed_status === 'missed' || (dateKey < todayKey && !linked));
 
-  const stateClass = isCompleted
+  const stateClass = isCompensated
+    ? 'is-compensated'
+    : isCompleted
     ? 'is-completed'
     : isScheduled
-      ? 'is-scheduled'
-      : isMissed
-        ? 'is-missed'
-        : 'is-planned';
+    ? 'is-scheduled'
+    : isMissed
+    ? 'is-missed'
+    : 'is-planned';
 
-  const statusSummary = isCompleted
+  const statusSummary = isCompensated
+    ? 'Compensated deliverable'
+    : isCompleted
     ? 'Live on Facebook'
     : isScheduled
-      ? 'Scheduled'
-      : isMissed
-        ? 'Overdue'
-        : 'Planned deliverable';
+    ? 'Scheduled'
+    : isMissed
+    ? 'Overdue'
+    : 'Planned deliverable';
 
-  return { typeInfo, linked, isCompleted, isScheduled, isMissed, stateClass, statusSummary };
+  return { typeInfo, linked, isCompleted, isCompensated, isScheduled, isMissed, stateClass, statusSummary };
 };
 
 export const BrandCalendarPage = () => {
@@ -210,6 +217,7 @@ export const BrandCalendarPage = () => {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDayDetail, setSelectedDayDetail] = useState(null); // Day Detail Modal state
+  const [categorizeSlot, setCategorizeSlot] = useState(null); // Categorize Missed Reason Modal state
 
   // TanStack Query: Cached calendar slots & monthly audit (0ms instant render on back navigation)
   const { data: calendarSlots = [], isLoading: slotsLoading } = useCalendarSlots(selectedBrandId, monthNumber, yearNumber);
@@ -671,6 +679,7 @@ export const BrandCalendarPage = () => {
                             typeInfo,
                             linked,
                             isCompleted,
+                            isCompensated,
                             isScheduled,
                             isMissed,
                             statusSummary,
@@ -683,17 +692,23 @@ export const BrandCalendarPage = () => {
                                 if (linked?.id) {
                                   navigate(`/planner/edit/${linked.id}`);
                                 } else {
-                                  navigate(`/planner/create?date=${cell.dateKey}`, {
+                                  const isPast = slot.computed_status === 'missed' || cell.dateKey < todayKey;
+                                  navigate(`/planner/create?date=${isPast ? todayKey : cell.dateKey}`, {
                                     state: {
                                       from: location.pathname,
                                       prefillBrandId: slot.brand_id,
-                                      prefillDate: cell.dateKey,
-                                      prefillType: slot.content_type
+                                      prefillDate: isPast ? todayKey : cell.dateKey,
+                                      prefillType: slot.content_type,
+                                      compensationSlotId: isPast ? slot.id : null,
+                                      compensationSlotDate: isPast ? cell.dateKey : null,
+                                      compensationSlotContentType: isPast ? slot.content_type : null,
+                                      compensationBrandName: isPast ? slot.brand_name : null,
+                                      compensationNotes: isPast ? (slot.notes || '') : null,
                                     }
                                   });
                                 }
                               }}
-                              className={`brand-cal-slot-card ${isScheduled ? 'is-scheduled' : ''}`}
+                              className={`brand-cal-slot-card ${isScheduled ? 'is-scheduled' : ''} ${isCompensated ? 'is-compensated' : ''}`}
                               title={`Click to ${linked?.id ? 'view post' : 'create post'} for ${slot.brand_name} (${statusSummary})`}
                             >
                               <div className="brand-cal-slot-main">
@@ -714,6 +729,20 @@ export const BrandCalendarPage = () => {
                               </div>
 
                               <div className="brand-cal-slot-status-wrap">
+                                {isCompensated && (
+                                  <span
+                                    className="brand-cal-status-pill is-compensated"
+                                    title="Deliverable was missed but compensated"
+                                    style={{
+                                      backgroundColor: '#f5f3ff',
+                                      color: '#7c3aed',
+                                      borderColor: '#ddd6fe',
+                                    }}
+                                  >
+                                    <Check size={8.5} strokeWidth={3} /> Make-Up
+                                  </span>
+                                )}
+
                                 {isCompleted && (
                                   <span
                                     className="brand-cal-status-pill is-live"
@@ -741,7 +770,7 @@ export const BrandCalendarPage = () => {
                                   </span>
                                 )}
 
-                                {!isCompleted && !isScheduled && !isMissed && (
+                                {!isCompleted && !isCompensated && !isScheduled && !isMissed && (
                                   <span
                                     className="brand-cal-status-pill is-planned"
                                     title="Planned deliverable (click to create post)"
@@ -825,6 +854,7 @@ export const BrandCalendarPage = () => {
                         typeInfo,
                         linked,
                         isCompleted,
+                        isCompensated,
                         isScheduled,
                         isMissed,
                         stateClass,
@@ -844,7 +874,7 @@ export const BrandCalendarPage = () => {
                       }
 
                       const IconComp = typeInfo.icon;
-                      const isActiveState = isCompleted || isScheduled || isMissed;
+                      const isActiveState = isCompleted || isCompensated || isScheduled || isMissed;
 
                       return (
                         <div
@@ -852,7 +882,7 @@ export const BrandCalendarPage = () => {
                           className={`brand-cal-modal-slot ${stateClass}`}
                         >
                           <div className="brand-cal-modal-slot-left">
-                            {isCompleted && thumbUrl ? (
+                            {(isCompleted || isCompensated) && thumbUrl ? (
                               <div className="brand-cal-modal-thumb-wrap">
                                 <SafeImage
                                   src={thumbUrl}
@@ -863,6 +893,10 @@ export const BrandCalendarPage = () => {
                                 <div className="brand-cal-modal-fb-corner">
                                   <FaFacebook size={12} />
                                 </div>
+                              </div>
+                            ) : isCompensated ? (
+                              <div className="brand-cal-modal-icon-box" style={{ backgroundColor: '#f5f3ff', color: '#7c3aed' }}>
+                                <Check size={20} strokeWidth={3} />
                               </div>
                             ) : isCompleted ? (
                               <div className="brand-cal-modal-icon-box is-completed">
@@ -890,6 +924,12 @@ export const BrandCalendarPage = () => {
 
                                 <span className="brand-cal-modal-slot-dot">·</span>
 
+                                {isCompensated && (
+                                  <span className="brand-cal-modal-badge is-compensated" style={{ backgroundColor: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}>
+                                    <Check size={9} strokeWidth={3} /> COMPENSATED
+                                  </span>
+                                )}
+
                                 {isCompleted && (
                                   <span className="brand-cal-modal-badge is-live">
                                     <Check size={9} strokeWidth={3} /> LIVE ON FB
@@ -903,12 +943,29 @@ export const BrandCalendarPage = () => {
                                 )}
 
                                 {isMissed && (
-                                  <span className="brand-cal-modal-badge is-missed">
-                                    <AlertTriangle size={9} strokeWidth={2.5} /> MISSED
+                                  <>
+                                    <span className="brand-cal-modal-badge is-missed">
+                                      <AlertTriangle size={9} strokeWidth={2.5} /> MISSED
+                                    </span>
+                                    {slot.missed_reason && (
+                                      <span
+                                        className="brand-cal-modal-badge"
+                                        style={{ backgroundColor: '#fffbeb', color: '#b45309', borderColor: '#fde68a' }}
+                                        title={slot.resolution_notes ? `Notes: ${slot.resolution_notes}` : 'Reason classified'}
+                                      >
+                                        Reason: {slot.missed_reason.replace('_', ' ')}
+                                      </span>
+                                    )}
+                                  </>
+                                )}
+
+                                {slot.slot_status === 'waived' && (
+                                  <span className="brand-cal-modal-badge" style={{ backgroundColor: '#eef2ff', color: '#4f46e5', borderColor: '#c7d2fe' }}>
+                                    <PauseCircle size={9} strokeWidth={2.5} /> WAIVED
                                   </span>
                                 )}
 
-                                {!isActiveState && (
+                                {!isActiveState && slot.slot_status !== 'waived' && (
                                   <span className="brand-cal-modal-badge is-planned">
                                     PLANNED
                                   </span>
@@ -935,6 +992,33 @@ export const BrandCalendarPage = () => {
                               </a>
                             )}
 
+                            {isMissed && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCategorizeSlot({
+                                    ...slot,
+                                    brand_name: slot.brand_name || selectedBrand?.brand_name,
+                                  });
+                                }}
+                                style={{
+                                  backgroundColor: slot.missed_reason ? '#f0fdf4' : '#fffbeb',
+                                  color: slot.missed_reason ? '#166534' : '#92400e',
+                                  borderColor: slot.missed_reason ? '#bbf7d0' : '#fde68a',
+                                  marginRight: '6px',
+                                  minHeight: '26px',
+                                  height: '26px',
+                                  padding: '0 8px',
+                                  fontSize: '11px',
+                                }}
+                                title="Categorize Root Cause / SLA reason"
+                              >
+                                ⚙ {slot.missed_reason ? slot.missed_reason.replace('_', ' ') : 'Set Reason'}
+                              </Button>
+                            )}
+
                             <button
                               type="button"
                               onClick={() => {
@@ -942,24 +1026,30 @@ export const BrandCalendarPage = () => {
                                 if (linked?.id) {
                                   navigate(`/planner/edit/${linked.id}`);
                                 } else {
-                                  navigate(`/planner/create?date=${selectedDayDetail.dateKey}`, {
+                                  const isPast = slot.computed_status === 'missed' || selectedDayDetail.dateKey < todayKey;
+                                  navigate(`/planner/create?date=${isPast ? todayKey : selectedDayDetail.dateKey}`, {
                                     state: {
                                       returnPath: '/calendar',
                                       from: location.pathname,
                                       prefillBrandId: slot.brand_id,
-                                      prefillDate: selectedDayDetail.dateKey,
+                                      prefillDate: isPast ? todayKey : selectedDayDetail.dateKey,
                                       prefillType: slot.content_type,
                                       defaultBrandId: slot.brand_id,
                                       defaultContentType: slot.content_type,
                                       defaultTime: slot.time_window,
                                       plannedSlotId: slot.id,
+                                      compensationSlotId: isPast ? slot.id : null,
+                                      compensationSlotDate: isPast ? selectedDayDetail.dateKey : null,
+                                      compensationSlotContentType: isPast ? slot.content_type : null,
+                                      compensationBrandName: isPast ? slot.brand_name : null,
+                                      compensationNotes: isPast ? (slot.notes || '') : null,
                                     }
                                   });
                                 }
                               }}
                               className={`brand-cal-modal-action-btn ${isCompleted ? 'is-completed' : isScheduled ? 'is-scheduled' : ''}`}
                             >
-                              {linked?.id ? 'Edit in Planner' : '+ Create Post'}
+                              {linked?.id ? `🔗 View Post #${linked.id}` : isMissed ? '+ Make-Up (Compensate)' : '+ Create Post'}
                             </button>
                           </div>
                         </div>
@@ -1072,6 +1162,22 @@ export const BrandCalendarPage = () => {
           </>
         )}
       </Modal>
+
+      {/* Root Cause & Missed Reason Modal */}
+      <CategorizeMissedModal
+        isOpen={Boolean(categorizeSlot)}
+        onClose={() => setCategorizeSlot(null)}
+        slot={categorizeSlot}
+        onSaved={(updated) => {
+          setSelectedDayDetail((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              slots: prev.slots.map((s) => (s.id === updated.id ? { ...s, ...updated } : s)),
+            };
+          });
+        }}
+      />
     </div>
   );
 };

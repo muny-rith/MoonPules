@@ -79,7 +79,7 @@ const getSlotsByMissionId = async (missionId) => {
 const getSlotsForBrandAndMonth = async (brandId, month, year) => {
   let queryStr = `
     SELECT s.*, m.brand_id, m.brand_name,
-           p.fb_post_id, p.status as post_status, p.published_time, p.scheduled_time, p.message as post_message, p.media_url, p.thumbnail_url, p.page_id, p.media_type
+           p.id as post_id, p.fb_post_id, p.status as post_status, p.published_time, p.scheduled_time, p.message as post_message, p.media_url, p.thumbnail_url, p.page_id, p.media_type
     FROM tb_brand_mission_slot s
     JOIN tb_brand_mission m ON m.id = s.mission_id
     LEFT JOIN tb_post_tracker p ON p.id = s.linked_post_id
@@ -211,9 +211,26 @@ const updateSlot = async (slotId, data) => {
     fields.push(`slot_status = $${idx++}`);
     values.push(data.slot_status);
   }
+  if (data.missed_reason !== undefined) {
+    fields.push(`missed_reason = $${idx++}`);
+    values.push(data.missed_reason || null);
+  }
+  if (data.resolution_notes !== undefined) {
+    fields.push(`resolution_notes = $${idx++}`);
+    values.push(data.resolution_notes || null);
+  }
+  if (data.is_compensated !== undefined) {
+    fields.push(`is_compensated = $${idx++}`);
+    values.push(data.is_compensated);
+  }
+  if (data.compensated_at !== undefined) {
+    fields.push(`compensated_at = $${idx++}`);
+    values.push(data.compensated_at);
+  }
 
   if (fields.length === 0) return getSlotById(slotId);
 
+  fields.push(`updated_at = CURRENT_TIMESTAMP`);
   values.push(slotId);
   const queryStr = `UPDATE tb_brand_mission_slot SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`;
   const result = await db.query(queryStr, values);
@@ -348,17 +365,19 @@ const findUnlinkedSlotForPost = async ({ brand_id, planned_date, content_type })
 };
 
 /**
- * Persistently link a slot to a post with updated status
+ * Persistently link a slot to a post with updated status and optional compensation flag
  */
-const linkSlotToPost = async (slotId, postId, status = 'completed') => {
+const linkSlotToPost = async (slotId, postId, status = 'completed', isCompensated = false) => {
   const result = await db.query(
     `UPDATE tb_brand_mission_slot
      SET linked_post_id = $1,
          slot_status = $2,
+         is_compensated = $3,
+         compensated_at = CASE WHEN $3 = TRUE THEN CURRENT_TIMESTAMP ELSE compensated_at END,
          updated_at = CURRENT_TIMESTAMP
-     WHERE id = $3
+     WHERE id = $4
      RETURNING *`,
-    [postId, status, slotId]
+    [postId, status, isCompensated === true, slotId]
   );
   return result.rows[0] || null;
 };
@@ -371,10 +390,30 @@ const unlinkSlotByPostId = async (postId) => {
     `UPDATE tb_brand_mission_slot
      SET linked_post_id = NULL,
          slot_status = 'planned',
+         is_compensated = FALSE,
+         compensated_at = NULL,
          updated_at = CURRENT_TIMESTAMP
      WHERE linked_post_id = $1
      RETURNING *`,
     [postId]
+  );
+  return result.rows;
+};
+
+/**
+ * Get unresolved missed slots for a brand up to a given date (for backfill/compensation auto-suggestions)
+ */
+const getUnresolvedMissedSlotsForBrand = async (brandId, beforeDateStr) => {
+  const result = await db.query(
+    `SELECT s.*, m.brand_name
+     FROM tb_brand_mission_slot s
+     JOIN tb_brand_mission m ON m.id = s.mission_id
+     WHERE m.brand_id = $1
+       AND s.planned_date < $2
+       AND s.linked_post_id IS NULL
+       AND s.is_compensated = FALSE
+     ORDER BY s.planned_date DESC, s.id ASC`,
+    [brandId, beforeDateStr]
   );
   return result.rows;
 };
@@ -428,5 +467,6 @@ module.exports = {
   unlinkSlotByPostId,
   getSlotByLinkedPostId,
   getAllSlotsWithMissionsForMonth,
+  getUnresolvedMissedSlotsForBrand,
 };
 

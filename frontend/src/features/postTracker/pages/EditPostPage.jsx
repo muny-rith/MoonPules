@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as api from '../api/postTrackerApi';
 import * as productService from '../../product/services/productService';
+import * as missionApi from '../../missions/api/missionApi';
 import { usePages, useBrands } from '../../../shared/hooks/queries';
 import { useToast } from '../../../shared/context/ToastContext';
 import { findBrandById, resolveActiveHashtagBrand } from '../utils/resolveTargetBrand';
@@ -20,6 +21,7 @@ import {
   FileText,
   Layers,
   Tag,
+  Sparkles,
   ArrowLeft,
   Edit2,
   Monitor,
@@ -101,6 +103,21 @@ const PageAvatar = ({ page, size = 26, className = 'meta-page-avatar-img' }) => 
   );
 };
 
+const formatDateLabel = (dateStr) => {
+  if (!dateStr) return '';
+  try {
+    const raw = String(dateStr).slice(0, 10);
+    const parts = raw.split('-');
+    if (parts.length === 3) {
+      const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    return raw;
+  } catch {
+    return String(dateStr).slice(0, 10);
+  }
+};
+
 export const EditPostPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -138,6 +155,7 @@ export const EditPostPage = () => {
   const [trackingTarget, setTrackingTarget] = useState('product');
   const [brandId, setBrandId] = useState('');
   const [selectedBrand, setSelectedBrand] = useState(null);
+  const [compensationSlot, setCompensationSlot] = useState(null);
 
   // Costs
   const [contentCost, setContentCost] = useState(0);
@@ -256,6 +274,13 @@ export const EditPostPage = () => {
       setAdSpend(post.ad_spend !== undefined && post.ad_spend !== null ? parseFloat(post.ad_spend) : '');
       setAttributionWindow(post.attribution_window_days || 7);
       setFbPostId(post.fb_post_id || '');
+
+      if (post.compensation_for_slot_id) {
+        try {
+          const slot = await missionApi.getSlotById(post.compensation_for_slot_id);
+          if (slot) setCompensationSlot(slot);
+        } catch (_) {}
+      }
                   if (post.media_url) {
         let rawUrls = [];
         if (typeof post.media_url === 'string' && post.media_url.trim().startsWith('[')) {
@@ -704,9 +729,11 @@ export const EditPostPage = () => {
         attribution_window_days: parseInt(attributionWindow, 10) || 7,
         fb_post_id: fbPostId || originalPost?.fb_post_id || undefined,
         scheduled_time: scheduledDateTime ? new Date(scheduledDateTime).toISOString() : originalPost?.scheduled_time,
+        compensation_for_slot_id: compensationSlot ? compensationSlot.id : null,
       };
 
       await updatePost(parseInt(id, 10), updateData);
+      await invalidatePostAndMissionCaches();
       toast.success('Post updated successfully!');
       navigate(returnPath);
     } catch (err) {
@@ -1000,6 +1027,52 @@ export const EditPostPage = () => {
             LEFT COLUMN: Meta Editor Panel
             ══════════════════════════════════════════════════ */}
         <div className="meta-editor-col">
+
+          {/* Mission Copilot Deliverable Card (if fulfilling compensation) */}
+          {compensationSlot && (
+            <div className="meta-copilot-card" style={{ marginBottom: '16px' }}>
+              <div className="meta-copilot-accent-notch" />
+              <div className="meta-copilot-header">
+                <span className="meta-copilot-badge">
+                  <Sparkles size={12} />
+                  <span>MISSION COPILOT · FULFILLING MAKE-UP</span>
+                </span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<X size={12} />}
+                  className="meta-copilot-detach-btn"
+                  onClick={() => setCompensationSlot(null)}
+                  title="Detach compensation from this post"
+                >
+                  Detach
+                </Button>
+              </div>
+
+              <div className="meta-copilot-body">
+                <div className="meta-copilot-title">
+                  🎯 Fulfilling: {compensationSlot.brand_name || selectedBrand?.brand_name || 'Brand'}
+                </div>
+                <div className="meta-copilot-desc">
+                  This post fulfills Missed Slot <strong>#{compensationSlot.id}</strong> ({formatDateLabel(compensationSlot.planned_date)}) · {(compensationSlot.content_type || '').toUpperCase()}.
+                </div>
+                {compensationSlot.notes && (
+                  <div className="meta-sla-notes-quote" style={{ fontSize: '11px', marginTop: '2px' }}>
+                    <FileText size={11} />
+                    <span><strong>Brief:</strong> {compensationSlot.notes}</span>
+                  </div>
+                )}
+                <div className="meta-copilot-meta-row">
+                  <span className="meta-copilot-pill is-date">
+                    Due: {formatDateLabel(compensationSlot.planned_date)}
+                  </span>
+                  <span className="meta-copilot-pill is-type">
+                    Format: {(compensationSlot.content_type || 'post').toUpperCase()}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 1. Card: Post to */}
           <div className="meta-card">

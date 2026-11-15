@@ -480,6 +480,12 @@
   border: 1px solid #fca5a5;
 }
 
+.brand-cal-status-pill.is-compensated {
+  background-color: #f5f3ff;
+  color: #7c3aed;
+  border: 1px solid #ddd6fe;
+}
+
 .brand-cal-status-pill.is-planned {
   background-color: #f1f5f9;
   color: #475569;

@@ -41,3 +41,15 @@ export const deleteSlot = async (slotId) => {
   return response.data?.data || null;
 };
 
+export const getSlotById = async (slotId) => {
+  const response = await apiClient.get(`/missions/slots/${slotId}`);
+  return response.data?.data || null;
+};
+
+export const getMissedSlots = async (brandId) => {
+  const response = await apiClient.get('/missions/missed-slots', {
+    params: { brand_id: brandId },
+  });
+  return response.data?.data || [];
+};
+

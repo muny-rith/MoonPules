@@ -314,6 +314,7 @@ const createTrackedPost = async (postData) => {
     message,
     media_url,
     thumbnail_url,
+    compensation_for_slot_id,
   } = postData;
 
   try {
@@ -321,9 +322,9 @@ const createTrackedPost = async (postData) => {
       INSERT INTO tb_post_tracker (
         product_id, brand_id, tracking_type, page_id, fb_post_id, status, scheduled_time, published_time, 
         marked_by, content_cost, ad_spend, attribution_window_days, media_type,
-        message, media_url, thumbnail_url
+        message, media_url, thumbnail_url, compensation_for_slot_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
       RETURNING *
     `, [
       product_id ? parseInt(product_id, 10) : null,
@@ -342,6 +343,7 @@ const createTrackedPost = async (postData) => {
       message || null,
       media_url || null,
       thumbnail_url || null,
+      compensation_for_slot_id ? parseInt(compensation_for_slot_id, 10) : null,
     ]);
     return result.rows[0];
   } catch (err) {
@@ -540,6 +542,10 @@ const updateTrackedPostData = async (id, data) => {
   if (data.scheduled_time !== undefined) {
     fields.push(`scheduled_time = $${idx++}`);
     values.push(data.scheduled_time || null);
+  }
+  if (data.compensation_for_slot_id !== undefined) {
+    fields.push(`compensation_for_slot_id = $${idx++}`);
+    values.push(data.compensation_for_slot_id ? parseInt(data.compensation_for_slot_id, 10) : null);
   }
 
   if (fields.length === 0) {

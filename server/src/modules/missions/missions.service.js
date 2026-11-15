@@ -133,7 +133,37 @@ const getMissionWithProgress = async (brandId, month, year) => {
     let computedStatus = 'planned';
     let linkedPost = null;
 
-    if (matchingPost && matchingPost.status === 'published') {
+    if (slot.linked_post_id && slot.post_status) {
+      const isPublished = slot.post_status === 'published';
+      const isScheduled = slot.post_status === 'scheduled';
+      const isCompensated = slot.is_compensated === true || slot.slot_status === 'compensated';
+      computedStatus = isPublished
+        ? (isCompensated ? 'compensated' : 'completed')
+        : isScheduled
+        ? 'scheduled'
+        : (slotDateStr < todayStr ? 'missed' : 'planned');
+
+      if (computedStatus === 'completed' || computedStatus === 'compensated') {
+        completedSlots += 1;
+      } else if (computedStatus === 'missed') {
+        missedSlots += 1;
+      } else {
+        plannedSlots += 1;
+      }
+
+      linkedPost = {
+        id: slot.linked_post_id,
+        status: slot.post_status,
+        media_type: slot.media_type || slot.content_type,
+        published_time: slot.published_time,
+        scheduled_time: slot.scheduled_time,
+        message: slot.post_message,
+        media_url: slot.media_url,
+        thumbnail_url: slot.thumbnail_url,
+        fb_post_id: slot.fb_post_id,
+        page_id: slot.page_id,
+      };
+    } else if (matchingPost && matchingPost.status === 'published') {
       computedStatus = 'completed';
       completedSlots += 1;
       linkedPost = {
@@ -170,6 +200,7 @@ const getMissionWithProgress = async (brandId, month, year) => {
       ...slot,
       planned_date_str: slotDateStr,
       computed_status: computedStatus,
+      is_compensated: slot.is_compensated === true || slot.slot_status === 'compensated',
       linked_post: linkedPost,
     };
   });
@@ -179,18 +210,20 @@ const getMissionWithProgress = async (brandId, month, year) => {
 
   // Breakdown by format
   const postersTarget = enrichedSlots.filter((s) => s.content_type === 'photo').length;
-  const postersCompleted = enrichedSlots.filter((s) => s.content_type === 'photo' && s.computed_status === 'completed').length;
+  const postersCompleted = enrichedSlots.filter((s) => s.content_type === 'photo' && (s.computed_status === 'completed' || s.computed_status === 'compensated')).length;
 
   const livesTarget = enrichedSlots.filter((s) => s.content_type === 'live').length;
-  const livesCompleted = enrichedSlots.filter((s) => s.content_type === 'live' && s.computed_status === 'completed').length;
+  const livesCompleted = enrichedSlots.filter((s) => s.content_type === 'live' && (s.computed_status === 'completed' || s.computed_status === 'compensated')).length;
 
   const videosTarget = enrichedSlots.filter((s) => s.content_type === 'video').length;
-  const videosCompleted = enrichedSlots.filter((s) => s.content_type === 'video' && s.computed_status === 'completed').length;
+  const videosCompleted = enrichedSlots.filter((s) => s.content_type === 'video' && (s.computed_status === 'completed' || s.computed_status === 'compensated')).length;
+  const compensatedCount = enrichedSlots.filter((s) => s.computed_status === 'compensated').length;
 
   return {
     ...mission,
     total_slots: totalSlots,
     completed_slots: completedSlots,
+    compensated_slots: compensatedCount,
     missed_slots: missedSlots,
     planned_slots: plannedSlots,
     completion_rate: completionRate,
@@ -274,15 +307,21 @@ const getCalendarSlots = async (brandId, month, year) => {
     const slotDateStr = formatLocalDateStr(slot.planned_date);
 
     // 1. If slot is persistently linked to a post in the database (Direct 0ms match)
-    if (slot.linked_post_id && slot.fb_post_id !== undefined) {
+    if (slot.linked_post_id && (slot.fb_post_id !== undefined || slot.post_status !== undefined)) {
       const isPublished = slot.post_status === 'published';
       const isScheduled = slot.post_status === 'scheduled';
-      let computedStatus = isPublished ? 'completed' : isScheduled ? 'scheduled' : (slotDateStr < todayStr ? 'missed' : 'planned');
+      const isCompensated = slot.is_compensated === true || slot.slot_status === 'compensated';
+      let computedStatus = isPublished
+        ? (isCompensated ? 'compensated' : 'completed')
+        : isScheduled
+        ? 'scheduled'
+        : (slotDateStr < todayStr ? 'missed' : 'planned');
 
       return {
         ...slot,
         planned_date_str: slotDateStr,
         computed_status: computedStatus,
+        is_compensated: isCompensated,
         linked_post: {
           id: slot.linked_post_id,
           status: slot.post_status,
@@ -423,9 +462,14 @@ const getMonthAudit = async (month, year) => {
       if (slot.linked_post_id && slot.post_status) {
         const isPublished = slot.post_status === 'published';
         const isScheduled = slot.post_status === 'scheduled';
-        const status = isPublished ? 'completed' : isScheduled ? 'scheduled' : (slotDateStr < todayStr ? 'missed' : 'planned');
+        const isCompensated = slot.is_compensated === true || slot.slot_status === 'compensated';
+        const status = isPublished
+          ? (isCompensated ? 'compensated' : 'completed')
+          : isScheduled
+          ? 'scheduled'
+          : (slotDateStr < todayStr ? 'missed' : 'planned');
 
-        if (status === 'completed') completedSlots += 1;
+        if (status === 'completed' || status === 'compensated') completedSlots += 1;
         else if (status === 'missed') missedSlots += 1;
         else plannedSlots += 1;
 
@@ -433,6 +477,7 @@ const getMonthAudit = async (month, year) => {
           ...slot,
           planned_date_str: slotDateStr,
           computed_status: status,
+          is_compensated: isCompensated,
           linked_post: {
             id: slot.linked_post_id,
             status: slot.post_status,
@@ -487,13 +532,17 @@ const getMonthAudit = async (month, year) => {
     }
 
     const postersTarget = enrichedSlots.filter((s) => s.content_type === 'photo').length;
-    const postersCompleted = enrichedSlots.filter((s) => s.content_type === 'photo' && s.computed_status === 'completed').length;
+    const postersCompleted = enrichedSlots.filter((s) => s.content_type === 'photo' && (s.computed_status === 'completed' || s.computed_status === 'compensated')).length;
 
     const livesTarget = enrichedSlots.filter((s) => s.content_type === 'live').length;
-    const livesCompleted = enrichedSlots.filter((s) => s.content_type === 'live' && s.computed_status === 'completed').length;
+    const livesCompleted = enrichedSlots.filter((s) => s.content_type === 'live' && (s.computed_status === 'completed' || s.computed_status === 'compensated')).length;
 
     const videosTarget = enrichedSlots.filter((s) => s.content_type === 'video').length;
-    const videosCompleted = enrichedSlots.filter((s) => s.content_type === 'video' && s.computed_status === 'completed').length;
+    const videosCompleted = enrichedSlots.filter((s) => s.content_type === 'video' && (s.computed_status === 'completed' || s.computed_status === 'compensated')).length;
+    const compensatedCount = enrichedSlots.filter((s) => s.computed_status === 'compensated' || s.is_compensated).length;
+    const completedOnTimeCount = enrichedSlots.filter((s) => s.computed_status === 'completed' && !s.is_compensated).length;
+    const waivedCount = enrichedSlots.filter((s) => s.computed_status === 'waived' || s.slot_status === 'waived').length;
+    const onTimeRate = totalSlots > 0 ? Math.round((completedOnTimeCount / totalSlots) * 100) : 0;
 
     auditList.push({
       brand_id: mission.brand_id,
@@ -502,9 +551,13 @@ const getMonthAudit = async (month, year) => {
       year: mission.year,
       total_slots: totalSlots,
       completed_slots: completedSlots,
+      completed_on_time_slots: completedOnTimeCount,
+      compensated_slots: compensatedCount,
       missed_slots: missedSlots,
+      waived_slots: waivedCount,
       planned_slots: plannedSlots,
       completion_rate: completionRate,
+      on_time_rate: onTimeRate,
       status: statusLabel,
       breakdown: {
         posters: { target: postersTarget, completed: postersCompleted },
@@ -532,9 +585,27 @@ const reconcilePostWithMission = async (post) => {
 
     const targetStatus = post.status === 'published' ? 'completed' : post.status === 'scheduled' ? 'scheduled' : 'planned';
 
+    // 0. Explicit Compensation Linking (Highest Priority)
+    if (post.compensation_for_slot_id) {
+      const targetSlot = await missionsRepo.getSlotById(post.compensation_for_slot_id);
+      if (targetSlot) {
+        const brandMatches = String(targetSlot.brand_id || '') === String(post.brand_id || '');
+        if (brandMatches) {
+          const finalStatus = post.status === 'published' ? 'compensated' : post.status === 'scheduled' ? 'scheduled' : 'planned';
+          return await missionsRepo.linkSlotToPost(targetSlot.id, post.id, finalStatus, true);
+        }
+      }
+    }
+
     // 1. Check if post is already linked to an existing slot
     const existingSlot = await missionsRepo.getSlotByLinkedPostId(post.id);
     if (existingSlot) {
+      // If this existing link is a compensation link, preserve it
+      if (existingSlot.is_compensated) {
+        const finalStatus = post.status === 'published' ? 'compensated' : post.status === 'scheduled' ? 'scheduled' : 'planned';
+        return await missionsRepo.linkSlotToPost(existingSlot.id, post.id, finalStatus, true);
+      }
+
       const existingDateStr = formatLocalDateStr(existingSlot.planned_date);
       const brandMatches = String(existingSlot.brand_id || '') === String(post.brand_id || '');
       const dateMatches = existingDateStr === postDateStr;
@@ -542,7 +613,7 @@ const reconcilePostWithMission = async (post) => {
 
       // If brand, date, and content_type are still aligned/compatible, just update status
       if (brandMatches && dateMatches && typeMatches) {
-        return await missionsRepo.linkSlotToPost(existingSlot.id, post.id, targetStatus);
+        return await missionsRepo.linkSlotToPost(existingSlot.id, post.id, targetStatus, false);
       }
       // If rescheduled to a new date, brand changed, or media format no longer satisfies slot, unlink
       await missionsRepo.unlinkSlotByPostId(post.id);
@@ -556,7 +627,7 @@ const reconcilePostWithMission = async (post) => {
     });
 
     if (matchingSlot) {
-      return await missionsRepo.linkSlotToPost(matchingSlot.id, post.id, targetStatus);
+      return await missionsRepo.linkSlotToPost(matchingSlot.id, post.id, targetStatus, false);
     }
 
     return null; // Post is an extra/unplanned post for this day
@@ -658,6 +729,28 @@ const deleteSlot = async (slotId) => {
   return deleted;
 };
 
+const getSlotById = async (slotId) => {
+  const slot = await missionsRepo.getSlotById(slotId);
+  if (!slot) return null;
+  return {
+    ...slot,
+    planned_date_str: formatLocalDateStr(slot.planned_date),
+  };
+};
+
+/**
+ * Get unresolved missed slots for a brand to offer compensation options
+ */
+const getMissedSlotsForCompensation = async (brandId) => {
+  if (!brandId) return [];
+  const todayStr = formatLocalDateStr(new Date());
+  const missed = await missionsRepo.getUnresolvedMissedSlotsForBrand(brandId, todayStr);
+  return missed.map((s) => ({
+    ...s,
+    planned_date_str: formatLocalDateStr(s.planned_date),
+  }));
+};
+
 module.exports = {
   formatLocalDateStr,
   getMissionWithProgress,
@@ -667,7 +760,9 @@ module.exports = {
   updateSlot,
   createSlot,
   deleteSlot,
+  getSlotById,
   reconcilePostWithMission,
   unreconcilePost,
+  getMissedSlotsForCompensation,
 };
 

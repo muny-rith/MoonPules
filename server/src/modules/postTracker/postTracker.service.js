@@ -136,6 +136,7 @@ const createAndSchedulePost = async (postData) => {
     ad_spend = 0,
     attribution_window_days = 7,
     marked_by,
+    compensation_for_slot_id,
   } = postData;
 
   const isVideoMediaUrl = (url) => {
@@ -179,6 +180,7 @@ const createAndSchedulePost = async (postData) => {
     message: message || '',
     media_url: media_url || null,
     thumbnail_url: thumbnail_url || null,
+    compensation_for_slot_id: compensation_for_slot_id ? parseInt(compensation_for_slot_id, 10) : null,
   });
 
   if (publish_now) {
@@ -569,7 +571,14 @@ const editPostData = async (id, data) => {
     publishScheduler.cancelPostTimer(id);
   }
 
-  // Auto-reconcile mission slot if date, brand, or status was modified
+  // If compensation slot was detached, un-reconcile the previously linked slot
+  if (data.compensation_for_slot_id === null && existing.compensation_for_slot_id) {
+    try {
+      await missionsService.unreconcilePost(id);
+    } catch (_) {}
+  }
+
+  // Auto-reconcile mission slot if date, brand, status, or compensation target was modified
   try {
     await missionsService.reconcilePostWithMission(updated);
   } catch (err) {

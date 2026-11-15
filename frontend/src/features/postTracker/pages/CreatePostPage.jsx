@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as api from '../api/postTrackerApi';
 import * as productService from '../../product/services/productService';
+import * as missionApi from '../../missions/api/missionApi';
 import { usePages, useBrands } from '../../../shared/hooks/queries';
 import { useSessionDraft } from '../../../shared/hooks/useSessionDraft';
 import { useToast } from '../../../shared/context/ToastContext';
@@ -26,6 +27,7 @@ import {
   Layers,
   Tag,
   ArrowLeft,
+  ArrowRight,
   Monitor,
   Smartphone,
   ChevronDown,
@@ -49,6 +51,7 @@ import {
   GripVertical,
   Play,
   Video,
+  Radio,
   Star,
   LayoutGrid,
   List,
@@ -102,6 +105,21 @@ const PageAvatar = ({ page, size = 20, className = 'meta-page-avatar-img' }) => 
   );
 };
 
+const formatDateLabel = (dateStr) => {
+  if (!dateStr) return '';
+  try {
+    const raw = String(dateStr).slice(0, 10);
+    const parts = raw.split('-');
+    if (parts.length === 3) {
+      const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    return raw;
+  } catch {
+    return String(dateStr).slice(0, 10);
+  }
+};
+
 export const CreatePostPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -152,6 +170,97 @@ export const CreatePostPage = () => {
   const [brandId, setBrandId] = useState(() => (prefillBrandId ? String(prefillBrandId) : ''));
   const [selectedBrand, setSelectedBrand] = useState(null);
 
+  // Deliverable Compensation State (ផុសសង)
+  const [compensationSlot, setCompensationSlot] = useState(() => {
+    if (location.state?.compensationSlotId) {
+      return {
+        id: location.state.compensationSlotId,
+        planned_date: location.state.compensationSlotDate,
+        content_type: location.state.compensationSlotContentType || location.state?.prefillType,
+        brand_name: location.state.compensationBrandName,
+        notes: location.state.compensationNotes || location.state.prefillNotes || '',
+      };
+    }
+    return null;
+  });
+
+  const effectiveBrandId = useMemo(() => {
+    if (trackingTarget === 'brand' && brandId) return String(brandId);
+    if (trackingTarget === 'product' && selectedProduct?.brand_id) return String(selectedProduct.brand_id);
+    return brandId || (selectedBrand?.brand_id || selectedBrand?.id) || '';
+  }, [trackingTarget, brandId, selectedBrand, selectedProduct]);
+
+  const [availableMissedSlots, setAvailableMissedSlots] = useState([]);
+  const [dismissCopilot, setDismissCopilot] = useState(false);
+  const [suggestedTargetSlotId, setSuggestedTargetSlotId] = useState(null);
+
+  useEffect(() => {
+    setDismissCopilot(false);
+    setSuggestedTargetSlotId(null);
+    if (!effectiveBrandId) {
+      setAvailableMissedSlots([]);
+      return;
+    }
+    let cancelled = false;
+    missionApi.getMissedSlots(effectiveBrandId).then((slots) => {
+      if (!cancelled) {
+        const list = (slots || []).slice().sort((a, b) => {
+          const dA = (a.planned_date_str || a.planned_date || '').slice(0, 10);
+          const dB = (b.planned_date_str || b.planned_date || '').slice(0, 10);
+          return dA.localeCompare(dB);
+        });
+        setAvailableMissedSlots(list);
+        if (compensationSlot?.id) {
+          const match = list.find((s) => s.id === compensationSlot.id);
+          if (match && (!compensationSlot.notes || !compensationSlot.planned_date)) {
+            setCompensationSlot((prev) => prev ? {
+              ...prev,
+              notes: prev.notes || match.notes || '',
+              planned_date: prev.planned_date || match.planned_date_str || (match.planned_date?.slice(0, 10)),
+              brand_name: prev.brand_name || match.brand_name,
+              content_type: prev.content_type || match.content_type,
+            } : prev);
+          }
+        }
+      }
+    }).catch(() => {
+      if (!cancelled) setAvailableMissedSlots([]);
+    });
+    return () => { cancelled = true; };
+  }, [effectiveBrandId]);
+
+  // Memoized options for missed slots selector (FIFO chronological order, media icons, and current indicator)
+  const missedSlotOptions = useMemo(() => {
+    if (!availableMissedSlots || availableMissedSlots.length === 0) return [];
+
+    const sorted = [...availableMissedSlots].sort((a, b) => {
+      const dA = (a.planned_date_str || a.planned_date || '').slice(0, 10);
+      const dB = (b.planned_date_str || b.planned_date || '').slice(0, 10);
+      return dA.localeCompare(dB);
+    });
+
+    return sorted.map((s) => {
+      const isCurrent = compensationSlot?.id === s.id;
+      const type = (s.content_type || '').toLowerCase();
+      const isVid = type === 'video';
+      const isLive = type === 'live';
+      const icon = isVid ? (
+        <Video size={13} color="#7c3aed" />
+      ) : isLive ? (
+        <Radio size={13} color="#dc2626" />
+      ) : (
+        <ImageIcon size={13} color="#16a34a" />
+      );
+
+      return {
+        value: String(s.id),
+        label: `#${s.id} · ${formatDateLabel(s.planned_date_str || s.planned_date)} · ${(s.content_type || 'post').toUpperCase()}${s.notes ? ` (${s.notes})` : ''}${isCurrent ? ' (Current)' : ''}`,
+        icon,
+        slot: s,
+      };
+    });
+  }, [availableMissedSlots, compensationSlot?.id]);
+
   // Costs
   const [contentCost, setContentCost] = useState('');
   const [adSpend, setAdSpend] = useState('');
@@ -175,6 +284,24 @@ export const CreatePostPage = () => {
   const [publishMode, setPublishMode] = useState(() => (initialDateStr || isFromPlanner ? 'schedule' : 'now'));
   const [scheduledDateTime, setScheduledDateTime] = useState(() => (initialDateStr ? (initialDateStr.length === 10 ? `${initialDateStr}T09:00` : initialDateStr.slice(0, 16)) : ''));
   const fileInputRef = useRef(null);
+
+  // Smart auto-matching slot recommendation for the suggestion card (placed safely after mediaItems)
+  const recommendedSlot = useMemo(() => {
+    if (!availableMissedSlots || availableMissedSlots.length === 0) return null;
+    if (suggestedTargetSlotId) {
+      const custom = availableMissedSlots.find((s) => s.id === suggestedTargetSlotId);
+      if (custom) return custom;
+    }
+    const hasVideo = mediaItems.some((it) => it.isVideo || isVideoMedia(it.previewUrl) || isVideoMedia(it.serverUrl));
+    if (hasVideo) {
+      const matchVideo = availableMissedSlots.find((s) => (s.content_type || '').toLowerCase() === 'video');
+      if (matchVideo) return matchVideo;
+    } else if (mediaItems.length > 0) {
+      const matchPhoto = availableMissedSlots.find((s) => (s.content_type || '').toLowerCase() === 'photo');
+      if (matchPhoto) return matchPhoto;
+    }
+    return availableMissedSlots[0];
+  }, [availableMissedSlots, suggestedTargetSlotId, mediaItems]);
 
   // Legacy FB Post tracking
   const [legacyMode, setLegacyMode] = useState('paste');
@@ -899,6 +1026,7 @@ export const CreatePostPage = () => {
               content_cost: parseFloat(contentCost) || 0,
               ad_spend: parseFloat(adSpend) || 0,
               attribution_window_days: parseInt(attributionWindow, 10) || 7,
+              compensation_for_slot_id: compensationSlot?.id || null,
             })
           )
         );
@@ -928,6 +1056,7 @@ export const CreatePostPage = () => {
           content_cost: parseFloat(contentCost) || 0,
           ad_spend: parseFloat(adSpend) || 0,
           attribution_window_days: parseInt(attributionWindow, 10) || 7,
+          compensation_for_slot_id: compensationSlot?.id || null,
         });
       }
 
@@ -1019,7 +1148,6 @@ export const CreatePostPage = () => {
             LEFT COLUMN: Meta Business Suite Editor Panel
             ══════════════════════════════════════════════════ */}
         <div className="meta-editor-col">
-
 
           {/* Mode Switcher: Direct Publish vs Track Existing FB Post */}
           <div className="meta-tab-switcher">
@@ -1131,6 +1259,7 @@ export const CreatePostPage = () => {
                 />
               </div>
             )}
+
           </div>
 
           {/* 4. Card: Media */}
@@ -1968,6 +2097,183 @@ export const CreatePostPage = () => {
             RIGHT COLUMN: Live Facebook Feed Preview Area
             ══════════════════════════════════════════════════ */}
         <FacebookFeedPreview
+          headerComponent={
+            compensationSlot ? (
+              <div className="meta-copilot-card">
+                  <div className="meta-copilot-accent-notch" />
+                  <div className="meta-copilot-header">
+                    <span className="meta-copilot-badge">
+                      <Sparkles size={12} />
+                      <span>MISSION COPILOT · LINKED</span>
+                    </span>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<X size={12} />}
+                      className="meta-copilot-detach-btn"
+                      onClick={() => setCompensationSlot(null)}
+                      title="Detach compensation"
+                    >
+                      Detach
+                    </Button>
+                  </div>
+
+                  <div className="meta-copilot-body">
+                    <div className="meta-copilot-title">
+                      🎯 Fulfilling: {compensationSlot.brand_name || selectedBrand?.brand_name || 'Brand'}
+                    </div>
+                    <div className="meta-copilot-desc">
+                      This post is linked to fulfill Slot <strong>#{compensationSlot.id}</strong> ({formatDateLabel(compensationSlot.planned_date)}) · {(compensationSlot.content_type || '').toUpperCase()}.
+                    </div>
+                    {compensationSlot.notes && (
+                      <div className="meta-sla-notes-quote" style={{ fontSize: '11px', marginTop: '2px' }}>
+                        <FileText size={11} />
+                        <span><strong>Brief:</strong> {compensationSlot.notes}</span>
+                      </div>
+                    )}
+                    <div className="meta-copilot-meta-row">
+                      <span className="meta-copilot-pill is-date">
+                        Due: {formatDateLabel(compensationSlot.planned_date)}
+                      </span>
+                      <span className="meta-copilot-pill is-type">
+                        Format: {(compensationSlot.content_type || 'post').toUpperCase()}
+                      </span>
+                    </div>
+
+                    {/* Format Mismatch Advisory */}
+                    {(() => {
+                      if (!compensationSlot) return null;
+                      const targetType = (compensationSlot.content_type || '').toLowerCase();
+                      const hasVideo = mediaItems.some(it => it.isVideo || isVideoMedia(it.previewUrl) || isVideoMedia(it.serverUrl));
+                      const hasPhotos = mediaItems.some(it => !it.isVideo && !isVideoMedia(it.previewUrl) && !isVideoMedia(it.serverUrl));
+                      const hasMedia = mediaItems.length > 0;
+
+                      if (targetType === 'video' && hasMedia && !hasVideo) {
+                        return (
+                          <div className="meta-copilot-format-advisory is-warning">
+                            <AlertCircle size={13} style={{ flexShrink: 0 }} />
+                            <span><strong>Format Advisory:</strong> Slot #{compensationSlot.id} contract requires a <strong>VIDEO</strong> deliverable, but photos are attached.</span>
+                          </div>
+                        );
+                      }
+                      if (targetType === 'photo' && hasVideo) {
+                        return (
+                          <div className="meta-copilot-format-advisory is-info">
+                            <Sparkles size={13} style={{ flexShrink: 0 }} />
+                            <span><strong>Upgrade:</strong> Slot #{compensationSlot.id} planned a PHOTO, and you are fulfilling with a <strong>VIDEO</strong>.</span>
+                          </div>
+                        );
+                      }
+                      if ((targetType === 'video' && hasVideo) || (targetType === 'photo' && hasPhotos)) {
+                        return (
+                          <div className="meta-copilot-format-advisory is-verified">
+                            <CheckCircle2 size={13} style={{ flexShrink: 0 }} />
+                            <span><strong>Format Verified:</strong> Content matches required contract format.</span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+
+                    {availableMissedSlots.length > 1 && (
+                      <div style={{ marginTop: '8px' }}>
+                        <label style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                          Switch to other missed slot:
+                        </label>
+                        <Select
+                          className="meta-copilot-select"
+                          value={String(compensationSlot.id)}
+                          options={missedSlotOptions}
+                          onChange={(val) => {
+                            const selectedVal = typeof val === 'object' && val?.target ? val.target.value : val;
+                            const found = availableMissedSlots.find((s) => String(s.id) === String(selectedVal));
+                            if (found) {
+                              setCompensationSlot({
+                                id: found.id,
+                                planned_date: found.planned_date_str || (found.planned_date ? found.planned_date.slice(0, 10) : ''),
+                                content_type: found.content_type,
+                                brand_name: found.brand_name || selectedBrand?.brand_name || selectedBrand?.name,
+                                notes: found.notes || '',
+                              });
+                            }
+                          }}
+                          placeholder="Select missed slot..."
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : availableMissedSlots.length > 0 && !dismissCopilot ? (
+                <div className="meta-copilot-card is-suggestion">
+                  <div className="meta-copilot-accent-notch" />
+                  <div className="meta-copilot-header">
+                    <span className="meta-copilot-badge is-suggestion">
+                      <Sparkles size={12} />
+                      <span>SMART MISSION COPILOT</span>
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={<X size={12} />}
+                      onClick={() => setDismissCopilot(true)}
+                      title="Dismiss suggestion"
+                      className="meta-copilot-detach-btn"
+                    >
+                      Dismiss
+                    </Button>
+                  </div>
+
+                  <div className="meta-copilot-body">
+                    <div className="meta-copilot-title" style={{ color: '#92400e' }}>
+                      💡 Brand has {availableMissedSlots.length} missed deliverable{availableMissedSlots.length > 1 ? 's' : ''}
+                    </div>
+                    <div className="meta-copilot-desc" style={{ color: '#b45309' }}>
+                      Brand <strong>{selectedBrand?.brand_name || 'Brand'}</strong> has an open missed slot from {formatDateLabel(recommendedSlot?.planned_date_str || recommendedSlot?.planned_date)} ({(recommendedSlot?.content_type || 'post').toUpperCase()}). Would you like to link this post as a make-up deliverable?
+                    </div>
+
+                    {availableMissedSlots.length > 1 && (
+                      <div style={{ marginTop: '4px' }}>
+                        <label style={{ fontSize: '11px', color: '#92400e', fontWeight: 600, display: 'block', marginBottom: '3px' }}>
+                          Target Missed Slot:
+                        </label>
+                        <Select
+                          className="meta-copilot-select"
+                          value={String(recommendedSlot?.id || availableMissedSlots[0]?.id)}
+                          options={missedSlotOptions}
+                          onChange={(val) => {
+                            const selectedVal = typeof val === 'object' && val?.target ? val.target.value : val;
+                            setSuggestedTargetSlotId(Number(selectedVal));
+                          }}
+                          placeholder="Select slot to fulfill..."
+                        />
+                      </div>
+                    )}
+
+                    <div className="meta-copilot-actions" style={{ marginTop: '6px' }}>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        icon={<Sparkles size={12} />}
+                        onClick={() => {
+                          const target = recommendedSlot || availableMissedSlots[0];
+                          if (target) {
+                            setCompensationSlot({
+                              id: target.id,
+                              planned_date: target.planned_date_str || (target.planned_date ? target.planned_date.slice(0, 10) : ''),
+                              content_type: target.content_type,
+                              brand_name: target.brand_name || selectedBrand?.brand_name || selectedBrand?.name,
+                              notes: target.notes || '',
+                            });
+                          }
+                        }}
+                      >
+                        Link as Make-Up for Slot #{recommendedSlot ? recommendedSlot.id : availableMissedSlots[0]?.id}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : null
+          }
           previewDevice={previewDevice}
           primaryPage={primaryPage}
           selectedPages={selectedPages}

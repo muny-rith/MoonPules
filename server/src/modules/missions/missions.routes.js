@@ -5,9 +5,11 @@ const missionsController = require('./missions.controller');
 router.get('/', missionsController.getMission);
 router.get('/slots', missionsController.getCalendarSlots);
 router.get('/audit', missionsController.getMonthAudit);
+router.get('/missed-slots', missionsController.getMissedSlots);
 router.post('/', missionsController.saveMission);
 
 // Individual slot operations for fast inline editing
+router.get('/slots/:id', missionsController.getSlotById);
 router.post('/slots', missionsController.createSlot);
 router.patch('/slots/:id', missionsController.updateSlot);
 router.delete('/slots/:id', missionsController.deleteSlot);

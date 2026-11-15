@@ -117,13 +117,44 @@ const deleteSlot = async (req, res, next) => {
   }
 };
 
+const getMissedSlots = async (req, res, next) => {
+  try {
+    const { brand_id } = req.query;
+    if (!brand_id) {
+      return res.status(400).json({ error: 'brand_id query parameter is required' });
+    }
+    const missed = await missionsService.getMissedSlotsForCompensation(parseInt(brand_id, 10));
+    res.json({ data: missed });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getSlotById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ error: 'Slot ID parameter is required' });
+    }
+    const slot = await missionsService.getSlotById(parseInt(id, 10));
+    if (!slot) {
+      return res.status(404).json({ error: 'Slot not found' });
+    }
+    res.json({ data: slot });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getMission,
   getCalendarSlots,
   saveMission,
   getMonthAudit,
+  getSlotById,
   updateSlot,
   createSlot,
   deleteSlot,
+  getMissedSlots,
 };
 

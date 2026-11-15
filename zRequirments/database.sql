@@ -59,6 +59,9 @@ CREATE TABLE IF NOT EXISTS tb_post_tracker (
     ad_spend NUMERIC(12, 2) DEFAULT 0.00,
     attribution_window_days INT DEFAULT 7,
 
+    -- Deliverable Compensation Link (ផុសសង)
+    compensation_for_slot_id INT NULL REFERENCES tb_brand_mission_slot(id) ON DELETE SET NULL,
+
     -- Timestamps
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -141,12 +144,17 @@ CREATE TABLE IF NOT EXISTS tb_brand_mission_slot (
     time_window VARCHAR(50) NULL,
     notes TEXT,
     linked_post_id INT REFERENCES tb_post_tracker(id) ON DELETE SET NULL,
-    slot_status VARCHAR(20) DEFAULT 'planned' CHECK (slot_status IN ('planned', 'scheduled', 'completed', 'missed')),
+    slot_status VARCHAR(20) DEFAULT 'planned' CHECK (slot_status IN ('planned', 'scheduled', 'completed', 'compensated', 'missed', 'waived')),
+    is_compensated BOOLEAN DEFAULT FALSE,
+    compensated_at TIMESTAMP WITH TIME ZONE NULL,
+    missed_reason VARCHAR(50) NULL,
+    resolution_notes TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_mission_slots_date ON tb_brand_mission_slot(planned_date);
 CREATE INDEX IF NOT EXISTS idx_mission_slots_mission ON tb_brand_mission_slot(mission_id);
+CREATE INDEX IF NOT EXISTS idx_slots_uncompensated ON tb_brand_mission_slot(mission_id, slot_status, is_compensated);
 
 

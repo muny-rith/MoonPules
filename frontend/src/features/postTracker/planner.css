@@ -1135,7 +1135,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px;
+  padding: 28px 8px 10px 8px;
   box-sizing: border-box;
 }
 
@@ -1211,6 +1211,91 @@
 .planner-month-post-chip.planner-month-plan-chip:hover {
   border-color: #2563eb;
   background: #eff6ff;
+}
+
+/* Missed / Overdue planned deliverables */
+.planner-targets-badge.is-missed {
+  background-color: #fef2f2 !important;
+  color: #dc2626 !important;
+  border-color: #fecaca !important;
+}
+
+.planner-post-card.planner-planned-card.is-missed {
+  border: 1.5px dashed #fca5a5;
+  background: #fffdfd;
+}
+
+.planner-post-card.planner-planned-card.is-missed:hover {
+  border-color: #ef4444;
+  box-shadow: 0 6px 18px rgba(239, 68, 68, 0.12);
+  background: #fff8f8;
+}
+
+.planner-time-pill.planner-planned-time.is-missed {
+  color: #dc2626;
+  background: #fef2f2;
+}
+
+.planner-plan-badge.is-missed {
+  color: #b91c1c;
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.planner-card-media-wrap.planner-planned-media-wrap.is-missed {
+  border-color: #fca5a5;
+  background: linear-gradient(135deg, #fff7f7 0%, #fef2f2 100%);
+}
+
+.planner-planned-subtext.is-missed {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.planner-post-card.planner-planned-card.is-missed:hover .planner-planned-subtext.is-missed {
+  color: #b91c1c;
+}
+
+.planner-platform-badge.planner-planned-platform-badge.is-missed {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.planner-month-post-chip.planner-month-plan-chip.is-missed {
+  border: 1px dashed #fca5a5;
+  background: #fff9f9;
+}
+
+.planner-month-post-chip.planner-month-plan-chip.is-missed:hover {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.planner-chip-time.is-missed {
+  color: #dc2626 !important;
+  font-weight: 700;
+}
+
+/* Compensated deliverables styling (ផុសសង) */
+.planner-targets-badge.is-compensated {
+  background-color: #f5f3ff !important;
+  color: #7c3aed !important;
+  border-color: #ddd6fe !important;
+}
+
+.planner-post-card.planner-planned-card.is-compensated {
+  border: 1.5px dashed #c4b5fd;
+  background: #fdfcff;
+}
+
+.planner-post-card.planner-planned-card.is-compensated:hover {
+  border-color: #7c3aed;
+  box-shadow: 0 6px 18px rgba(124, 58, 237, 0.12);
+  background: #fbf9ff;
+}
+
+.planner-compensation-pill {
+  box-shadow: 0 1px 2px rgba(124, 58, 237, 0.08);
 }
 
 .planner-month-plan-icon {

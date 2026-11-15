@@ -54,6 +54,7 @@ export const FacebookFeedPreview = ({
   trackingTarget = 'product',
   selectedBrand = null,
   selectedProduct = null,
+  headerComponent = null,
 }) => {
   const renderFeedGridItem = (item, idx) => {
     if (!item) return null;
@@ -88,6 +89,7 @@ export const FacebookFeedPreview = ({
 
   return (
     <div className="meta-preview-col">
+      {headerComponent}
       <div className={`meta-feed-card ${previewDevice === 'desktop' ? 'desktop-view' : 'mobile-view'}`}>
         {/* Post Header */}
         <div className="meta-feed-header">
