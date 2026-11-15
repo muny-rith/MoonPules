@@ -1028,52 +1028,6 @@ export const EditPostPage = () => {
             ══════════════════════════════════════════════════ */}
         <div className="meta-editor-col">
 
-          {/* Mission Copilot Deliverable Card (if fulfilling compensation) */}
-          {compensationSlot && (
-            <div className="meta-copilot-card" style={{ marginBottom: '16px' }}>
-              <div className="meta-copilot-accent-notch" />
-              <div className="meta-copilot-header">
-                <span className="meta-copilot-badge">
-                  <Sparkles size={12} />
-                  <span>MISSION COPILOT · FULFILLING MAKE-UP</span>
-                </span>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  icon={<X size={12} />}
-                  className="meta-copilot-detach-btn"
-                  onClick={() => setCompensationSlot(null)}
-                  title="Detach compensation from this post"
-                >
-                  Detach
-                </Button>
-              </div>
-
-              <div className="meta-copilot-body">
-                <div className="meta-copilot-title">
-                  🎯 Fulfilling: {compensationSlot.brand_name || selectedBrand?.brand_name || 'Brand'}
-                </div>
-                <div className="meta-copilot-desc">
-                  This post fulfills Missed Slot <strong>#{compensationSlot.id}</strong> ({formatDateLabel(compensationSlot.planned_date)}) · {(compensationSlot.content_type || '').toUpperCase()}.
-                </div>
-                {compensationSlot.notes && (
-                  <div className="meta-sla-notes-quote" style={{ fontSize: '11px', marginTop: '2px' }}>
-                    <FileText size={11} />
-                    <span><strong>Brief:</strong> {compensationSlot.notes}</span>
-                  </div>
-                )}
-                <div className="meta-copilot-meta-row">
-                  <span className="meta-copilot-pill is-date">
-                    Due: {formatDateLabel(compensationSlot.planned_date)}
-                  </span>
-                  <span className="meta-copilot-pill is-type">
-                    Format: {(compensationSlot.content_type || 'post').toUpperCase()}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* 1. Card: Post to */}
           <div className="meta-card">
             <div className="meta-card-header">
@@ -1872,6 +1826,87 @@ export const EditPostPage = () => {
 
         </div>
         <FacebookFeedPreview
+          headerComponent={
+            compensationSlot ? (
+              <div className="meta-copilot-card">
+                <div className="meta-copilot-accent-notch" />
+                <div className="meta-copilot-header">
+                  <span className="meta-copilot-badge">
+                    <Sparkles size={12} />
+                    <span>MISSION COPILOT · FULFILLING MAKE-UP</span>
+                  </span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={<X size={12} />}
+                    className="meta-copilot-detach-btn"
+                    onClick={() => setCompensationSlot(null)}
+                    title="Detach compensation from this post"
+                  >
+                    Detach
+                  </Button>
+                </div>
+
+                <div className="meta-copilot-body">
+                  <div className="meta-copilot-title">
+                    🎯 Fulfilling: {compensationSlot.brand_name || selectedBrand?.brand_name || 'Brand'}
+                  </div>
+                  <div className="meta-copilot-desc">
+                    This post fulfills Missed Slot <strong>#{compensationSlot.id}</strong> ({formatDateLabel(compensationSlot.planned_date)}) · {(compensationSlot.content_type || '').toUpperCase()}.
+                  </div>
+                  {compensationSlot.notes && (
+                    <div className="meta-sla-notes-quote" style={{ fontSize: '11px', marginTop: '2px' }}>
+                      <FileText size={11} />
+                      <span><strong>Brief:</strong> {compensationSlot.notes}</span>
+                    </div>
+                  )}
+                  <div className="meta-copilot-meta-row">
+                    <span className="meta-copilot-pill is-date">
+                      Due: {formatDateLabel(compensationSlot.planned_date)}
+                    </span>
+                    <span className="meta-copilot-pill is-type">
+                      Format: {(compensationSlot.content_type || 'post').toUpperCase()}
+                    </span>
+                  </div>
+
+                  {/* Format Mismatch Advisory */}
+                  {(() => {
+                    if (!compensationSlot) return null;
+                    const targetType = (compensationSlot.content_type || '').toLowerCase();
+                    const hasVideo = mediaItems.some(it => it.isVideo || isVideoMedia(it.previewUrl) || isVideoMedia(it.serverUrl));
+                    const hasPhotos = mediaItems.some(it => !it.isVideo && !isVideoMedia(it.previewUrl) && !isVideoMedia(it.serverUrl));
+                    const hasMedia = mediaItems.length > 0;
+
+                    if (targetType === 'video' && hasMedia && !hasVideo) {
+                      return (
+                        <div className="meta-copilot-format-advisory is-warning">
+                          <AlertCircle size={13} style={{ flexShrink: 0 }} />
+                          <span><strong>Format Advisory:</strong> Slot #{compensationSlot.id} contract requires a <strong>VIDEO</strong> deliverable, but photos are attached.</span>
+                        </div>
+                      );
+                    }
+                    if (targetType === 'photo' && hasVideo) {
+                      return (
+                        <div className="meta-copilot-format-advisory is-info">
+                          <Sparkles size={13} style={{ flexShrink: 0 }} />
+                          <span><strong>Upgrade:</strong> Slot #{compensationSlot.id} planned a PHOTO, and you are fulfilling with a <strong>VIDEO</strong>.</span>
+                        </div>
+                      );
+                    }
+                    if ((targetType === 'video' && hasVideo) || (targetType === 'photo' && hasPhotos)) {
+                      return (
+                        <div className="meta-copilot-format-advisory is-verified">
+                          <CheckCircle2 size={13} style={{ flexShrink: 0 }} />
+                          <span><strong>Format Verified:</strong> Content matches required contract format.</span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+              </div>
+            ) : null
+          }
           previewDevice={previewDevice}
           primaryPage={currentPage}
           selectedPages={[currentPage].filter(Boolean)}
