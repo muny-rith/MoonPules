@@ -82,6 +82,14 @@ const findMatchingPostForSlot = (slot, dayPosts, usedPostIds = new Set()) => {
  * Get mission details and calculate day-by-day execution status
  */
 const getMissionWithProgress = async (brandId, month, year) => {
+  if (brandId && brandId !== 'all') {
+    try {
+      await autoReconcileBrandSlots(brandId);
+    } catch (err) {
+      console.error(`[getMissionWithProgress] Auto-reconcile error for brand ${brandId}:`, err.message);
+    }
+  }
+
   const mission = await missionsRepo.getMission(brandId, month, year);
   if (!mission) {
     return null;
@@ -256,6 +264,13 @@ const saveMissionWithSlots = async ({
   });
 
   const savedSlots = await missionsRepo.saveMissionSlots(mission.id, slots);
+  if (brand_id) {
+    try {
+      await autoReconcileBrandSlots(brand_id);
+    } catch (err) {
+      console.error(`[saveMissionWithSlots] Auto-reconcile error for brand ${brand_id}:`, err.message);
+    }
+  }
   return getMissionWithProgress(brand_id, month, year);
 };
 
@@ -264,6 +279,13 @@ const saveMissionWithSlots = async ({
  * Uses high-speed B-Tree range query and pre-linked persistent relational data
  */
 const getCalendarSlots = async (brandId, month, year) => {
+  if (brandId && brandId !== 'all') {
+    try {
+      await autoReconcileBrandSlots(brandId);
+    } catch (err) {
+      console.error(`[getCalendarSlots] Auto-reconcile error for brand ${brandId}:`, err.message);
+    }
+  }
   const slots = await missionsRepo.getSlotsForBrandAndMonth(brandId, month, year);
   const posts = await missionsRepo.getBrandPostsForMonth(brandId, month, year);
 
@@ -638,6 +660,74 @@ const reconcilePostWithMission = async (post) => {
 };
 
 /**
+ * RETROACTIVE AUTO-RECONCILIATION ENGINE
+ * Ensures unlinked slots for a brand are automatically linked to any existing tracked posts
+ * that match the slot's planned date and media format (e.g., when schedules are created mid-month).
+ */
+const autoReconcileBrandSlots = async (brandId) => {
+  if (!brandId) return [];
+
+  try {
+    // 1. Get all unlinked, uncompensated slots for this brand
+    const slots = await missionsRepo.getUnlinkedSlotsForBrand(brandId);
+    if (!slots || slots.length === 0) return [];
+
+    // 2. Get all tracked posts for this brand (published or scheduled)
+    const postTrackerRepo = require('../postTracker/postTracker.repository');
+    const posts = await postTrackerRepo.getTrackedPostsForBrand(brandId);
+    if (!posts || posts.length === 0) return [];
+
+    // 3. Collect post IDs that are already claimed by existing slots or marked as compensation
+    const linkedSlots = await missionsRepo.getLinkedSlotsForBrand(brandId);
+    const usedPostIds = new Set(linkedSlots.map((s) => s.linked_post_id).filter(Boolean));
+
+    posts.forEach((p) => {
+      if (p.compensation_for_slot_id) {
+        usedPostIds.add(p.id);
+      }
+    });
+
+    // 4. Group available posts by local date string "YYYY-MM-DD"
+    const postsByDate = {};
+    posts.forEach((p) => {
+      const dStr = formatLocalDateStr(p.published_time || p.scheduled_time);
+      if (dStr) {
+        if (!postsByDate[dStr]) postsByDate[dStr] = [];
+        postsByDate[dStr].push(p);
+      }
+    });
+
+    // 5. Sort unlinked slots so specific formats (live, video) claim matching posts before photo
+    const sortedSlots = [...slots].sort((a, b) => {
+      const order = { live: 1, video: 2, photo: 3, poster: 3 };
+      const oA = order[a.content_type?.toLowerCase()] || 3;
+      const oB = order[b.content_type?.toLowerCase()] || 3;
+      return oA - oB;
+    });
+
+    // 6. Match and persistently link
+    const reconciled = [];
+    for (const slot of sortedSlots) {
+      const slotDateStr = formatLocalDateStr(slot.planned_date);
+      const dayPosts = postsByDate[slotDateStr] || [];
+      const match = findMatchingPostForSlot(slot, dayPosts, usedPostIds);
+
+      if (match) {
+        usedPostIds.add(match.id);
+        const targetStatus = match.status === 'published' ? 'completed' : 'scheduled';
+        const updatedSlot = await missionsRepo.linkSlotToPost(slot.id, match.id, targetStatus, false);
+        reconciled.push({ slot: updatedSlot, post: match });
+      }
+    }
+
+    return reconciled;
+  } catch (err) {
+    console.error(`[autoReconcileBrandSlots] Error reconciling slots for brand #${brandId}:`, err.message);
+    return [];
+  }
+};
+
+/**
  * Unlink post from any mission slot (e.g. when post is deleted)
  */
 const unreconcilePost = async (postId) => {
@@ -710,6 +800,15 @@ const createSlot = async ({
     notes,
   });
 
+  const bId = brand_id || (slot && slot.brand_id);
+  if (bId) {
+    try {
+      await autoReconcileBrandSlots(bId);
+    } catch (err) {
+      console.error(`[createSlot] Auto-reconcile error for brand ${bId}:`, err.message);
+    }
+  }
+
   return {
     ...slot,
     planned_date_str: formatLocalDateStr(slot.planned_date),
@@ -743,6 +842,11 @@ const getSlotById = async (slotId) => {
  */
 const getMissedSlotsForCompensation = async (brandId) => {
   if (!brandId) return [];
+  try {
+    await autoReconcileBrandSlots(brandId);
+  } catch (err) {
+    console.error(`[getMissedSlotsForCompensation] Auto-reconcile error for brand ${brandId}:`, err.message);
+  }
   const todayStr = formatLocalDateStr(new Date());
   const missed = await missionsRepo.getUnresolvedMissedSlotsForBrand(brandId, todayStr);
   return missed.map((s) => ({
@@ -805,6 +909,7 @@ module.exports = {
   deleteSlot,
   getSlotById,
   reconcilePostWithMission,
+  autoReconcileBrandSlots,
   unreconcilePost,
   getMissedSlotsForCompensation,
   linkPostToSlot,

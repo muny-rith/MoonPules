@@ -595,6 +595,21 @@ const deleteTrackedPost = async (id) => {
   return result.rows[0];
 };
 
+/**
+ * Get all published or scheduled tracked posts for a brand
+ */
+const getTrackedPostsForBrand = async (brandId) => {
+  const result = await db.query(
+    `SELECT id, brand_id, media_type, status, published_time, scheduled_time, compensation_for_slot_id
+     FROM tb_post_tracker
+     WHERE brand_id = $1
+       AND status IN ('published', 'scheduled')
+     ORDER BY COALESCE(published_time, scheduled_time, created_at) ASC, id ASC`,
+    [brandId]
+  );
+  return result.rows;
+};
+
 module.exports = {
   getAllTrackedPosts,
   getTrackedPostsSummary,
@@ -617,5 +632,6 @@ module.exports = {
   updateTrackedPostData,
   updateTrackedPostCosts,
   deleteTrackedPost,
+  getTrackedPostsForBrand,
 };
 

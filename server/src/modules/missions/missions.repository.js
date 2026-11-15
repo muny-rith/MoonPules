@@ -430,8 +430,42 @@ const getUnresolvedMissedSlotsForBrand = async (brandId, beforeDateStr) => {
        AND s.planned_date < $2
        AND s.linked_post_id IS NULL
        AND s.is_compensated = FALSE
+       AND (s.slot_status IS NULL OR s.slot_status != 'waived')
      ORDER BY s.planned_date DESC, s.id ASC`,
     [brandId, beforeDateStr]
+  );
+  return result.rows;
+};
+
+/**
+ * Get all unlinked, uncompensated slots for a brand
+ */
+const getUnlinkedSlotsForBrand = async (brandId) => {
+  const result = await db.query(
+    `SELECT s.*, m.brand_id, m.brand_name
+     FROM tb_brand_mission_slot s
+     JOIN tb_brand_mission m ON m.id = s.mission_id
+     WHERE m.brand_id = $1
+       AND s.linked_post_id IS NULL
+       AND s.is_compensated = FALSE
+       AND (s.slot_status IS NULL OR s.slot_status != 'waived')
+     ORDER BY s.planned_date ASC, s.id ASC`,
+    [brandId]
+  );
+  return result.rows;
+};
+
+/**
+ * Get all slot links for a brand to identify claimed posts
+ */
+const getLinkedSlotsForBrand = async (brandId) => {
+  const result = await db.query(
+    `SELECT s.id, s.linked_post_id
+     FROM tb_brand_mission_slot s
+     JOIN tb_brand_mission m ON m.id = s.mission_id
+     WHERE m.brand_id = $1
+       AND s.linked_post_id IS NOT NULL`,
+    [brandId]
   );
   return result.rows;
 };
@@ -487,5 +521,7 @@ module.exports = {
   getSlotByLinkedPostId,
   getAllSlotsWithMissionsForMonth,
   getUnresolvedMissedSlotsForBrand,
+  getUnlinkedSlotsForBrand,
+  getLinkedSlotsForBrand,
 };
 

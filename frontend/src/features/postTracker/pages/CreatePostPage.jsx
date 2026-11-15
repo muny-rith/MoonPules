@@ -1045,19 +1045,46 @@ export const CreatePostPage = () => {
           setSubmitting(false);
           return;
         }
-        await api.createPost({
-          mode: 'legacy',
-          tracking_type: trackingTarget,
-          product_id: targetProductId,
-          brand_id: targetBrandId,
-          page_id: parseInt(targetPageId, 10),
-          fb_post_id: fbPostId,
-          
-          content_cost: parseFloat(contentCost) || 0,
-          ad_spend: parseFloat(adSpend) || 0,
-          attribution_window_days: parseInt(attributionWindow, 10) || 7,
-          compensation_for_slot_id: compensationSlot?.id || null,
-        });
+        try {
+          await api.createPost({
+            mode: 'legacy',
+            tracking_type: trackingTarget,
+            product_id: targetProductId,
+            brand_id: targetBrandId,
+            page_id: parseInt(targetPageId, 10),
+            fb_post_id: fbPostId,
+            content_cost: parseFloat(contentCost) || 0,
+            ad_spend: parseFloat(adSpend) || 0,
+            attribution_window_days: parseInt(attributionWindow, 10) || 7,
+            compensation_for_slot_id: compensationSlot?.id || null,
+          });
+        } catch (createErr) {
+          const isAlreadyTracked =
+            createErr.response?.status === 409 ||
+            (createErr.response?.data?.error && createErr.response.data.error.toLowerCase().includes('already tracked')) ||
+            (createErr.message && createErr.message.toLowerCase().includes('already tracked'));
+
+          if (isAlreadyTracked && compensationSlot?.id) {
+            // Self-healing: Existing post in MoonPulse is automatically linked to the compensation slot
+            try {
+              const existingRes = await api.fetchPosts({ search: fbPostId, limit: 5 }, true);
+              const matchedPost = Array.isArray(existingRes)
+                ? (existingRes.find((p) => p.fb_post_id === fbPostId) || existingRes[0])
+                : null;
+              if (matchedPost) {
+                await missionApi.linkPostToSlot(compensationSlot.id, matchedPost.id);
+                clearMessageDraft();
+                await invalidatePostAndMissionCaches();
+                toast.success(`Post #${matchedPost.id} successfully linked as make-up for Slot #${compensationSlot.id}!`);
+                navigate(returnPath);
+                return;
+              }
+            } catch (linkFallbackErr) {
+              console.warn('Fallback linking failed:', linkFallbackErr);
+            }
+          }
+          throw createErr;
+        }
       }
 
       clearMessageDraft();
@@ -1937,7 +1964,10 @@ export const CreatePostPage = () => {
                         return (
                           <div
                             key={p.id}
-                            onClick={() => setSelectedRecentPostId(p.id)}
+                            onClick={() => {
+                              setSelectedRecentPostId(p.id);
+                              if (submitError) setSubmitError('');
+                            }}
                             style={{
                               padding: '10px 12px',
                               borderRadius: '6px',
