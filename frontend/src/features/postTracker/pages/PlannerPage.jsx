@@ -781,17 +781,14 @@ export const PlannerPage = () => {
                     className={`planner-day-col-header ${day.isToday ? 'is-today' : ''}`}
                   >
                     <div className="planner-day-header-top">
-                      {day.isToday ? (
-                        <div className="planner-today-pill">
-                          <span className="day-name">{day.dayName}</span>
+                      <div className={`planner-day-label ${day.isToday ? 'is-today' : ''}`}>
+                        <span className="day-name">{day.dayName}</span>
+                        {day.isToday ? (
+                          <span className="day-number-circle">{day.dayNumber}</span>
+                        ) : (
                           <span className="day-number">{day.dayNumber}</span>
-                        </div>
-                      ) : (
-                        <div className="planner-day-label">
-                          <span className="day-name">{day.dayName}</span>
-                          <span className="day-number">{day.dayNumber}</span>
-                        </div>
-                      )}
+                        )}
+                      </div>
 
                       {/* Quick Add Button */}
                       <button
@@ -806,68 +803,41 @@ export const PlannerPage = () => {
                       </button>
                     </div>
 
-                    {/* Daily Indicators: Post Count & Pending Planned Deliverables */}
+                    {/* Daily Indicators: Sleek Modern Non-Card Typography Row */}
                     {(loading && posts.length === 0) || selectedPageId === 'loading' ? (
-                      <span className="planner-day-count-badge loading">...</span>
+                      <span className="planner-day-count-zero">...</span>
                     ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-                        {dayPosts.length > 0 ? (
-                          <span className="planner-day-count-badge">
-                            {dayPosts.length} {dayPosts.length === 1 ? 'post' : 'posts'}
-                          </span>
-                        ) : (
-                          <span className="planner-day-count-zero">0 posts</span>
-                        )}
+                      <div className="planner-day-metrics-row">
+                        <span className={dayPosts.length > 0 ? 'planner-metric-posts' : 'planner-metric-zero'}>
+                          {dayPosts.length} {dayPosts.length === 1 ? 'post' : 'posts'}
+                        </span>
 
                         {pendingSlots.length > 0 && (() => {
                           const isMissed = day.dateKey < todayKey;
                           return (
                             <span
-                              className={`planner-targets-badge ${isMissed ? 'is-missed' : ''}`}
+                              className={`planner-metric-item ${isMissed ? 'is-missed' : 'is-planned'}`}
                               title={
                                 isMissed
                                   ? `${pendingSlots.length} overdue / missed deliverable${pendingSlots.length > 1 ? 's' : ''}`
                                   : `${pendingSlots.length} deliverable${pendingSlots.length > 1 ? 's' : ''} waiting to be posted`
                               }
-                              style={{
-                                fontSize: '10px',
-                                fontWeight: 700,
-                                padding: '2px 5px',
-                                borderRadius: '8px',
-                                backgroundColor: isMissed ? '#fef2f2' : '#eff6ff',
-                                color: isMissed ? '#dc2626' : '#2563eb',
-                                border: isMissed ? '1px solid #fecaca' : '1px solid #bfdbfe',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '2px',
-                              }}
                             >
-                              {isMissed ? <AlertTriangle size={10} strokeWidth={2.5} /> : <Target size={10} />}
-                              <span>
-                                {pendingSlots.length} {isMissed ? 'missed' : `plan${pendingSlots.length > 1 ? 's' : ''}`}
-                              </span>
+                              <span className="planner-metric-separator">·</span>
+                              <span className={`planner-metric-dot ${isMissed ? 'red' : 'blue'}`} />
+                              <span>{pendingSlots.length} {isMissed ? 'missed' : `plan${pendingSlots.length > 1 ? 's' : ''}`}</span>
                             </span>
                           );
                         })()}
 
                         {compensatedSlots.length > 0 && (
                           <span
-                            className="planner-targets-badge is-compensated"
+                            className="planner-metric-item is-compensated"
                             title={`${compensatedSlots.length} deliverable${compensatedSlots.length > 1 ? 's' : ''} missed on this day but compensated`}
-                            style={{
-                              fontSize: '10px',
-                              fontWeight: 700,
-                              padding: '2px 5px',
-                              borderRadius: '8px',
-                              backgroundColor: '#f5f3ff',
-                              color: '#7c3aed',
-                              border: '1px solid #ddd6fe',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '2px',
-                            }}
                           >
-                            <Check size={10} strokeWidth={2.5} /> {compensatedSlots.length} Make-Up
+                            <span className="planner-metric-separator">·</span>
+                            <span className="planner-metric-dot purple" />
+                            <span>{compensatedSlots.length} make-up</span>
                           </span>
                         )}
                       </div>
@@ -932,29 +902,31 @@ export const PlannerPage = () => {
                             >
                               {/* Time & Status Row */}
                               <div className="planner-card-time-row">
-                                <span className="planner-time-pill">
-                                  <Clock size={11} /> {timeStr || '12:00 AM'}
-                                </span>
-                                {post.compensation_for_slot_id && (
-                                  <span
-                                    className="planner-compensation-pill"
-                                    title="Make-up post fulfilling a previous deliverable"
-                                    style={{
-                                      fontSize: '9.5px',
-                                      fontWeight: 800,
-                                      color: '#7c3aed',
-                                      backgroundColor: '#f5f3ff',
-                                      border: '1px solid #ddd6fe',
-                                      padding: '1px 5px',
-                                      borderRadius: '4px',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '3px',
-                                    }}
-                                  >
-                                    <Sparkles size={9} /> Make-Up
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                  <span className="planner-time-pill">
+                                    <Clock size={11} /> {timeStr || '12:00 AM'}
                                   </span>
-                                )}
+                                  {post.compensation_for_slot_id && (
+                                    <span
+                                      className="planner-compensation-pill"
+                                      title="Make-up post fulfilling a previous deliverable"
+                                      style={{
+                                        fontSize: '9.5px',
+                                        fontWeight: 700,
+                                        color: '#7c3aed',
+                                        backgroundColor: '#f5f3ff',
+                                        border: '1px solid #ddd6fe',
+                                        padding: '1px 5px',
+                                        borderRadius: '4px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '3px',
+                                      }}
+                                    >
+                                      <Sparkles size={9} /> Make-Up
+                                    </span>
+                                  )}
+                                </div>
                                 {post.status === 'published' && fbPostUrl && fbPostUrl !== '#' && (
                                   <a
                                     href={fbPostUrl}
@@ -1044,131 +1016,92 @@ export const PlannerPage = () => {
                               onClick={() => handleSlotClick(slot, day.dateKey)}
                               title={`[${isMissed ? 'MISSED Deliverable' : 'Planned Post'}] ${slot.brand_name || 'Brand'} · ${badge.label}${slot.notes ? ` (${slot.notes})` : ''} · Click to ${isMissed ? 'backfill post' : 'create & post'}`}
                             >
-                              {/* Time & Plan Pill */}
+                              {/* Time & Status Row */}
                               <div className="planner-card-time-row">
-                                <span className={`planner-time-pill planner-planned-time ${isMissed ? 'is-missed' : ''}`}>
-                                  <Clock size={11} /> {slot.time_window || (isMissed ? 'Overdue' : 'Planned')}
+                                <span className={`planner-time-pill planner-planned-time ${isMissed ? 'is-missed' : ''}`} title={slot.time_window ? `Target time: ${slot.time_window}` : undefined}>
+                                  {isMissed ? <AlertTriangle size={11} strokeWidth={2.5} /> : <Clock size={11} />}
+                                  <span>{isMissed ? 'Overdue' : (slot.time_window || 'Planned')}</span>
                                 </span>
-                                {isMissed ? (
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <span className="planner-plan-badge is-missed">
-                                      <AlertTriangle size={9.5} strokeWidth={2.5} /> MISSED
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  {isMissed && slot.missed_reason && (
+                                    <span
+                                      className="planner-plan-badge"
+                                      style={{ backgroundColor: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', fontSize: '9px', padding: '1px 5px', borderRadius: '4px' }}
+                                      title={slot.resolution_notes ? `Notes: ${slot.resolution_notes}` : 'Reason classified'}
+                                    >
+                                      {slot.missed_reason.replace('_', ' ')}
                                     </span>
-                                    {slot.missed_reason && (
-                                      <span
-                                        className="planner-plan-badge"
-                                        style={{ backgroundColor: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', fontSize: '9px', padding: '1px 4px' }}
-                                        title={slot.resolution_notes ? `Notes: ${slot.resolution_notes}` : 'Reason classified'}
+                                  )}
+                                  {isMissed && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setCategorizeSlot(slot);
+                                        }}
+                                        className="planner-card-action-btn"
+                                        title="Categorize Root Cause / Reason"
+                                        style={{ padding: '2px', display: 'inline-flex', alignItems: 'center', color: '#64748b' }}
                                       >
-                                        {slot.missed_reason.replace('_', ' ')}
-                                      </span>
-                                    )}
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setCategorizeSlot(slot);
-                                      }}
-                                      style={{
-                                        background: 'none',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                        padding: '0 2px',
-                                        color: '#64748b',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                      }}
-                                      title="Categorize Root Cause / Reason"
-                                    >
-                                      ⚙
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setLinkPostModalSlot(slot);
-                                      }}
-                                      style={{
-                                        background: 'none',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                        padding: '0 2px',
-                                        color: '#4f46e5',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                      }}
-                                      title="Link existing tracked post to this missed slot"
-                                    >
-                                      <Link2 size={11} />
-                                    </button>
-                                  </div>
-                                ) : slot.slot_status === 'waived' ? (
-                                  <span className="planner-plan-badge" style={{ backgroundColor: '#eef2ff', color: '#4f46e5', border: '1px solid #c7d2fe' }}>
-                                    <PauseCircle size={9.5} strokeWidth={2.5} /> WAIVED
-                                  </span>
-                                ) : (
-                                  <span className="planner-plan-badge">
-                                    <Target size={10} /> PLAN
-                                  </span>
-                                )}
+                                        ⚙
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setLinkPostModalSlot(slot);
+                                        }}
+                                        className="planner-card-action-btn"
+                                        title="Link existing tracked post to this missed slot"
+                                        style={{ padding: '2px', display: 'inline-flex', alignItems: 'center', color: '#4f46e5' }}
+                                      >
+                                        <Link2 size={12} />
+                                      </button>
+                                    </>
+                                  )}
+                                  {slot.slot_status === 'waived' && (
+                                    <span className="planner-plan-badge" style={{ backgroundColor: '#eef2ff', color: '#4f46e5', border: '1px solid #c7d2fe' }}>
+                                      <PauseCircle size={9.5} strokeWidth={2.5} /> WAIVED
+                                    </span>
+                                  )}
+                                </div>
                               </div>
 
                               {/* Media Wrap (Planned Deliverable Blueprint Preview) */}
                               <div className={`planner-card-media-wrap planner-planned-media-wrap type-${slot.content_type || 'photo'} ${isMissed ? 'is-missed' : ''}`}>
-                                <div className="planner-planned-inner-box">
-                                  <div className="planner-planned-format-title">
-                                    {slot.content_type === 'live' ? (
-                                      <Radio size={13} color="#dc2626" />
-                                    ) : slot.content_type === 'video' ? (
-                                      <Play size={13} color="#7c3aed" />
-                                    ) : (
-                                      <Image size={13} color="#16a34a" />
-                                    )}
-                                    <span>{badge.label}</span>
-                                  </div>
-                                  {slot.notes ? (
-                                    <span className="planner-planned-note" title={slot.notes}>
-                                      {slot.notes}
-                                    </span>
-                                  ) : null}
-                                  <span className={`planner-planned-subtext ${isMissed ? 'is-missed' : ''}`}>
-                                    {isMissed ? '+ Backfill / Create post' : '+ Click to create post'}
-                                  </span>
-                                </div>
-
-                                {/* Brand Tag Badge on Top-Left of Photo */}
+                                {/* Brand Tag Badge on Top-Left (Identical to published posts) */}
                                 {slot.brand_name && (
                                   <div className="planner-card-brand-badge" title={slot.brand_name}>
-                                    <Tag size={10} color="#2563eb" />
+                                    <Tag size={10} color={isMissed ? '#dc2626' : '#2563eb'} />
                                     <span>{slot.brand_name}</span>
                                   </div>
                                 )}
 
-                                {/* Content Type Icon Badge in Top-Right Corner */}
+                                {/* Clean Format Icon Badge on Top-Right (Just icon - clean & unified) */}
                                 {slot.content_type === 'live' ? (
-                                  <div className="planner-type-badge type-live" title="Live Video">
+                                  <div className="planner-type-badge type-live" title="Live Video Deliverable">
                                     <Radio size={11} />
                                   </div>
-                                ) : slot.content_type === 'video' ? (
-                                  <div className="planner-type-badge type-video" title="Video">
+                                ) : slot.content_type === 'video' || slot.content_type === 'reel' ? (
+                                  <div className="planner-type-badge type-video" title="Video Deliverable">
                                     <Play size={10} fill="#ffffff" />
                                   </div>
                                 ) : (
-                                  <div className="planner-type-badge type-photo" title="Photo / Poster">
+                                  <div className="planner-type-badge type-photo" title={badge.label || 'Poster / Photo Deliverable'}>
                                     <Image size={11} />
                                   </div>
                                 )}
 
-                                {/* Target Platform Badge on Bottom-Right */}
-                                <div
-                                  className={`planner-platform-badge planner-planned-platform-badge ${isMissed ? 'is-missed' : ''}`}
-                                  title={isMissed ? 'Missed Plan Target' : 'Brand Plan Target'}
-                                >
-                                  {isMissed ? (
-                                    <AlertTriangle size={11} color="#dc2626" strokeWidth={2.5} />
-                                  ) : (
-                                    <Target size={12} color="#2563eb" />
-                                  )}
+                                {/* Body: Note & Action Link */}
+                                <div className="planner-planned-media-body">
+                                  <span className="planner-planned-note" title={slot.notes || badge.label}>
+                                    {slot.notes || badge.label}
+                                  </span>
+                                  <span className={`planner-planned-subtext ${isMissed ? 'is-missed' : ''}`}>
+                                    {isMissed ? '+ Backfill / Create post' : '+ Click to create post'}
+                                  </span>
                                 </div>
                               </div>
                             </div>
@@ -1184,46 +1117,26 @@ export const PlannerPage = () => {
                               className="planner-post-card planner-planned-card is-compensated"
                               onClick={() => handleSlotClick(slot, day.dateKey)}
                               title={`[Compensated Deliverable] ${slot.brand_name || 'Brand'} · ${badge.label} · Missed on ${day.dateKey} but compensated by linked post. Click to view.`}
-                              style={{
-                                border: '1.5px dashed #c4b5fd',
-                                backgroundColor: '#fdfcff',
-                              }}
                             >
                               <div className="planner-card-time-row">
                                 <span className="planner-time-pill" style={{ color: '#7c3aed', backgroundColor: '#f5f3ff' }}>
-                                  <Clock size={11} /> Compensated
+                                  <Sparkles size={11} /> Make-Up
                                 </span>
-                                <span
-                                  className="planner-plan-badge is-compensated"
-                                  style={{
-                                    color: '#6d28d9',
-                                    backgroundColor: '#ede9fe',
-                                    borderColor: '#c4b5fd',
-                                  }}
-                                >
-                                  <Check size={9.5} strokeWidth={3} /> COMPENSATED
-                                </span>
+                                {slot.linked_post_id && (
+                                  <span
+                                    className="planner-card-action-btn"
+                                    title={`View linked post #${slot.linked_post_id}`}
+                                    style={{ color: '#7c3aed', display: 'inline-flex', alignItems: 'center' }}
+                                  >
+                                    <Link2 size={12} />
+                                  </span>
+                                )}
                               </div>
 
                               <div
                                 className={`planner-card-media-wrap planner-planned-media-wrap type-${slot.content_type || 'photo'}`}
-                                style={{ borderColor: '#ddd6fe', background: 'linear-gradient(135deg, #fbfaff 0%, #f5f3ff 100%)' }}
                               >
-                                <div className="planner-planned-inner-box">
-                                  <div className="planner-planned-format-title" style={{ color: '#5b21b6' }}>
-                                    <Check size={13} color="#7c3aed" strokeWidth={2.5} />
-                                    <span>{badge.label}</span>
-                                  </div>
-                                  {slot.notes ? (
-                                    <span className="planner-planned-note" title={slot.notes}>
-                                      {slot.notes}
-                                    </span>
-                                  ) : null}
-                                  <span className="planner-planned-subtext" style={{ color: '#7c3aed', fontWeight: 700 }}>
-                                    ✓ Compensated (Click to view post)
-                                  </span>
-                                </div>
-
+                                {/* Brand Tag Badge on Top-Left */}
                                 {slot.brand_name && (
                                   <div className="planner-card-brand-badge" title={slot.brand_name}>
                                     <Tag size={10} color="#7c3aed" />
@@ -1231,12 +1144,29 @@ export const PlannerPage = () => {
                                   </div>
                                 )}
 
-                                <div
-                                  className="planner-platform-badge"
-                                  style={{ backgroundColor: '#f5f3ff', borderColor: '#ddd6fe' }}
-                                  title="Compensated Deliverable"
-                                >
-                                  <Sparkles size={11} color="#7c3aed" />
+                                {/* Clean Format Icon Badge on Top-Right */}
+                                {slot.content_type === 'live' ? (
+                                  <div className="planner-type-badge type-live" title="Live Video">
+                                    <Radio size={11} />
+                                  </div>
+                                ) : slot.content_type === 'video' || slot.content_type === 'reel' ? (
+                                  <div className="planner-type-badge type-video" title="Video">
+                                    <Play size={10} fill="#ffffff" />
+                                  </div>
+                                ) : (
+                                  <div className="planner-type-badge type-photo" title={badge.label || 'Poster / Photo'}>
+                                    <Image size={11} />
+                                  </div>
+                                )}
+
+                                {/* Body: Note & Action Link */}
+                                <div className="planner-planned-media-body">
+                                  <span className="planner-planned-note" title={slot.notes || badge.label} style={{ color: '#5b21b6' }}>
+                                    {slot.notes || badge.label}
+                                  </span>
+                                  <span className="planner-planned-subtext" style={{ color: '#7c3aed', fontWeight: 600 }}>
+                                    ✓ Fulfilled {slot.linked_post_id ? `(#${slot.linked_post_id})` : ''}
+                                  </span>
                                 </div>
                               </div>
                             </div>
@@ -1293,58 +1223,35 @@ export const PlannerPage = () => {
                 >
                   <div className="planner-month-cell-header">
                     <span className="planner-month-day-num">{cell.dayNumber}</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      {cellCompensated.length > 0 && (
-                        <span
-                          className="planner-targets-badge is-compensated"
-                          title={`${cellCompensated.length} compensated deliverable${cellCompensated.length > 1 ? 's' : ''}`}
-                          style={{
-                            fontSize: '9.5px',
-                            fontWeight: 700,
-                            padding: '1px 4px',
-                            borderRadius: '6px',
-                            backgroundColor: '#f5f3ff',
-                            color: '#7c3aed',
-                            border: '1px solid #ddd6fe',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '2px',
-                          }}
-                        >
-                          <Check size={9} strokeWidth={2.5} /> {cellCompensated.length}
+                    <div className="planner-month-metrics-wrap">
+                      {cellPosts.length > 0 && (
+                        <span className="planner-month-metric-posts" title={`${cellPosts.length} posts`}>
+                          {cellPosts.length}p
                         </span>
                       )}
                       {pendingSlots.length > 0 && (() => {
                         const isMissed = cell.dateKey < todayKey;
                         return (
                           <span
-                            className={`planner-targets-badge ${isMissed ? 'is-missed' : ''}`}
+                            className={`planner-month-metric-item ${isMissed ? 'is-missed' : 'is-planned'}`}
                             title={
                               isMissed
-                                ? `${pendingSlots.length} overdue / missed deliverable${pendingSlots.length > 1 ? 's' : ''}`
-                                : `${pendingSlots.length} deliverables waiting to be posted`
+                                ? `${pendingSlots.length} overdue / missed deliverables`
+                                : `${pendingSlots.length} planned deliverables`
                             }
-                            style={{
-                              fontSize: '9.5px',
-                              fontWeight: 700,
-                              padding: '1px 4px',
-                              borderRadius: '6px',
-                              backgroundColor: isMissed ? '#fef2f2' : '#eff6ff',
-                              color: isMissed ? '#dc2626' : '#2563eb',
-                              border: isMissed ? '1px solid #fecaca' : '1px solid #bfdbfe',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '2px',
-                            }}
                           >
-                            {isMissed ? <AlertTriangle size={9} strokeWidth={2.5} /> : <Target size={9} />}
-                            {pendingSlots.length}
+                            <span className={`planner-metric-dot ${isMissed ? 'red' : 'blue'}`} />
+                            <span>{pendingSlots.length}</span>
                           </span>
                         );
                       })()}
-                      {cellPosts.length > 0 && (
-                        <span className="planner-day-count-badge">
-                          {cellPosts.length}
+                      {cellCompensated.length > 0 && (
+                        <span
+                          className="planner-month-metric-item is-compensated"
+                          title={`${cellCompensated.length} compensated deliverables`}
+                        >
+                          <span className="planner-metric-dot purple" />
+                          <span>{cellCompensated.length}</span>
                         </span>
                       )}
                     </div>
@@ -1389,8 +1296,8 @@ export const PlannerPage = () => {
                       const timeStr = slot.time_window
                         ? slot.time_window.split('-')[0].trim()
                         : isMissed
-                        ? 'Missed'
-                        : 'Plan';
+                          ? 'Missed'
+                          : 'Plan';
 
                       return (
                         <div

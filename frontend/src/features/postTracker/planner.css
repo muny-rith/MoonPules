@@ -371,6 +371,7 @@
     opacity: 0;
     transform: translateY(-4px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -536,28 +537,133 @@
 }
 
 /* Today Active Pill */
-.planner-today-pill {
+/* Option A: Google / Apple Calendar Style "Today" Indicator */
+.planner-day-label.is-today {
+  color: #1d4ed8;
+}
+
+.planner-day-label.is-today .day-name {
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+.planner-day-label .day-number-circle {
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
   background: #1877f2;
   color: #ffffff;
-  padding: 4px 10px;
-  border-radius: 16px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
   font-size: 13px;
   font-weight: 700;
-  box-shadow: 0 2px 6px rgba(24, 119, 242, 0.3);
+  box-shadow: 0 1px 3px rgba(24, 119, 242, 0.25);
 }
 
-.planner-today-pill .day-name {
-  color: #ffffff;
+/* Daily Post Count & Status Metrics (Sleek Non-Card Typography) */
+.planner-day-metrics-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  line-height: 1.4;
+  margin-top: 1px;
 }
 
-.planner-today-pill .day-number {
-  color: #ffffff;
+.planner-metric-posts {
+  font-weight: 600;
+  color: #334155;
 }
 
-/* Daily Post Count Badges */
+.planner-metric-zero {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.planner-metric-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 600;
+  cursor: default;
+}
+
+.planner-metric-separator {
+  color: #cbd5e1;
+  font-weight: 400;
+  margin-right: 1px;
+}
+
+.planner-metric-dot {
+  width: 5.5px;
+  height: 5.5px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.planner-metric-dot.red {
+  background-color: #ef4444;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15);
+}
+
+.planner-metric-dot.blue {
+  background-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.planner-metric-dot.purple {
+  background-color: #8b5cf6;
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15);
+}
+
+.planner-metric-item.is-missed {
+  color: #dc2626;
+}
+
+.planner-metric-item.is-planned {
+  color: #2563eb;
+}
+
+.planner-metric-item.is-compensated {
+  color: #7c3aed;
+}
+
+/* Month view sleek metrics */
+.planner-month-metrics-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.planner-month-metric-posts {
+  font-size: 10px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.planner-month-metric-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 2.5px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.planner-month-metric-item.is-missed {
+  color: #dc2626;
+}
+
+.planner-month-metric-item.is-planned {
+  color: #2563eb;
+}
+
+.planner-month-metric-item.is-compensated {
+  color: #7c3aed;
+}
+
 .planner-day-count-badge {
   display: inline-flex;
   align-items: center;
@@ -883,7 +989,7 @@
   border-radius: 10px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.85);
-  max-width: calc(100% - 12px);
+  max-width: calc(100% - 38px);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1057,9 +1163,12 @@
 }
 
 @keyframes plannerPulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 0.55;
   }
+
   50% {
     opacity: 0.95;
   }
@@ -1091,11 +1200,12 @@
 }
 
 /* ==========================================================================
-   PLANNED POST CARDS (LOOKS LIKE GENERAL POST, BUT AS A PLAN)
+   PLANNED POST CARDS (CLEAN & LIGHTWEIGHT - MATCHES PUBLISHED POST CARDS)
    ========================================================================== */
 
 .planner-post-card.planner-planned-card {
-  border: 1.5px dashed #93c5fd;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
   background: #ffffff;
   position: relative;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1104,7 +1214,7 @@
 .planner-post-card.planner-planned-card:hover {
   transform: translateY(-2px);
   border-color: #2563eb;
-  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.12);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.1);
   background: #fbfdff;
 }
 
@@ -1131,56 +1241,48 @@
 
 .planner-card-media-wrap.planner-planned-media-wrap {
   background: #f8fafc;
-  border: 1px dashed #cbd5e1;
+  border: none;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 28px 8px 10px 8px;
+  padding: 24px 8px 8px 8px;
   box-sizing: border-box;
+  height: 85px;
+  position: relative;
 }
 
 .planner-card-media-wrap.planner-planned-media-wrap.type-photo,
 .planner-card-media-wrap.planner-planned-media-wrap.type-poster {
   background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
-  border-color: #bbf7d0;
 }
 
 .planner-card-media-wrap.planner-planned-media-wrap.type-live {
   background: linear-gradient(135deg, #eff6ff 0%, #fefce8 100%);
-  border-color: #fed7aa;
 }
 
 .planner-card-media-wrap.planner-planned-media-wrap.type-video,
 .planner-card-media-wrap.planner-planned-media-wrap.type-reel {
   background: linear-gradient(135deg, #fdf4ff 0%, #fae8ff 100%);
-  border-color: #f5d0fe;
 }
 
-.planner-planned-inner-box {
+/* Planned Media Body: Note & Action Link centered */
+.planner-planned-media-body {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 3px;
   text-align: center;
-  z-index: 1;
   width: 100%;
-}
-
-.planner-planned-format-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 700;
-  color: #1e293b;
+  z-index: 1;
 }
 
 .planner-planned-note {
-  font-size: 10px;
-  font-weight: 500;
-  color: #64748b;
-  max-width: 90%;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #1e293b;
+  max-width: 95%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1188,9 +1290,9 @@
 
 .planner-planned-subtext {
   font-size: 9.5px;
-  font-weight: 600;
+  font-weight: 700;
   color: #2563eb;
-  opacity: 0.85;
+  opacity: 0.9;
 }
 
 .planner-post-card.planner-planned-card:hover .planner-planned-subtext {
@@ -1221,14 +1323,14 @@
 }
 
 .planner-post-card.planner-planned-card.is-missed {
-  border: 1.5px dashed #fca5a5;
-  background: #fffdfd;
+  border: 1px solid #fca5a5;
+  background: #ffffff;
 }
 
 .planner-post-card.planner-planned-card.is-missed:hover {
   border-color: #ef4444;
-  box-shadow: 0 6px 18px rgba(239, 68, 68, 0.12);
-  background: #fff8f8;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.1);
+  background: #fffdfd;
 }
 
 .planner-time-pill.planner-planned-time.is-missed {
@@ -1243,7 +1345,7 @@
 }
 
 .planner-card-media-wrap.planner-planned-media-wrap.is-missed {
-  border-color: #fca5a5;
+  border: none;
   background: linear-gradient(135deg, #fff7f7 0%, #fef2f2 100%);
 }
 
@@ -1284,13 +1386,13 @@
 }
 
 .planner-post-card.planner-planned-card.is-compensated {
-  border: 1.5px dashed #c4b5fd;
-  background: #fdfcff;
+  border: 1px solid #ddd6fe;
+  background: #ffffff;
 }
 
 .planner-post-card.planner-planned-card.is-compensated:hover {
   border-color: #7c3aed;
-  box-shadow: 0 6px 18px rgba(124, 58, 237, 0.12);
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.1);
   background: #fbf9ff;
 }
 
