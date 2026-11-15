@@ -294,17 +294,38 @@ const markPost = async (postData) => {
   const now = new Date();
   const effectivePublishedTime = createdTime || (postData.published_time ? new Date(postData.published_time) : now);
 
-  const trackedPost = await repository.createTrackedPost({
-    ...postData,
-    product_id: hasProduct ? parseInt(product_id, 10) : null,
-    brand_id: hasBrand ? parseInt(brand_id, 10) : null,
-    tracking_type: tracking_type || (hasBrand && !hasProduct ? 'brand' : 'product'),
-    status: isPublished ? 'published' : 'scheduled',
-    scheduled_time: isPublished ? effectivePublishedTime : (postData.scheduled_time ? new Date(postData.scheduled_time) : now),
-    published_time: isPublished ? effectivePublishedTime : null,
-    media_type: mediaType,
-    media_url: permanentMediaUrl,
-  });
+  let trackedPost;
+  try {
+    trackedPost = await repository.createTrackedPost({
+      ...postData,
+      product_id: hasProduct ? parseInt(product_id, 10) : null,
+      brand_id: hasBrand ? parseInt(brand_id, 10) : null,
+      tracking_type: tracking_type || (hasBrand && !hasProduct ? 'brand' : 'product'),
+      status: isPublished ? 'published' : 'scheduled',
+      scheduled_time: isPublished ? effectivePublishedTime : (postData.scheduled_time ? new Date(postData.scheduled_time) : now),
+      published_time: isPublished ? effectivePublishedTime : null,
+      media_type: mediaType,
+      media_url: permanentMediaUrl,
+    });
+  } catch (err) {
+    if (err.status === 409 && postData.compensation_for_slot_id) {
+      // Reconcile existing tracked post with the compensation slot
+      const existing = await repository.getPostByFbPostId(fb_post_id);
+      if (existing) {
+        await repository.updateTrackedPostData(existing.id, {
+          compensation_for_slot_id: parseInt(postData.compensation_for_slot_id, 10),
+        });
+        const updated = await repository.getTrackedPostById(existing.id);
+        try {
+          await missionsService.reconcilePostWithMission(updated);
+        } catch (rErr) {
+          console.warn('[MarkPost] reconcile existing error:', rErr.message);
+        }
+        return updated;
+      }
+    }
+    throw err;
+  }
 
   // If already published on Facebook, immediately fetch initial metrics
   if (isPublished) {

@@ -2085,7 +2085,7 @@ export const CreatePostPage = () => {
                       : 'Publish'
                   )
                 ) : (
-                  'Track Post'
+                  compensationSlot ? `Link & Track as Make-Up for Slot #${compensationSlot.id}` : 'Track Post'
                 )}
               </Button>
             </div>

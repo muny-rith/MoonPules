@@ -751,6 +751,49 @@ const getMissedSlotsForCompensation = async (brandId) => {
   }));
 };
 
+/**
+ * Link an existing tracked post to a missed slot as compensation (reconciliation)
+ */
+const linkPostToSlot = async (slotId, postId) => {
+  const slot = await missionsRepo.getSlotById(slotId);
+  if (!slot) {
+    throw new Error('Mission slot not found');
+  }
+
+  const postTrackerRepo = require('../postTracker/postTracker.repository');
+  const post = await postTrackerRepo.getTrackedPostById(postId);
+  if (!post) {
+    throw new Error('Post not found');
+  }
+
+  // 1. Assign compensation_for_slot_id to the post
+  await postTrackerRepo.updateTrackedPost(postId, { compensation_for_slot_id: slot.id });
+
+  // 2. Link the slot to this post with compensated status
+  const finalStatus = post.status === 'published' ? 'compensated' : post.status === 'scheduled' ? 'scheduled' : 'planned';
+  const updatedSlot = await missionsRepo.linkSlotToPost(slot.id, post.id, finalStatus, true);
+
+  return { slot: updatedSlot, post };
+};
+
+/**
+ * Unlink a post from a slot, resetting slot back to planned/missed and clearing post's compensation_for_slot_id
+ */
+const unlinkPostFromSlot = async (slotId) => {
+  const slot = await missionsRepo.getSlotById(slotId);
+  if (!slot) {
+    throw new Error('Mission slot not found');
+  }
+
+  const postTrackerRepo = require('../postTracker/postTracker.repository');
+  if (slot.linked_post_id) {
+    await postTrackerRepo.updateTrackedPost(slot.linked_post_id, { compensation_for_slot_id: null });
+  }
+
+  const updatedSlot = await missionsRepo.unlinkSlotBySlotId(slot.id);
+  return updatedSlot;
+};
+
 module.exports = {
   formatLocalDateStr,
   getMissionWithProgress,
@@ -764,5 +807,7 @@ module.exports = {
   reconcilePostWithMission,
   unreconcilePost,
   getMissedSlotsForCompensation,
+  linkPostToSlot,
+  unlinkPostFromSlot,
 };
 

@@ -13,6 +13,8 @@ router.get('/slots/:id', missionsController.getSlotById);
 router.post('/slots', missionsController.createSlot);
 router.patch('/slots/:id', missionsController.updateSlot);
 router.delete('/slots/:id', missionsController.deleteSlot);
+router.post('/slots/:id/link-post', missionsController.linkPost);
+router.post('/slots/:id/unlink-post', missionsController.unlinkPost);
 
 module.exports = router;
 

@@ -53,3 +53,13 @@ export const getMissedSlots = async (brandId) => {
   return response.data?.data || [];
 };
 
+export const linkPostToSlot = async (slotId, postId) => {
+  const response = await apiClient.post(`/missions/slots/${slotId}/link-post`, { postId });
+  return response.data?.data || null;
+};
+
+export const unlinkPostFromSlot = async (slotId) => {
+  const response = await apiClient.post(`/missions/slots/${slotId}/unlink-post`);
+  return response.data?.data || null;
+};
+

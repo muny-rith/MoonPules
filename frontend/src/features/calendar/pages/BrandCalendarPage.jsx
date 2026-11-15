@@ -23,7 +23,8 @@ import {
   FileText,
   Target,
   PauseCircle,
-  X
+  X,
+  Link2
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import * as missionApi from '../../missions/api/missionApi';
@@ -38,6 +39,7 @@ import { getFacebookPostUrl } from '../../../shared/utils/facebookUrl';
 import { FaFacebook } from 'react-icons/fa';
 import { SetMissionModal } from '../../missions/components/SetMissionModal';
 import { CategorizeMissedModal } from '../../missions/components/CategorizeMissedModal';
+import { LinkExistingPostModal } from '../../missions/components/LinkExistingPostModal';
 import '../../postTracker/planner.css';
 import '../calendar.css';
 
@@ -218,6 +220,7 @@ export const BrandCalendarPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDayDetail, setSelectedDayDetail] = useState(null); // Day Detail Modal state
   const [categorizeSlot, setCategorizeSlot] = useState(null); // Categorize Missed Reason Modal state
+  const [linkPostModalSlot, setLinkPostModalSlot] = useState(null); // Link Existing Post Modal state
 
   // TanStack Query: Cached calendar slots & monthly audit (0ms instant render on back navigation)
   const { data: calendarSlots = [], isLoading: slotsLoading } = useCalendarSlots(selectedBrandId, monthNumber, yearNumber);
@@ -1019,6 +1022,72 @@ export const BrandCalendarPage = () => {
                               </Button>
                             )}
 
+                            {isMissed && !linked?.id && (
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                icon={<Link2 size={12} />}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setLinkPostModalSlot({
+                                    ...slot,
+                                    brand_id: slot.brand_id || selectedBrand?.brand_id || selectedBrand?.id,
+                                    brand_name: slot.brand_name || selectedBrand?.brand_name,
+                                  });
+                                }}
+                                style={{
+                                  marginRight: '6px',
+                                  minHeight: '26px',
+                                  height: '26px',
+                                  padding: '0 9px',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                }}
+                                title="Link an already tracked post from this brand"
+                              >
+                                🔗 Link Existing Post
+                              </Button>
+                            )}
+
+                            {slot.is_compensated && linked?.id && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                icon={<X size={11} />}
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  if (window.confirm(`Unlink Post #${linked.id} from this compensated slot?`)) {
+                                    await missionApi.unlinkPostFromSlot(slot.id);
+                                    await invalidatePostAndMissionCaches();
+                                    setSelectedDayDetail((prev) => {
+                                      if (!prev) return prev;
+                                      return {
+                                        ...prev,
+                                        slots: prev.slots.map((s) =>
+                                          s.id === slot.id
+                                            ? { ...s, linked_post_id: null, is_compensated: false, slot_status: 'missed' }
+                                            : s
+                                        ),
+                                      };
+                                    });
+                                  }
+                                }}
+                                style={{
+                                  marginRight: '6px',
+                                  minHeight: '26px',
+                                  height: '26px',
+                                  padding: '0 8px',
+                                  fontSize: '11px',
+                                  color: '#dc2626',
+                                  borderColor: '#fca5a5',
+                                  backgroundColor: '#fef2f2',
+                                }}
+                                title="Unlink compensated post"
+                              >
+                                Unlink
+                              </Button>
+                            )}
+
                             <button
                               type="button"
                               onClick={() => {
@@ -1169,6 +1238,22 @@ export const BrandCalendarPage = () => {
         onClose={() => setCategorizeSlot(null)}
         slot={categorizeSlot}
         onSaved={(updated) => {
+          setSelectedDayDetail((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              slots: prev.slots.map((s) => (s.id === updated.id ? { ...s, ...updated } : s)),
+            };
+          });
+        }}
+      />
+
+      {/* Link Existing Tracked Post Modal */}
+      <LinkExistingPostModal
+        isOpen={Boolean(linkPostModalSlot)}
+        onClose={() => setLinkPostModalSlot(null)}
+        slot={linkPostModalSlot}
+        onLinked={(updated) => {
           setSelectedDayDetail((prev) => {
             if (!prev) return prev;
             return {

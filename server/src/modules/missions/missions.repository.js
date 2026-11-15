@@ -401,6 +401,24 @@ const unlinkSlotByPostId = async (postId) => {
 };
 
 /**
+ * Unlink a specific slot by slot ID (clearing post link and restoring planned status)
+ */
+const unlinkSlotBySlotId = async (slotId) => {
+  const result = await db.query(
+    `UPDATE tb_brand_mission_slot
+     SET linked_post_id = NULL,
+         slot_status = 'planned',
+         is_compensated = FALSE,
+         compensated_at = NULL,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = $1
+     RETURNING *`,
+    [slotId]
+  );
+  return result.rows[0] || null;
+};
+
+/**
  * Get unresolved missed slots for a brand up to a given date (for backfill/compensation auto-suggestions)
  */
 const getUnresolvedMissedSlotsForBrand = async (brandId, beforeDateStr) => {
@@ -465,6 +483,7 @@ module.exports = {
   findUnlinkedSlotForPost,
   linkSlotToPost,
   unlinkSlotByPostId,
+  unlinkSlotBySlotId,
   getSlotByLinkedPostId,
   getAllSlotsWithMissionsForMonth,
   getUnresolvedMissedSlotsForBrand,

@@ -146,6 +146,33 @@ const getSlotById = async (req, res, next) => {
   }
 };
 
+const linkPost = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { postId } = req.body;
+    if (!id || !postId) {
+      return res.status(400).json({ error: 'Slot ID parameter and postId body are required' });
+    }
+    const result = await missionsService.linkPostToSlot(parseInt(id, 10), parseInt(postId, 10));
+    res.json({ data: result, message: 'Post linked to slot successfully' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const unlinkPost = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ error: 'Slot ID parameter is required' });
+    }
+    const result = await missionsService.unlinkPostFromSlot(parseInt(id, 10));
+    res.json({ data: result, message: 'Slot unlinked successfully' });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getMission,
   getCalendarSlots,
@@ -156,5 +183,7 @@ module.exports = {
   createSlot,
   deleteSlot,
   getMissedSlots,
+  linkPost,
+  unlinkPost,
 };
 

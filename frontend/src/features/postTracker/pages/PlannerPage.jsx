@@ -26,13 +26,15 @@ import {
   Target,
   Sparkles,
   AlertTriangle,
-  PauseCircle
+  PauseCircle,
+  Link2
 } from 'lucide-react';
 import { FaFacebook } from 'react-icons/fa';
 import { usePostTracker } from '../hooks/usePostTracker';
 import * as api from '../api/postTrackerApi';
 import * as missionApi from '../../missions/api/missionApi';
 import { CategorizeMissedModal } from '../../missions/components/CategorizeMissedModal';
+import { LinkExistingPostModal } from '../../missions/components/LinkExistingPostModal';
 import { useBrands, usePages } from '../../../shared/hooks/queries';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
 import { Select, Input, Button } from '../../../shared/components/ui';
@@ -214,6 +216,7 @@ export const PlannerPage = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null); // 'page' | 'contentType' | null
   const [categorizeSlot, setCategorizeSlot] = useState(null); // Missed Reason Categorization Modal
+  const [linkPostModalSlot, setLinkPostModalSlot] = useState(null); // Link Existing Post Modal
   const controlsRef = useRef(null);
 
   // Close dropdown on click outside
@@ -1079,6 +1082,25 @@ export const PlannerPage = () => {
                                     >
                                       ⚙
                                     </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setLinkPostModalSlot(slot);
+                                      }}
+                                      style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        padding: '0 2px',
+                                        color: '#4f46e5',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                      }}
+                                      title="Link existing tracked post to this missed slot"
+                                    >
+                                      <Link2 size={11} />
+                                    </button>
                                   </div>
                                 ) : slot.slot_status === 'waived' ? (
                                   <span className="planner-plan-badge" style={{ backgroundColor: '#eef2ff', color: '#4f46e5', border: '1px solid #c7d2fe' }}>
@@ -1429,6 +1451,16 @@ export const PlannerPage = () => {
         isOpen={Boolean(categorizeSlot)}
         onClose={() => setCategorizeSlot(null)}
         slot={categorizeSlot}
+      />
+
+      {/* Link Existing Tracked Post Modal */}
+      <LinkExistingPostModal
+        isOpen={Boolean(linkPostModalSlot)}
+        onClose={() => setLinkPostModalSlot(null)}
+        slot={linkPostModalSlot}
+        onLinked={async () => {
+          await invalidatePostAndMissionCaches();
+        }}
       />
     </div>
   );

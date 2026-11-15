@@ -366,6 +366,16 @@ const getTrackedPostById = async (id) => {
   return result.rows[0];
 };
 
+const getPostByFbPostId = async (fbPostId) => {
+  const result = await db.query(`
+    SELECT pt.*, fp.page_name, fp.fb_page_id, fp.access_token 
+    FROM tb_post_tracker pt
+    JOIN tb_fb_page fp ON pt.page_id = fp.id
+    WHERE pt.fb_post_id = $1
+  `, [fbPostId]);
+  return result.rows[0] || null;
+};
+
 const getDueScheduledPosts = async () => {
   const result = await db.query(`
     SELECT pt.*, fp.page_name, fp.fb_page_id, fp.access_token 
@@ -594,6 +604,7 @@ module.exports = {
   getCoolPublishedPosts,
   getPostsForScopedSync,
   getTrackedPostById,
+  getPostByFbPostId,
   getDueScheduledPosts,
   getDueScheduledFbPosts,
   getUpcomingScheduledPosts,
