@@ -20,21 +20,23 @@ import {
   Radio,
   Image,
   Video,
+  Play,
   FileText,
   Target,
   PauseCircle,
   X,
-  Link2
+  Link2,
+  Settings
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import * as missionApi from '../../missions/api/missionApi';
-import { useBrands, usePages, useCalendarSlots, useMonthAudit } from '../../../shared/hooks/queries';
+import { useBrands, usePages, useCalendarSlots } from '../../../shared/hooks/queries';
 import { queryKeys } from '../../../shared/utils/queryKeys';
 import { invalidatePostAndMissionCaches, invalidateMissionCaches } from '../../../shared/utils/cacheSync';
 import { usePostTracker } from '../../postTracker/hooks/usePostTracker';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
 import { Select, Button, Modal } from '../../../shared/components/ui';
-import { resolveAllMediaUrls } from '../../../shared/utils/mediaUrl';
+import { resolveMediaUrl, resolveAllMediaUrls } from '../../../shared/utils/mediaUrl';
 import { getFacebookPostUrl } from '../../../shared/utils/facebookUrl';
 import { FaFacebook } from 'react-icons/fa';
 import { SetMissionModal } from '../../missions/components/SetMissionModal';
@@ -93,16 +95,19 @@ const findMatchingPostForSlot = (slot, posts = []) => {
 const getContentTypeInfo = (contentType, isSpecial = false) => {
   const type = (contentType || '').toLowerCase();
   if (type === 'video' || type === 'reel') {
-    return { label: 'Video', icon: Video, variant: 'video' }; // Purple for video/reels
+    return { label: type === 'reel' ? 'Reel' : 'Video', icon: Play, variant: 'video' };
   }
   if (type === 'live') {
     return {
       label: isSpecial ? 'Payday Live' : 'Live Stream',
       icon: Radio,
-      variant: isSpecial ? 'payday' : 'live', // Amber/Sky Blue for live
+      variant: 'live',
     };
   }
-  return { label: 'Poster', icon: Image, variant: 'poster' }; // Indigo for poster (NEVER green!)
+  if (type === 'story') {
+    return { label: 'Story', icon: Image, variant: 'story' };
+  }
+  return { label: 'Poster', icon: Image, variant: 'poster' };
 };
 
 /**
@@ -125,22 +130,22 @@ const resolveSlotDisplay = (slot, dateKey, todayKey, posts) => {
   const stateClass = isCompensated
     ? 'is-compensated'
     : isCompleted
-    ? 'is-completed'
-    : isScheduled
-    ? 'is-scheduled'
-    : isMissed
-    ? 'is-missed'
-    : 'is-planned';
+      ? 'is-completed'
+      : isScheduled
+        ? 'is-scheduled'
+        : isMissed
+          ? 'is-missed'
+          : 'is-planned';
 
   const statusSummary = isCompensated
     ? 'Compensated deliverable'
     : isCompleted
-    ? 'Live on Facebook'
-    : isScheduled
-    ? 'Scheduled'
-    : isMissed
-    ? 'Overdue'
-    : 'Planned deliverable';
+      ? 'Live on Facebook'
+      : isScheduled
+        ? 'Scheduled'
+        : isMissed
+          ? 'Overdue'
+          : 'Planned deliverable';
 
   return { typeInfo, linked, isCompleted, isCompensated, isScheduled, isMissed, stateClass, statusSummary };
 };
@@ -195,6 +200,19 @@ export const BrandCalendarPage = () => {
   const { data: brands = [] } = useBrands();
   const { data: pages = [] } = usePages();
 
+  // Fast brand logo lookup map by brand_id and normalized brand_name
+  const brandLogoMap = useMemo(() => {
+    const map = new Map();
+    (brands || []).forEach((b) => {
+      const bId = String(b.brand_id || b.id || '');
+      const img = b.image_url || b.logo_url || b.logo;
+      if (bId && img) map.set(bId, img);
+      const name = (b.brand_name || b.name || '').toLowerCase().trim();
+      if (name && img) map.set(name, img);
+    });
+    return map;
+  }, [brands]);
+
   // Formatted options for global UI Select components
   const brandOptions = useMemo(() => {
     const list = [{ value: 'all', label: '🌟 All Brands (Master Schedule)' }];
@@ -219,13 +237,11 @@ export const BrandCalendarPage = () => {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDayDetail, setSelectedDayDetail] = useState(null); // Day Detail Modal state
+  const [dayModalTab, setDayModalTab] = useState('targets'); // 'targets' | 'posts'
   const [categorizeSlot, setCategorizeSlot] = useState(null); // Categorize Missed Reason Modal state
   const [linkPostModalSlot, setLinkPostModalSlot] = useState(null); // Link Existing Post Modal state
-
-  // TanStack Query: Cached calendar slots & monthly audit (0ms instant render on back navigation)
-  const { data: calendarSlots = [], isLoading: slotsLoading } = useCalendarSlots(selectedBrandId, monthNumber, yearNumber);
-  const { data: auditSummary = [], isLoading: auditLoading } = useMonthAudit(monthNumber, yearNumber);
-  const loading = slotsLoading || auditLoading;
+  // TanStack Query: Cached calendar slots (0ms instant render on back navigation)
+  const { data: calendarSlots = [], isLoading: loading } = useCalendarSlots(selectedBrandId, monthNumber, yearNumber);
 
   // Load tracked posts from PostTracker
   const { posts } = usePostTracker({ range: 'all' });
@@ -433,10 +449,10 @@ export const BrandCalendarPage = () => {
         </div>
       </div>
 
-      {/* Toolbar: Navigation, Month Picker, Brand Filter */}
+      {/* Toolbar: Navigation, Brand & Status Filters */}
       <div className="planner-toolbar-card brand-cal-toolbar">
         {/* Navigation Group */}
-        <div className="planner-nav-group">
+        <div className="planner-nav-group brand-cal-nav-group">
           <div className="planner-nav-btns">
             <button className="planner-nav-btn" onClick={handlePrevMonth} title="Previous Month">
               <ChevronLeft size={18} />
@@ -506,82 +522,6 @@ export const BrandCalendarPage = () => {
             Refresh
           </Button>
         </div>
-      </div>
-
-      {/* ALL-BRANDS MISSION PROGRESS OVERVIEW BAR */}
-      <div className="brand-cal-audit-card">
-        <div className="brand-cal-audit-header">
-          <div className="brand-cal-audit-title-group">
-            <span className="brand-cal-audit-title">
-              🎯 {monthName} — Monthly Missions for All Brands
-            </span>
-            <span className="brand-cal-audit-count">
-              ({auditSummary.length} brands planned)
-            </span>
-          </div>
-
-          <div className="brand-cal-audit-actions">
-            <button
-              onClick={() => navigate('/stats/brands?tab=missions')}
-              className="brand-cal-link-btn"
-              title="Open the full 500-brand deliverables matrix"
-            >
-              <span>Manage in Brands Hub</span> →
-            </button>
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="brand-cal-link-btn"
-            >
-              <Plus size={14} /> Add / Edit Blueprint
-            </button>
-          </div>
-        </div>
-
-        {auditSummary.length === 0 ? (
-          <div className="brand-cal-audit-empty">
-            No brand schedule blueprint has been saved yet for {monthName}. Click <strong>+ Plan Schedule Blueprint</strong> to set posting days.
-          </div>
-        ) : (
-          <div className="brand-cal-audit-grid">
-            {auditSummary.map((b) => {
-              const is100 = b.completion_rate === 100 && b.total_slots > 0;
-              const hasMissed = b.missed_slots > 0;
-              const statusClass = is100 ? 'is-done' : (hasMissed ? 'is-missed' : 'is-progress');
-
-              return (
-                <div
-                  key={b.brand_id}
-                  className={`brand-cal-audit-item ${statusClass}`}
-                >
-                  <div>
-                    <div className="brand-cal-audit-brand">
-                      {b.brand_name}
-                    </div>
-                    <div className="brand-cal-audit-subtext">
-                      {b.completed_slots} / {b.total_slots} days published
-                    </div>
-                  </div>
-
-                  <div>
-                    {is100 ? (
-                      <span className="brand-cal-audit-pill is-done">
-                        100% DONE 🏆
-                      </span>
-                    ) : hasMissed ? (
-                      <span className="brand-cal-audit-pill is-missed">
-                        {b.missed_slots} Missed ⚠️
-                      </span>
-                    ) : (
-                      <span className="brand-cal-audit-pill is-progress">
-                        {b.completion_rate}% In Progress
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
 
       {/* ====================================================================
@@ -685,8 +625,19 @@ export const BrandCalendarPage = () => {
                             isCompensated,
                             isScheduled,
                             isMissed,
+                            stateClass,
                             statusSummary,
                           } = resolveSlotDisplay(slot, cell.dateKey, todayKey, dayPosts);
+
+                          const bId = String(slot.brand_id || '');
+                          const bName = (slot.brand_name || '').toLowerCase().trim();
+                          const brandLogo =
+                            (bId ? brandLogoMap.get(bId) : null) ||
+                            (bName ? brandLogoMap.get(bName) : null) ||
+                            slot.brand_logo ||
+                            slot.logo_url ||
+                            slot.image_url ||
+                            null;
 
                           return (
                             <div
@@ -711,75 +662,78 @@ export const BrandCalendarPage = () => {
                                   });
                                 }
                               }}
-                              className={`brand-cal-slot-card ${isScheduled ? 'is-scheduled' : ''} ${isCompensated ? 'is-compensated' : ''}`}
+                              className={`brand-cal-slot-card ${stateClass}`}
                               title={`Click to ${linked?.id ? 'view post' : 'create post'} for ${slot.brand_name} (${statusSummary})`}
                             >
                               <div className="brand-cal-slot-main">
-                                <span
-                                  className={`brand-cal-slot-accent is-${typeInfo.variant}`}
-                                  title={`${typeInfo.label} deliverable`}
-                                />
+                                {typeInfo.icon && (
+                                  <typeInfo.icon
+                                    size={12}
+                                    className={`brand-cal-slot-type-icon is-${typeInfo.variant}`}
+                                    title={`${typeInfo.label} deliverable`}
+                                  />
+                                )}
 
-                                <span className="brand-cal-slot-brand">
+                                <span className="brand-cal-slot-brand" title={slot.brand_name || 'Brand'}>
                                   {slot.brand_name || 'Brand'}
                                 </span>
 
-                                <span className="brand-cal-slot-dot">·</span>
-
-                                <span className="brand-cal-slot-type">
-                                  {typeInfo.label}
-                                </span>
+                                {brandLogo ? (
+                                  <img
+                                    src={resolveMediaUrl(brandLogo)}
+                                    alt={slot.brand_name || 'Brand'}
+                                    className="brand-cal-slot-logo"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                    }}
+                                  />
+                                ) : null}
                               </div>
 
                               <div className="brand-cal-slot-status-wrap">
                                 {isCompensated && (
-                                  <span
-                                    className="brand-cal-status-pill is-compensated"
-                                    title="Deliverable was missed but compensated"
-                                    style={{
-                                      backgroundColor: '#f5f3ff',
-                                      color: '#7c3aed',
-                                      borderColor: '#ddd6fe',
-                                    }}
-                                  >
-                                    <Check size={8.5} strokeWidth={3} /> Make-Up
-                                  </span>
+                                  <Sparkles
+                                    size={12}
+                                    strokeWidth={2.2}
+                                    color="#7c3aed"
+                                    title={`Compensated Deliverable (Make-Up post ${slot.linked_post_id ? `#${slot.linked_post_id}` : ''})`}
+                                  />
                                 )}
 
                                 {isCompleted && (
-                                  <span
-                                    className="brand-cal-status-pill is-live"
-                                    title="Delivered & Live on Facebook"
-                                  >
-                                    <Check size={8.5} strokeWidth={3} /> LIVE
-                                  </span>
+                                  <Check
+                                    size={13}
+                                    strokeWidth={2.8}
+                                    color="#16a34a"
+                                    title={`Delivered & Live on Facebook ${linked?.id ? `(#${linked.id})` : ''}`}
+                                  />
                                 )}
 
                                 {isScheduled && (
-                                  <span
-                                    className="brand-cal-status-pill is-scheduled"
-                                    title="Scheduled on Facebook"
-                                  >
-                                    <Clock size={8.5} strokeWidth={2.5} /> {slot.time_window || 'QUEUED'}
-                                  </span>
+                                  <Clock
+                                    size={12}
+                                    strokeWidth={2.2}
+                                    color="#2563eb"
+                                    title={`Scheduled on Facebook${slot.time_window ? ` (${slot.time_window})` : ''}`}
+                                  />
                                 )}
 
                                 {isMissed && (
-                                  <span
-                                    className="brand-cal-status-pill is-missed"
-                                    title="Overdue / Missed deliverable date"
-                                  >
-                                    <AlertTriangle size={8.5} strokeWidth={2.5} /> MISSED
-                                  </span>
+                                  <AlertTriangle
+                                    size={12}
+                                    strokeWidth={2.2}
+                                    color="#dc2626"
+                                    title={`Overdue / Missed deliverable${slot.missed_reason ? `: ${slot.missed_reason.replace('_', ' ')}` : ''}`}
+                                  />
                                 )}
 
                                 {!isCompleted && !isCompensated && !isScheduled && !isMissed && (
-                                  <span
-                                    className="brand-cal-status-pill is-planned"
-                                    title="Planned deliverable (click to create post)"
-                                  >
-                                    {slot.time_window || 'Planned'}
-                                  </span>
+                                  <Clock
+                                    size={11.5}
+                                    strokeWidth={2}
+                                    color="#94a3b8"
+                                    title={`Planned deliverable${slot.time_window ? ` (${slot.time_window})` : ''}`}
+                                  />
                                 )}
                               </div>
                             </div>
@@ -797,6 +751,7 @@ export const BrandCalendarPage = () => {
                                 slots: filteredSlots,
                                 posts: dayPosts,
                               });
+                              setDayModalTab('targets');
                             }}
                             className="brand-cal-more-btn"
                           >
@@ -831,405 +786,461 @@ export const BrandCalendarPage = () => {
         onClose={() => setSelectedDayDetail(null)}
         size="md"
       >
-        {selectedDayDetail && (
-          <>
-            <Modal.Header
-              title={new Date(selectedDayDetail.dateKey + 'T00:00:00').toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}
-              description={`${selectedDayDetail.slots.length} Planned Target${selectedDayDetail.slots.length === 1 ? '' : 's'} • ${selectedDayDetail.posts.length} Published Post${selectedDayDetail.posts.length === 1 ? '' : 's'}`}
-              onClose={() => setSelectedDayDetail(null)}
-            />
+        {selectedDayDetail && (() => {
+          const brandPosts = (selectedDayDetail.posts || []).filter(
+            (p) => p.brand_id || selectedDayDetail.slots.some((s) => s.linked_post?.id === p.id)
+          );
+          const totalTargets = selectedDayDetail.slots.length;
+          const totalPosts = brandPosts.length;
+          const activeTab = (dayModalTab === 'targets' && totalTargets === 0 && totalPosts > 0)
+            ? 'posts'
+            : (dayModalTab === 'posts' && totalPosts === 0 && totalTargets > 0)
+            ? 'targets'
+            : dayModalTab;
 
-            <Modal.Body className="brand-cal-modal-body">
-              {/* Planned Targets */}
-              {selectedDayDetail.slots.length > 0 && (
-                <div>
-                  <h4 className="brand-cal-modal-section-title">
-                    🎯 Planned Schedule Targets
-                  </h4>
-                  <div className="brand-cal-modal-list">
-                    {selectedDayDetail.slots.map((slot, sIdx) => {
-                      const {
-                        typeInfo,
-                        linked,
-                        isCompleted,
-                        isCompensated,
-                        isScheduled,
-                        isMissed,
-                        stateClass,
-                      } = resolveSlotDisplay(
-                        slot,
-                        selectedDayDetail.dateKey,
-                        todayKey,
-                        selectedDayDetail.posts
-                      );
+          return (
+            <>
+              <Modal.Header
+                title={new Date(selectedDayDetail.dateKey + 'T00:00:00').toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+                description={`${totalTargets} Planned Target${totalTargets === 1 ? '' : 's'} • ${totalPosts} Delivered Post${totalPosts === 1 ? '' : 's'}`}
+                onClose={() => setSelectedDayDetail(null)}
+              />
 
-                      let thumbUrl = null;
-                      let fbUrl = null;
-                      if (linked) {
-                        const media = resolveAllMediaUrls(linked.media_url);
-                        thumbUrl = linked.thumbnail_url || media[0] || linked.product_image;
-                        fbUrl = getFacebookPostUrl(linked.fb_post_id, linked.post_url, linked.page_id || linked.fb_page_id);
-                      }
+              <Modal.Body className="brand-cal-modal-body">
+                {/* Segmented Navigation Tabs */}
+                <div className="brand-cal-modal-tabs">
+                  <button
+                    type="button"
+                    className={`brand-cal-modal-tab ${activeTab === 'targets' ? 'is-active' : ''}`}
+                    onClick={() => setDayModalTab('targets')}
+                  >
+                    <Target size={14} className="brand-cal-modal-tab-icon" />
+                    <span>Planned Targets</span>
+                    <span className="brand-cal-modal-tab-badge">{totalTargets}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`brand-cal-modal-tab ${activeTab === 'posts' ? 'is-active' : ''}`}
+                    onClick={() => setDayModalTab('posts')}
+                  >
+                    <FileText size={14} className="brand-cal-modal-tab-icon" />
+                    <span>Delivered Posts</span>
+                    <span className="brand-cal-modal-tab-badge">{totalPosts}</span>
+                  </button>
+                </div>
 
-                      const IconComp = typeInfo.icon;
-                      const isActiveState = isCompleted || isCompensated || isScheduled || isMissed;
+                {/* Tab 1: Planned Schedule Targets */}
+                {activeTab === 'targets' && (
+                  <div>
+                    {totalTargets === 0 ? (
+                      <div className="brand-cal-modal-empty">
+                        <p className="brand-cal-modal-empty-title">
+                          No client deliverables scheduled for this day.
+                        </p>
+                        <p className="brand-cal-modal-empty-desc">
+                          General store posts and non-brand organic content are managed on the <strong>Planner</strong> page.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="brand-cal-modal-list">
+                        {selectedDayDetail.slots.map((slot, sIdx) => {
+                          const {
+                            typeInfo,
+                            linked,
+                            isCompleted,
+                            isCompensated,
+                            isScheduled,
+                            isMissed,
+                            stateClass,
+                          } = resolveSlotDisplay(
+                            slot,
+                            selectedDayDetail.dateKey,
+                            todayKey,
+                            selectedDayDetail.posts
+                          );
 
-                      return (
-                        <div
-                          key={`modal-slot-${slot.id || sIdx}`}
-                          className={`brand-cal-modal-slot ${stateClass}`}
-                        >
-                          <div className="brand-cal-modal-slot-left">
-                            {(isCompleted || isCompensated) && thumbUrl ? (
-                              <div className="brand-cal-modal-thumb-wrap">
-                                <SafeImage
-                                  src={thumbUrl}
-                                  alt="Post thumbnail"
-                                  className="brand-cal-modal-thumb-img"
-                                  fallbackText="FB"
-                                />
-                                <div className="brand-cal-modal-fb-corner">
-                                  <FaFacebook size={12} />
-                                </div>
-                              </div>
-                            ) : isCompensated ? (
-                              <div className="brand-cal-modal-icon-box" style={{ backgroundColor: '#f5f3ff', color: '#7c3aed' }}>
-                                <Check size={20} strokeWidth={3} />
-                              </div>
-                            ) : isCompleted ? (
-                              <div className="brand-cal-modal-icon-box is-completed">
-                                <Check size={20} strokeWidth={3} />
-                              </div>
-                            ) : isScheduled ? (
-                              <div className="brand-cal-modal-icon-box is-scheduled">
-                                <Clock size={20} />
-                              </div>
-                            ) : isMissed ? (
-                              <div className="brand-cal-modal-icon-box is-missed">
-                                <AlertTriangle size={20} />
-                              </div>
-                            ) : (
-                              <div className="brand-cal-modal-icon-box">
-                                <IconComp size={18} />
-                              </div>
-                            )}
+                          let thumbUrl = null;
+                          let fbUrl = null;
+                          if (linked) {
+                            const media = resolveAllMediaUrls(linked.media_url);
+                            thumbUrl = linked.thumbnail_url || media[0] || linked.product_image;
+                            fbUrl = getFacebookPostUrl(linked.fb_post_id, linked.post_url, linked.page_id || linked.fb_page_id);
+                          }
 
-                            <div className="brand-cal-modal-slot-info">
-                              <div className="brand-cal-modal-slot-meta">
-                                <span className={`brand-cal-modal-slot-brand ${isActiveState ? 'is-active-state' : ''}`}>
-                                  {slot.brand_name || 'Brand'}
-                                </span>
+                          const IconComp = typeInfo.icon;
+                          const isActiveState = isCompleted || isCompensated || isScheduled || isMissed;
 
-                                <span className="brand-cal-modal-slot-dot">·</span>
-
-                                {isCompensated && (
-                                  <span className="brand-cal-modal-badge is-compensated" style={{ backgroundColor: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}>
-                                    <Check size={9} strokeWidth={3} /> COMPENSATED
-                                  </span>
+                          return (
+                            <div
+                              key={`modal-slot-${slot.id || sIdx}`}
+                              className={`brand-cal-modal-slot ${stateClass}`}
+                            >
+                              <div className="brand-cal-modal-slot-left">
+                                {(isCompleted || isCompensated) && thumbUrl ? (
+                                  <div className="brand-cal-modal-thumb-wrap">
+                                    <SafeImage
+                                      src={thumbUrl}
+                                      alt="Post thumbnail"
+                                      className="brand-cal-modal-thumb-img"
+                                      fallbackText="FB"
+                                    />
+                                    <div className="brand-cal-modal-fb-corner">
+                                      <FaFacebook size={12} />
+                                    </div>
+                                  </div>
+                                ) : isCompensated ? (
+                                  <div className="brand-cal-modal-icon-box is-compensated">
+                                    <Sparkles size={18} strokeWidth={2.5} />
+                                  </div>
+                                ) : isCompleted ? (
+                                  <div className="brand-cal-modal-icon-box is-completed">
+                                    <Check size={18} strokeWidth={3} />
+                                  </div>
+                                ) : isScheduled ? (
+                                  <div className="brand-cal-modal-icon-box is-scheduled">
+                                    <Clock size={18} />
+                                  </div>
+                                ) : isMissed ? (
+                                  <div className="brand-cal-modal-icon-box is-missed">
+                                    <AlertTriangle size={18} />
+                                  </div>
+                                ) : (
+                                  <div className="brand-cal-modal-icon-box">
+                                    <IconComp size={18} />
+                                  </div>
                                 )}
 
-                                {isCompleted && (
-                                  <span className="brand-cal-modal-badge is-live">
-                                    <Check size={9} strokeWidth={3} /> LIVE ON FB
-                                  </span>
-                                )}
-
-                                {isScheduled && (
-                                  <span className="brand-cal-modal-badge is-scheduled">
-                                    <Clock size={9} strokeWidth={2.5} /> SCHEDULED
-                                  </span>
-                                )}
-
-                                {isMissed && (
-                                  <>
-                                    <span className="brand-cal-modal-badge is-missed">
-                                      <AlertTriangle size={9} strokeWidth={2.5} /> MISSED
+                                <div className="brand-cal-modal-slot-info">
+                                  <div className="brand-cal-modal-slot-meta">
+                                    <span className={`brand-cal-modal-slot-brand ${isActiveState ? 'is-active-state' : ''}`}>
+                                      {slot.brand_name || 'Brand'}
                                     </span>
-                                    {slot.missed_reason && (
-                                      <span
-                                        className="brand-cal-modal-badge"
-                                        style={{ backgroundColor: '#fffbeb', color: '#b45309', borderColor: '#fde68a' }}
-                                        title={slot.resolution_notes ? `Notes: ${slot.resolution_notes}` : 'Reason classified'}
-                                      >
-                                        Reason: {slot.missed_reason.replace('_', ' ')}
+
+                                    {isCompensated && (
+                                      <span className="brand-cal-modal-bare-status is-compensated" title="Compensated deliverable">
+                                        <Sparkles size={12} strokeWidth={2.5} />
                                       </span>
                                     )}
+
+                                    {isCompleted && (
+                                      <span className="brand-cal-modal-bare-status is-live" title="Live on Facebook">
+                                        <Check size={12} strokeWidth={3} />
+                                      </span>
+                                    )}
+
+                                    {isScheduled && (
+                                      <span className="brand-cal-modal-bare-status is-scheduled" title="Scheduled">
+                                        <Clock size={12} strokeWidth={2.5} />
+                                      </span>
+                                    )}
+
+                                    {isMissed && (
+                                      <>
+                                        <span className="brand-cal-modal-bare-status is-missed" title="Missed deliverable">
+                                          <AlertTriangle size={12} strokeWidth={2.5} />
+                                        </span>
+                                        {slot.missed_reason && (
+                                          <span
+                                            className="brand-cal-modal-badge has-reason"
+                                            title={slot.resolution_notes ? `Notes: ${slot.resolution_notes}` : 'Reason classified'}
+                                          >
+                                            Reason: {slot.missed_reason.replace('_', ' ')}
+                                          </span>
+                                        )}
+                                      </>
+                                    )}
+
+                                    {slot.slot_status === 'waived' && (
+                                      <span className="brand-cal-modal-bare-status is-waived" title="Waived">
+                                        <PauseCircle size={12} strokeWidth={2.5} />
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div className="brand-cal-modal-slot-subtitle">
+                                    <IconComp size={13} className={`brand-cal-slot-type-icon is-${typeInfo.variant}`} />
+                                    <span>{typeInfo.label}</span>
+                                    {slot.time_window && (
+                                      <span className="brand-cal-modal-slot-time">({slot.time_window})</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Action Buttons */}
+                              <div className="brand-cal-modal-actions">
+                                {fbUrl && (
+                                  <a
+                                    href={fbUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="brand-cal-modal-btn-fb"
+                                    title="Open post on Facebook"
+                                  >
+                                    <FaFacebook size={13} />
+                                    <span>FB</span>
+                                  </a>
+                                )}
+
+                                {isMissed && !linked?.id && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className={`brand-cal-modal-btn-secondary ${slot.missed_reason ? 'has-reason' : ''}`}
+                                      title="Categorize Root Cause / SLA reason"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setCategorizeSlot({
+                                          ...slot,
+                                          brand_name: slot.brand_name || selectedBrand?.brand_name,
+                                        });
+                                      }}
+                                    >
+                                      <Settings size={12} />
+                                      <span>{slot.missed_reason ? slot.missed_reason.replace('_', ' ') : 'Reason'}</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      className="brand-cal-modal-btn-secondary"
+                                      title="Link an already tracked post from this brand"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setLinkPostModalSlot({
+                                          ...slot,
+                                          brand_id: slot.brand_id || selectedBrand?.brand_id || selectedBrand?.id,
+                                          brand_name: slot.brand_name || selectedBrand?.brand_name,
+                                        });
+                                      }}
+                                    >
+                                      <Link2 size={12} />
+                                      <span>Link Post</span>
+                                    </button>
                                   </>
                                 )}
 
-                                {slot.slot_status === 'waived' && (
-                                  <span className="brand-cal-modal-badge" style={{ backgroundColor: '#eef2ff', color: '#4f46e5', borderColor: '#c7d2fe' }}>
-                                    <PauseCircle size={9} strokeWidth={2.5} /> WAIVED
-                                  </span>
+                                {slot.is_compensated && linked?.id && (
+                                  <button
+                                    type="button"
+                                    className="brand-cal-modal-btn-unlink"
+                                    title="Unlink compensated post"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      if (window.confirm(`Unlink Post #${linked.id} from this compensated slot?`)) {
+                                        await missionApi.unlinkPostFromSlot(slot.id);
+                                        await invalidatePostAndMissionCaches();
+                                        setSelectedDayDetail((prev) => {
+                                          if (!prev) return prev;
+                                          return {
+                                            ...prev,
+                                            slots: prev.slots.map((s) =>
+                                              s.id === slot.id
+                                                ? { ...s, linked_post_id: null, is_compensated: false, slot_status: 'missed' }
+                                                : s
+                                            ),
+                                          };
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    <X size={12} />
+                                    <span>Unlink</span>
+                                  </button>
                                 )}
 
-                                {!isActiveState && slot.slot_status !== 'waived' && (
-                                  <span className="brand-cal-modal-badge is-planned">
-                                    PLANNED
-                                  </span>
+                                {linked?.id ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedDayDetail(null);
+                                      navigate(`/planner/edit/${linked.id}`);
+                                    }}
+                                    className="brand-cal-modal-btn-view is-completed"
+                                    title={`View Post #${linked.id}`}
+                                  >
+                                    <ExternalLink size={12} />
+                                    <span>#{linked.id}</span>
+                                  </button>
+                                ) : isMissed ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedDayDetail(null);
+                                      const isPast = slot.computed_status === 'missed' || selectedDayDetail.dateKey < todayKey;
+                                      navigate(`/planner/create?date=${isPast ? todayKey : selectedDayDetail.dateKey}`, {
+                                        state: {
+                                          returnPath: '/calendar',
+                                          from: location.pathname,
+                                          prefillBrandId: slot.brand_id,
+                                          prefillDate: isPast ? todayKey : selectedDayDetail.dateKey,
+                                          prefillType: slot.content_type,
+                                          defaultBrandId: slot.brand_id,
+                                          defaultContentType: slot.content_type,
+                                          defaultTime: slot.time_window,
+                                          plannedSlotId: slot.id,
+                                          compensationSlotId: isPast ? slot.id : null,
+                                          compensationSlotDate: isPast ? selectedDayDetail.dateKey : null,
+                                          compensationSlotContentType: isPast ? slot.content_type : null,
+                                          compensationBrandName: isPast ? slot.brand_name : null,
+                                          compensationNotes: isPast ? (slot.notes || '') : null,
+                                        }
+                                      });
+                                    }}
+                                    className="brand-cal-modal-btn-primary"
+                                    title="Create make-up post to compensate"
+                                  >
+                                    <Plus size={13} strokeWidth={2.5} />
+                                    <span>Make-Up</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedDayDetail(null);
+                                      navigate(`/planner/create?date=${selectedDayDetail.dateKey}`, {
+                                        state: {
+                                          returnPath: '/calendar',
+                                          from: location.pathname,
+                                          prefillBrandId: slot.brand_id,
+                                          prefillDate: selectedDayDetail.dateKey,
+                                          prefillType: slot.content_type,
+                                          defaultBrandId: slot.brand_id,
+                                          defaultContentType: slot.content_type,
+                                          defaultTime: slot.time_window,
+                                          plannedSlotId: slot.id,
+                                        }
+                                      });
+                                    }}
+                                    className="brand-cal-modal-btn-primary"
+                                    title="Create post for this deliverable"
+                                  >
+                                    <Plus size={13} strokeWidth={2.5} />
+                                    <span>Create Post</span>
+                                  </button>
                                 )}
-                              </div>
-
-                              <div className="brand-cal-modal-slot-subtitle">
-                                {typeInfo.label} {slot.time_window ? `(${slot.time_window})` : ''}
                               </div>
                             </div>
-                          </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
 
-                          {/* Action Buttons */}
-                          <div className="brand-cal-modal-actions">
-                            {fbUrl && (
-                              <a
-                                href={fbUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="brand-cal-modal-fb-btn"
-                                title="Open post on Facebook"
-                              >
-                                <FaFacebook size={12} /> View on FB
-                              </a>
-                            )}
+                {/* Tab 2: Delivered Brand Posts */}
+                {activeTab === 'posts' && (
+                  <div>
+                    {totalPosts === 0 ? (
+                      <div className="brand-cal-modal-empty">
+                        <p className="brand-cal-modal-empty-title">
+                          No published brand posts found for this day.
+                        </p>
+                        <p className="brand-cal-modal-empty-desc">
+                          Posts published on this date will appear here automatically.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="brand-cal-modal-list">
+                        {brandPosts.map((p) => {
+                          const { namePart, timeStr } = getPostCleanLabel(p);
+                          const allMedia = resolveAllMediaUrls(p.media_url);
+                          const thumb = p.thumbnail_url || allMedia[0] || p.product_image;
+                          const fbUrl = getFacebookPostUrl(p.fb_post_id, p.post_url, p.page_id || p.fb_page_id);
 
-                            {isMissed && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setCategorizeSlot({
-                                    ...slot,
-                                    brand_name: slot.brand_name || selectedBrand?.brand_name,
-                                  });
-                                }}
-                                style={{
-                                  backgroundColor: slot.missed_reason ? '#f0fdf4' : '#fffbeb',
-                                  color: slot.missed_reason ? '#166534' : '#92400e',
-                                  borderColor: slot.missed_reason ? '#bbf7d0' : '#fde68a',
-                                  marginRight: '6px',
-                                  minHeight: '26px',
-                                  height: '26px',
-                                  padding: '0 8px',
-                                  fontSize: '11px',
-                                }}
-                                title="Categorize Root Cause / SLA reason"
-                              >
-                                ⚙ {slot.missed_reason ? slot.missed_reason.replace('_', ' ') : 'Set Reason'}
-                              </Button>
-                            )}
-
-                            {isMissed && !linked?.id && (
-                              <Button
-                                variant="primary"
-                                size="sm"
-                                icon={<Link2 size={12} />}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setLinkPostModalSlot({
-                                    ...slot,
-                                    brand_id: slot.brand_id || selectedBrand?.brand_id || selectedBrand?.id,
-                                    brand_name: slot.brand_name || selectedBrand?.brand_name,
-                                  });
-                                }}
-                                style={{
-                                  marginRight: '6px',
-                                  minHeight: '26px',
-                                  height: '26px',
-                                  padding: '0 9px',
-                                  fontSize: '11px',
-                                  fontWeight: 600,
-                                }}
-                                title="Link an already tracked post from this brand"
-                              >
-                                🔗 Link Existing Post
-                              </Button>
-                            )}
-
-                            {slot.is_compensated && linked?.id && (
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                icon={<X size={11} />}
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  if (window.confirm(`Unlink Post #${linked.id} from this compensated slot?`)) {
-                                    await missionApi.unlinkPostFromSlot(slot.id);
-                                    await invalidatePostAndMissionCaches();
-                                    setSelectedDayDetail((prev) => {
-                                      if (!prev) return prev;
-                                      return {
-                                        ...prev,
-                                        slots: prev.slots.map((s) =>
-                                          s.id === slot.id
-                                            ? { ...s, linked_post_id: null, is_compensated: false, slot_status: 'missed' }
-                                            : s
-                                        ),
-                                      };
-                                    });
-                                  }
-                                }}
-                                style={{
-                                  marginRight: '6px',
-                                  minHeight: '26px',
-                                  height: '26px',
-                                  padding: '0 8px',
-                                  fontSize: '11px',
-                                  color: '#dc2626',
-                                  borderColor: '#fca5a5',
-                                  backgroundColor: '#fef2f2',
-                                }}
-                                title="Unlink compensated post"
-                              >
-                                Unlink
-                              </Button>
-                            )}
-
-                            <button
-                              type="button"
+                          return (
+                            <div
+                              key={`modal-post-${p.id}`}
                               onClick={() => {
                                 setSelectedDayDetail(null);
-                                if (linked?.id) {
-                                  navigate(`/planner/edit/${linked.id}`);
-                                } else {
-                                  const isPast = slot.computed_status === 'missed' || selectedDayDetail.dateKey < todayKey;
-                                  navigate(`/planner/create?date=${isPast ? todayKey : selectedDayDetail.dateKey}`, {
-                                    state: {
-                                      returnPath: '/calendar',
-                                      from: location.pathname,
-                                      prefillBrandId: slot.brand_id,
-                                      prefillDate: isPast ? todayKey : selectedDayDetail.dateKey,
-                                      prefillType: slot.content_type,
-                                      defaultBrandId: slot.brand_id,
-                                      defaultContentType: slot.content_type,
-                                      defaultTime: slot.time_window,
-                                      plannedSlotId: slot.id,
-                                      compensationSlotId: isPast ? slot.id : null,
-                                      compensationSlotDate: isPast ? selectedDayDetail.dateKey : null,
-                                      compensationSlotContentType: isPast ? slot.content_type : null,
-                                      compensationBrandName: isPast ? slot.brand_name : null,
-                                      compensationNotes: isPast ? (slot.notes || '') : null,
-                                    }
-                                  });
-                                }
+                                navigate(`/planner/edit/${p.id}`);
                               }}
-                              className={`brand-cal-modal-action-btn ${isCompleted ? 'is-completed' : isScheduled ? 'is-scheduled' : ''}`}
+                              className="brand-cal-related-post-card"
                             >
-                              {linked?.id ? `🔗 View Post #${linked.id}` : isMissed ? '+ Make-Up (Compensate)' : '+ Create Post'}
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {selectedDayDetail.slots.length === 0 && (
-                <div className="brand-cal-modal-empty">
-                  <p className="brand-cal-modal-empty-title">
-                    No client deliverables scheduled for this day.
-                  </p>
-                  <p className="brand-cal-modal-empty-desc">
-                    General store posts and non-brand organic content are managed on the <strong>Planner</strong> page.
-                  </p>
-                </div>
-              )}
-
-              {/* Related Delivered Brand Posts */}
-              {(() => {
-                const brandPosts = (selectedDayDetail.posts || []).filter(p => p.brand_id || selectedDayDetail.slots.some(s => s.linked_post?.id === p.id));
-                if (brandPosts.length === 0) return null;
-
-                return (
-                  <div className={`brand-cal-related-posts ${selectedDayDetail.slots.length > 0 ? 'has-slots' : ''}`}>
-                    <h4 className="brand-cal-modal-section-title">
-                      📄 Delivered Brand Posts ({brandPosts.length})
-                    </h4>
-                    <div className="brand-cal-modal-list">
-                      {brandPosts.map((p) => {
-                        const { namePart, timeStr } = getPostCleanLabel(p);
-                        const allMedia = resolveAllMediaUrls(p.media_url);
-                        const thumb = p.thumbnail_url || allMedia[0] || p.product_image;
-                        const fbUrl = getFacebookPostUrl(p.fb_post_id, p.post_url, p.page_id || p.fb_page_id);
-
-                        return (
-                          <div
-                            key={`modal-post-${p.id}`}
-                            onClick={() => {
-                              setSelectedDayDetail(null);
-                              navigate(`/planner/edit/${p.id}`);
-                            }}
-                            className="brand-cal-related-post-card"
-                          >
-                            <div className="brand-cal-related-post-left">
-                              {thumb ? (
-                                <SafeImage
-                                  src={thumb}
-                                  alt="thumb"
-                                  className="brand-cal-related-thumb"
-                                />
-                              ) : (
-                                <div className="brand-cal-related-thumb-placeholder">
-                                  <Tag size={16} />
-                                </div>
-                              )}
-                              <div className="brand-cal-related-info">
-                                <div className="brand-cal-related-header">
-                                  <span className="brand-cal-related-title">
-                                    {namePart}
-                                  </span>
-                                  {timeStr && (
-                                    <span className="brand-cal-related-time">
-                                      <Clock size={11} /> {timeStr}
+                              <div className="brand-cal-related-post-left">
+                                {thumb ? (
+                                  <SafeImage
+                                    src={thumb}
+                                    alt="thumb"
+                                    className="brand-cal-related-thumb"
+                                  />
+                                ) : (
+                                  <div className="brand-cal-related-thumb-placeholder">
+                                    <Tag size={16} />
+                                  </div>
+                                )}
+                                <div className="brand-cal-related-info">
+                                  <div className="brand-cal-related-header">
+                                    <span className="brand-cal-related-title">
+                                      {namePart}
                                     </span>
+                                    {timeStr && (
+                                      <span className="brand-cal-related-time">
+                                        <Clock size={11} /> {timeStr}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {p.message && (
+                                    <p className="brand-cal-related-msg">
+                                      {p.message}
+                                    </p>
                                   )}
                                 </div>
-                                {p.message && (
-                                  <p className="brand-cal-related-msg">
-                                    {p.message}
-                                  </p>
+                              </div>
+
+                              <div className="brand-cal-related-actions">
+                                {fbUrl && fbUrl !== '#' && (
+                                  <a
+                                    href={fbUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="brand-cal-modal-btn-fb"
+                                    title="Open on Facebook"
+                                  >
+                                    <FaFacebook size={13} />
+                                    <span>FB</span>
+                                  </a>
                                 )}
+                                <button
+                                  type="button"
+                                  className="brand-cal-modal-btn-view"
+                                  title={`Edit Post #${p.id}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedDayDetail(null);
+                                    navigate(`/planner/edit/${p.id}`);
+                                  }}
+                                >
+                                  <ExternalLink size={12} />
+                                  <span>#{p.id}</span>
+                                </button>
                               </div>
                             </div>
-
-                            <div className="brand-cal-related-actions">
-                              {fbUrl && fbUrl !== '#' && (
-                                <a
-                                  href={fbUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="brand-cal-related-fb-link"
-                                  title="Open on Facebook"
-                                >
-                                  <ExternalLink size={14} />
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                );
-              })()}
-            </Modal.Body>
+                )}
+              </Modal.Body>
 
-            <Modal.Footer>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSelectedDayDetail(null)}
-              >
-                Close
-              </Button>
-            </Modal.Footer>
-          </>
-        )}
+              <Modal.Footer>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedDayDetail(null)}
+                >
+                  Close
+                </Button>
+              </Modal.Footer>
+            </>
+          );
+        })()}
       </Modal>
 
       {/* Root Cause & Missed Reason Modal */}
@@ -1253,6 +1264,7 @@ export const BrandCalendarPage = () => {
         isOpen={Boolean(linkPostModalSlot)}
         onClose={() => setLinkPostModalSlot(null)}
         slot={linkPostModalSlot}
+        calendarSlots={calendarSlots}
         onLinked={(updated) => {
           setSelectedDayDetail((prev) => {
             if (!prev) return prev;

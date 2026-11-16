@@ -16,6 +16,8 @@
   color: #2563eb;
 }
 
+
+
 .brand-cal-export-btn {
   text-decoration: none;
   display: flex;
@@ -23,10 +25,14 @@
   gap: 6px;
 }
 
-/* Toolbar & Filters */
-.planner-toolbar-card.brand-cal-toolbar {
-  margin-bottom: 16px;
+.brand-cal-nav-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
+
+
 
 .brand-cal-month-title {
   font-size: 18px;
@@ -98,7 +104,7 @@
   color: #d97706;
 }
 
-/* All-Brands Mission Progress Overview */
+/* All-Brands Mission Progress Overview & Compact KPI Bar */
 .brand-cal-audit-card {
   padding: 14px 20px;
   background-color: #ffffff;
@@ -106,6 +112,184 @@
   border-radius: 10px;
   margin-bottom: 18px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.brand-cal-kpi-bar {
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.brand-cal-kpi-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.brand-cal-kpi-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-cal-kpi-icon-box {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.brand-cal-kpi-icon-box.is-target {
+  background-color: #eff6ff;
+  color: #2563eb;
+}
+
+.brand-cal-kpi-icon-box.is-progress {
+  background-color: #f0fdf4;
+  color: #16a34a;
+}
+
+.brand-cal-kpi-icon-box.is-missed {
+  background-color: #fef2f2;
+  color: #dc2626;
+}
+
+.brand-cal-kpi-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.brand-cal-kpi-num {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.brand-cal-kpi-num.is-missed {
+  color: #dc2626;
+}
+
+.brand-cal-kpi-sub {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.brand-cal-kpi-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.1px;
+}
+
+.brand-cal-kpi-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  line-height: 1.2;
+}
+
+.brand-cal-kpi-badge.is-progress {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.brand-cal-kpi-badge.is-missed {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.brand-cal-kpi-divider {
+  width: 1px;
+  height: 24px;
+  background-color: #e2e8f0;
+  flex-shrink: 0;
+}
+
+.brand-cal-kpi-toggle-btn {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+
+.brand-cal-kpi-toggle-btn:hover,
+.brand-cal-kpi-toggle-btn.is-active {
+  background-color: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.brand-cal-kpi-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-cal-kpi-btn {
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  border: 1px solid transparent;
+}
+
+.brand-cal-kpi-btn.primary {
+  background-color: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.brand-cal-kpi-btn.primary:hover {
+  background-color: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.brand-cal-kpi-btn.secondary {
+  background-color: #ffffff;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.brand-cal-kpi-btn.secondary:hover {
+  background-color: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.brand-cal-kpi-drawer {
+  width: 100%;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
+  max-height: 260px;
+  overflow-y: auto;
 }
 
 .brand-cal-audit-header {
@@ -264,7 +448,7 @@
 
 .brand-cal-day-cell {
   background-color: #ffffff;
-  min-height: 190px;
+  min-height: 215px;
   padding: 8px;
   display: flex;
   flex-direction: column;
@@ -276,15 +460,18 @@
 }
 
 .brand-cal-day-cell.is-today {
-  border-top: 3px solid #2563eb;
+  box-shadow: inset 0 3px 0 0 #2563eb;
 }
 
 .brand-cal-day-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  height: 26px;
+  min-height: 26px;
+  box-sizing: border-box;
   margin-bottom: 6px;
-  padding-bottom: 4px;
+  padding-bottom: 2px;
   border-bottom: 1px solid #f1f5f9;
 }
 
@@ -313,15 +500,18 @@
 .brand-cal-today-badge {
   background-color: #2563eb;
   color: #ffffff;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 800;
-  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.35);
+  line-height: 1;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .brand-cal-day-num {
@@ -356,7 +546,7 @@
 .brand-cal-slots-list {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
   flex: 1;
 }
 
@@ -364,9 +554,10 @@
 .brand-cal-slot-card {
   background-color: #ffffff;
   border-radius: 6px;
-  padding: 4px 7px;
-  font-size: 11px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  height: 32px;
+  min-height: 32px;
+  box-sizing: border-box;
+  padding: 0 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -378,9 +569,51 @@
   transition: all 0.15s ease;
 }
 
+.brand-cal-slot-card.is-completed,
+.brand-cal-slot-card.is-live {
+  border-color: #86efac;
+}
+
+.brand-cal-slot-card.is-completed:hover,
+.brand-cal-slot-card.is-live:hover {
+  border-color: #22c55e;
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.12);
+}
+
 .brand-cal-slot-card.is-scheduled {
-  background-color: #f8faff;
   border-color: #93c5fd;
+}
+
+.brand-cal-slot-card.is-scheduled:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.12);
+}
+
+.brand-cal-slot-card.is-missed {
+  border-color: #fca5a5;
+}
+
+.brand-cal-slot-card.is-missed:hover {
+  border-color: #ef4444;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.12);
+}
+
+.brand-cal-slot-card.is-compensated {
+  border-color: #ddd6fe;
+}
+
+.brand-cal-slot-card.is-compensated:hover {
+  border-color: #8b5cf6;
+  box-shadow: 0 2px 6px rgba(124, 58, 237, 0.12);
+}
+
+.brand-cal-slot-card.is-planned {
+  border-color: #cbd5e1;
+}
+
+.brand-cal-slot-card.is-planned:hover {
+  border-color: #94a3b8;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
 }
 
 .brand-cal-slot-card:hover {
@@ -391,41 +624,56 @@
 .brand-cal-slot-main {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   overflow: hidden;
+  min-width: 0;
+  flex: 1;
 }
 
-.brand-cal-slot-accent {
-  width: 3.5px;
-  height: 14px;
-  background-color: #6366f1;
-  border-radius: 2px;
+.brand-cal-slot-type-icon {
   flex-shrink: 0;
+  display: inline-flex;
 }
 
-.brand-cal-slot-accent.is-video {
-  background-color: #9333ea;
+.brand-cal-slot-type-icon.is-live,
+.brand-cal-slot-type-icon.is-payday {
+  color: #ef4444;
 }
 
-.brand-cal-slot-accent.is-payday {
-  background-color: #d97706;
+.brand-cal-slot-type-icon.is-video {
+  color: #9333ea;
 }
 
-.brand-cal-slot-accent.is-live {
-  background-color: #0284c7;
+.brand-cal-slot-type-icon.is-poster {
+  color: #4f46e5;
 }
 
-.brand-cal-slot-accent.is-poster {
-  background-color: #6366f1;
+.brand-cal-slot-type-icon.is-story {
+  color: #0284c7;
+}
+
+.brand-cal-slot-logo {
+  width: 28px;
+  height: 28px;
+  /* border-radius: 4px; */
+  object-fit: contain;
+  /* background-color: #ffffff;
+  border: 1px solid #e2e8f0; */
+  flex-shrink: 0;
+  /* display: inline-block; */
+  /* box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); */
 }
 
 .brand-cal-slot-brand {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.1px;
-  flex-shrink: 0;
   color: #0f172a;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex-shrink: 1;
 }
 
 .brand-cal-slot-dot {
@@ -446,7 +694,7 @@
 .brand-cal-slot-status-wrap {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 5px;
   flex-shrink: 0;
 }
 
@@ -498,32 +746,95 @@
 }
 
 .brand-cal-more-btn {
-  background-color: #f1f5f9;
+  background-color: #f8fafc;
   color: #2563eb;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
-  padding: 3px 6px;
-  border-radius: 4px;
+  height: 32px;
+  min-height: 32px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  border-radius: 6px;
   border: 1px solid #cbd5e1;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
-  margin-top: 2px;
+  margin: 0;
   transition: all 0.15s ease;
 }
 
 .brand-cal-more-btn:hover {
-  background-color: #e2e8f0;
-  border-color: #94a3b8;
+  background-color: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.12);
 }
 
 /* Day Detail Modal */
 .ui-modal-body.brand-cal-modal-body {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
+}
+
+/* Day Detail Modal Tabs */
+.brand-cal-modal-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #f1f5f9;
+  padding: 4px;
+  border-radius: 10px;
+}
+
+.brand-cal-modal-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #64748b;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.brand-cal-modal-tab:hover {
+  color: #0f172a;
+}
+
+.brand-cal-modal-tab.is-active {
+  background-color: #ffffff;
+  color: #0f172a;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.brand-cal-modal-tab-icon {
+  flex-shrink: 0;
+}
+
+.brand-cal-modal-tab-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1.5px 7px;
+  border-radius: 10px;
+  background-color: #e2e8f0;
+  color: #475569;
+  line-height: 1.2;
+}
+
+.brand-cal-modal-tab.is-active .brand-cal-modal-tab-badge {
+  background-color: #f1f5f9;
+  color: #0f172a;
 }
 
 .brand-cal-modal-section-title {
@@ -545,24 +856,35 @@
   background-color: #ffffff;
   border: 1.5px dashed #cbd5e1;
   border-radius: 10px;
-  padding: 12px 16px;
+  padding: 10px 14px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .brand-cal-modal-slot.is-completed,
-.brand-cal-modal-slot.is-missed {
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+.brand-cal-modal-slot.is-live {
+  border: 1.5px solid #86efac;
+  box-shadow: 0 1px 3px rgba(34, 197, 94, 0.08);
 }
 
 .brand-cal-modal-slot.is-scheduled {
-  border: 1px solid #bfdbfe;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  border: 1.5px solid #93c5fd;
+  box-shadow: 0 1px 3px rgba(59, 130, 246, 0.08);
+}
+
+.brand-cal-modal-slot.is-missed {
+  border: 1.5px solid #fca5a5;
+  box-shadow: 0 1px 3px rgba(239, 68, 68, 0.08);
+}
+
+.brand-cal-modal-slot.is-compensated {
+  border: 1.5px solid #ddd6fe;
+  box-shadow: 0 1px 3px rgba(147, 51, 234, 0.08);
 }
 
 .brand-cal-modal-slot-left {
@@ -635,6 +957,12 @@
   color: #dc2626;
 }
 
+.brand-cal-modal-icon-box.is-compensated {
+  background-color: #f5f3ff;
+  border: 1px solid #ddd6fe;
+  color: #7c3aed;
+}
+
 .brand-cal-modal-slot-info {
   min-width: 0;
   flex: 1;
@@ -656,6 +984,33 @@
 
 .brand-cal-modal-slot-brand.is-active-state {
   color: #0f172a;
+}
+
+.brand-cal-modal-bare-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.brand-cal-modal-bare-status.is-live {
+  color: #16a34a;
+}
+
+.brand-cal-modal-bare-status.is-scheduled {
+  color: #2563eb;
+}
+
+.brand-cal-modal-bare-status.is-missed {
+  color: #dc2626;
+}
+
+.brand-cal-modal-bare-status.is-compensated {
+  color: #7c3aed;
+}
+
+.brand-cal-modal-bare-status.is-waived {
+  color: #4f46e5;
 }
 
 .brand-cal-modal-slot-dot {
@@ -693,6 +1048,24 @@
   border: 1px solid #fecaca;
 }
 
+.brand-cal-modal-badge.is-compensated {
+  background-color: #f5f3ff;
+  color: #7c3aed;
+  border: 1px solid #ddd6fe;
+}
+
+.brand-cal-modal-badge.is-waived {
+  background-color: #eef2ff;
+  color: #4f46e5;
+  border: 1px solid #c7d2fe;
+}
+
+.brand-cal-modal-badge.has-reason {
+  background-color: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
 .brand-cal-modal-badge.is-planned {
   background-color: #f8fafc;
   color: #64748b;
@@ -704,12 +1077,21 @@
 }
 
 .brand-cal-modal-slot-subtitle {
-  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
   font-weight: 600;
-  color: #0f172a;
+  color: #334155;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.brand-cal-modal-slot-time {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
 }
 
 .brand-cal-modal-actions {
@@ -719,65 +1101,149 @@
   flex-shrink: 0;
 }
 
-.brand-cal-modal-fb-btn {
-  background-color: #1877f2;
-  color: #ffffff;
-  border: none;
+.brand-cal-modal-btn-fb {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 9px;
+  background-color: #f0f7ff;
+  color: #1877f2;
+  border: 1px solid #bfdbfe;
   border-radius: 6px;
-  padding: 7px 11px;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
   text-decoration: none;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.brand-cal-modal-btn-fb:hover {
+  background-color: #1877f2;
+  color: #ffffff;
+  border-color: #1877f2;
+  box-shadow: 0 2px 4px rgba(24, 119, 242, 0.25);
+}
+
+.brand-cal-modal-btn-view {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  box-shadow: 0 1px 2px rgba(24, 119, 242, 0.3);
-  transition: background-color 0.15s ease;
-}
-
-.brand-cal-modal-fb-btn:hover {
-  background-color: #166fe5;
-}
-
-.brand-cal-modal-action-btn {
-  background-color: #2563eb;
-  color: #ffffff;
-  border: none;
+  height: 28px;
+  padding: 0 9px;
+  background-color: #ffffff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
   border-radius: 6px;
-  padding: 7px 14px;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  transition: background-color 0.15s ease;
-}
-
-.brand-cal-modal-action-btn:hover {
-  background-color: #1d4ed8;
-}
-
-.brand-cal-modal-action-btn.is-completed {
-  background-color: #ffffff;
-  color: #15803d;
-  border: 1px solid #86efac;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  flex-shrink: 0;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
-.brand-cal-modal-action-btn.is-completed:hover {
+.brand-cal-modal-btn-view:hover {
+  background-color: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.brand-cal-modal-btn-view.is-completed {
+  border-color: #86efac;
+  color: #15803d;
   background-color: #f0fdf4;
 }
 
-.brand-cal-modal-action-btn.is-scheduled {
-  background-color: #eff6ff;
-  color: #1d4ed8;
-  border: 1px solid #93c5fd;
+.brand-cal-modal-btn-view.is-completed:hover {
+  background-color: #dcfce7;
+  border-color: #4ade80;
 }
 
-.brand-cal-modal-action-btn.is-scheduled:hover {
-  background-color: #dbeafe;
+.brand-cal-modal-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  background-color: #2563eb;
+  color: #ffffff;
+  border: 1px solid #2563eb;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.25);
+}
+
+.brand-cal-modal-btn-primary:hover {
+  background-color: #1d4ed8;
+  border-color: #1d4ed8;
+  box-shadow: 0 2px 5px rgba(29, 78, 216, 0.3);
+}
+
+.brand-cal-modal-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 8px;
+  background-color: #ffffff;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+
+.brand-cal-modal-btn-secondary:hover {
+  background-color: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.brand-cal-modal-btn-secondary.has-reason {
+  background-color: #fffbeb;
+  color: #92400e;
+  border-color: #fde68a;
+  font-weight: 700;
+}
+
+.brand-cal-modal-btn-secondary.has-reason:hover {
+  background-color: #fef3c7;
+  border-color: #fcd34d;
+}
+
+.brand-cal-modal-btn-unlink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 8px;
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+
+.brand-cal-modal-btn-unlink:hover {
+  background-color: #fee2e2;
+  border-color: #fca5a5;
 }
 
 .brand-cal-modal-empty {
@@ -806,7 +1272,7 @@
 
 .brand-cal-related-post-card {
   padding: 10px 14px;
-  background-color: #f8fafc;
+  background-color: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   display: flex;
@@ -909,4 +1375,3 @@
   background-color: #eff6ff;
   border-color: #93c5fd;
 }
-
