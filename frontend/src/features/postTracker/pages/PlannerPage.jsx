@@ -1358,6 +1358,10 @@ export const PlannerPage = () => {
         isOpen={Boolean(categorizeSlot)}
         onClose={() => setCategorizeSlot(null)}
         slot={categorizeSlot}
+        onSaved={async () => {
+          setCategorizeSlot(null);
+          await invalidatePostAndMissionCaches();
+        }}
       />
 
       {/* Link Existing Tracked Post Modal */}
@@ -1366,6 +1370,7 @@ export const PlannerPage = () => {
         onClose={() => setLinkPostModalSlot(null)}
         slot={linkPostModalSlot}
         onLinked={async () => {
+          setLinkPostModalSlot(null);
           await invalidatePostAndMissionCaches();
         }}
       />

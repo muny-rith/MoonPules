@@ -622,10 +622,17 @@ const reconcilePostWithMission = async (post) => {
     // 1. Check if post is already linked to an existing slot
     const existingSlot = await missionsRepo.getSlotByLinkedPostId(post.id);
     if (existingSlot) {
-      // If this existing link is a compensation link, preserve it
+      // If this existing link is a compensation link, preserve it if brand still matches
       if (existingSlot.is_compensated) {
-        const finalStatus = post.status === 'published' ? 'compensated' : post.status === 'scheduled' ? 'scheduled' : 'planned';
-        return await missionsRepo.linkSlotToPost(existingSlot.id, post.id, finalStatus, true);
+        const brandMatches = String(existingSlot.brand_id || '') === String(post.brand_id || '');
+        if (brandMatches) {
+          const finalStatus = post.status === 'published' ? 'compensated' : post.status === 'scheduled' ? 'scheduled' : 'planned';
+          return await missionsRepo.linkSlotToPost(existingSlot.id, post.id, finalStatus, true);
+        }
+        // Brand changed during edit: unlink old compensation slot
+        await missionsRepo.unlinkSlotByPostId(post.id);
+        const postTrackerRepo = require('../postTracker/postTracker.repository');
+        await postTrackerRepo.updateTrackedPostData(post.id, { compensation_for_slot_id: null });
       }
 
       const existingDateStr = formatLocalDateStr(existingSlot.planned_date);
@@ -870,14 +877,40 @@ const linkPostToSlot = async (slotId, postId) => {
     throw new Error('Post not found');
   }
 
+  // 0. If this post was previously linked to another mission slot, unlink it first
+  await missionsRepo.unlinkSlotByPostId(postId);
+
   // 1. Assign compensation_for_slot_id to the post
-  await postTrackerRepo.updateTrackedPost(postId, { compensation_for_slot_id: slot.id });
+  await postTrackerRepo.updateTrackedPostData(postId, { compensation_for_slot_id: slot.id });
 
   // 2. Link the slot to this post with compensated status
   const finalStatus = post.status === 'published' ? 'compensated' : post.status === 'scheduled' ? 'scheduled' : 'planned';
   const updatedSlot = await missionsRepo.linkSlotToPost(slot.id, post.id, finalStatus, true);
 
-  return { slot: updatedSlot, post };
+  return {
+    slot: {
+      ...updatedSlot,
+      brand_id: slot.brand_id,
+      brand_name: slot.brand_name,
+      planned_date_str: formatLocalDateStr(updatedSlot.planned_date || slot.planned_date),
+      computed_status: finalStatus,
+      is_compensated: true,
+      linked_post: {
+        id: post.id,
+        status: post.status,
+        media_type: post.media_type || slot.content_type,
+        published_time: post.published_time,
+        scheduled_time: post.scheduled_time,
+        message: post.message,
+        media_url: post.media_url,
+        thumbnail_url: post.thumbnail_url,
+        fb_post_id: post.fb_post_id,
+        post_url: post.post_url,
+        page_id: post.page_id,
+      },
+    },
+    post,
+  };
 };
 
 /**
@@ -891,11 +924,19 @@ const unlinkPostFromSlot = async (slotId) => {
 
   const postTrackerRepo = require('../postTracker/postTracker.repository');
   if (slot.linked_post_id) {
-    await postTrackerRepo.updateTrackedPost(slot.linked_post_id, { compensation_for_slot_id: null });
+    await postTrackerRepo.updateTrackedPostData(slot.linked_post_id, { compensation_for_slot_id: null });
   }
 
   const updatedSlot = await missionsRepo.unlinkSlotBySlotId(slot.id);
-  return updatedSlot;
+  return {
+    ...updatedSlot,
+    brand_id: slot.brand_id,
+    brand_name: slot.brand_name,
+    planned_date_str: formatLocalDateStr(updatedSlot.planned_date || slot.planned_date),
+    computed_status: 'missed',
+    is_compensated: false,
+    linked_post: null,
+  };
 };
 
 module.exports = {

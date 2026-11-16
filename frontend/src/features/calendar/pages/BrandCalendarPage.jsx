@@ -42,6 +42,7 @@ import { FaFacebook } from 'react-icons/fa';
 import { SetMissionModal } from '../../missions/components/SetMissionModal';
 import { CategorizeMissedModal } from '../../missions/components/CategorizeMissedModal';
 import { LinkExistingPostModal } from '../../missions/components/LinkExistingPostModal';
+import { useToast } from '../../../shared/context/ToastContext';
 import '../../postTracker/planner.css';
 import '../calendar.css';
 
@@ -224,6 +225,11 @@ export const BrandCalendarPage = () => {
     return list;
   }, [brands]);
 
+  const selectedBrand = useMemo(() => {
+    if (!selectedBrandId || selectedBrandId === 'all') return null;
+    return brands.find((b) => String(b.brand_id || b.id) === String(selectedBrandId)) || null;
+  }, [brands, selectedBrandId]);
+
   const pageOptions = useMemo(() => {
     const list = [{ value: 'all', label: `📄 All Pages ${pages.length > 0 ? `(${pages.length})` : ''}` }];
     (pages || []).forEach((p) => {
@@ -235,11 +241,14 @@ export const BrandCalendarPage = () => {
   }, [pages]);
 
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDayDetail, setSelectedDayDetail] = useState(null); // Day Detail Modal state
   const [dayModalTab, setDayModalTab] = useState('targets'); // 'targets' | 'posts'
   const [categorizeSlot, setCategorizeSlot] = useState(null); // Categorize Missed Reason Modal state
   const [linkPostModalSlot, setLinkPostModalSlot] = useState(null); // Link Existing Post Modal state
+  const [unlinkConfirmSlot, setUnlinkConfirmSlot] = useState(null); // Sleek In-App Unlink Confirmation Modal state
+  const [isUnlinking, setIsUnlinking] = useState(false);
   // TanStack Query: Cached calendar slots (0ms instant render on back navigation)
   const { data: calendarSlots = [], isLoading: loading } = useCalendarSlots(selectedBrandId, monthNumber, yearNumber);
 
@@ -248,6 +257,72 @@ export const BrandCalendarPage = () => {
 
   const handleRefresh = async () => {
     await invalidatePostAndMissionCaches();
+  };
+
+  const handleConfirmUnlink = async () => {
+    if (!unlinkConfirmSlot?.slot?.id || isUnlinking) return;
+    const { slot, linkedPost } = unlinkConfirmSlot;
+    const slotIdNum = Number(slot.id);
+    setIsUnlinking(true);
+
+    try {
+      // 1. Min visual spinner feedback (~400ms) for smooth UX
+      await Promise.all([
+        missionApi.unlinkPostFromSlot(slot.id),
+        new Promise((resolve) => setTimeout(resolve, 400)),
+      ]);
+
+      // 2. Instant 0ms visual update in Day Detail modal
+      setSelectedDayDetail((prev) => {
+        if (!prev) return prev;
+        const existingSlots = prev.slots && prev.slots.length > 0 ? prev.slots : (itemsByDate.get(prev.dateKey)?.slots || []);
+        return {
+          ...prev,
+          slots: existingSlots.map((s) =>
+            Number(s.id) === slotIdNum
+              ? {
+                ...s,
+                linked_post_id: null,
+                linked_post: null,
+                is_compensated: false,
+                slot_status: 'missed',
+                computed_status: 'missed',
+              }
+              : s
+          ),
+        };
+      });
+
+      // 3. Instant 0ms visual update in calendar grid slots
+      queryClient.setQueriesData({ queryKey: ['missions', 'slots'] }, (old) => {
+        if (!Array.isArray(old)) return old;
+        return old.map((s) =>
+          Number(s.id) === slotIdNum
+            ? {
+              ...s,
+              linked_post_id: null,
+              linked_post: null,
+              is_compensated: false,
+              slot_status: 'missed',
+              computed_status: 'missed',
+            }
+            : s
+        );
+      });
+
+      if (toast?.info) {
+        toast.info(`Post #${linkedPost?.id || slot.linked_post_id} unlinked from Slot #${slot.id}`);
+      }
+
+      setUnlinkConfirmSlot(null);
+      invalidatePostAndMissionCaches().catch(() => { });
+    } catch (err) {
+      if (toast?.error) {
+        toast.error(err.message || 'Failed to unlink slot');
+      }
+    } finally {
+      setIsUnlinking(false);
+    }
   };
 
   // Date Navigation with URL preservation
@@ -550,10 +625,28 @@ export const BrandCalendarPage = () => {
             const isCurrentMonth = cell.isCurrentMonth;
             const isToday = cell.dateKey === todayKey;
 
+            const filteredSlots = daySlots.filter((slot) => {
+              const slotLinked = findMatchingPostForSlot(slot, dayPosts);
+              const completed = slot.computed_status === 'completed' || slotLinked?.status === 'published';
+              if (missionStatusFilter === 'completed') return completed;
+              if (missionStatusFilter === 'pending') return !completed;
+              return true;
+            });
+
             return (
               <div
                 key={idx}
                 className={`brand-cal-day-cell ${!isCurrentMonth ? 'is-other-month' : ''} ${isToday && isCurrentMonth ? 'is-today' : ''}`}
+                onClick={() => {
+                  if (!isCurrentMonth) return;
+                  setSelectedDayDetail({
+                    dateKey: cell.dateKey,
+                    dayNumber: cell.dayNumber,
+                    slots: filteredSlots,
+                    posts: dayPosts,
+                  });
+                  setDayModalTab('targets');
+                }}
               >
                 {/* Day Number Header */}
                 <div className={`brand-cal-day-header ${!isCurrentMonth ? 'is-other-month' : ''}`}>
@@ -580,14 +673,15 @@ export const BrandCalendarPage = () => {
                   {isCurrentMonth && (
                     <button
                       type="button"
-                      onClick={() =>
+                      onClick={(e) => {
+                        e.stopPropagation();
                         navigate(`/planner/create?date=${cell.dateKey}`, {
                           state: {
                             from: location.pathname,
                             ...(selectedBrandId !== 'all' ? { prefillBrandId: selectedBrandId } : {}),
                           },
-                        })
-                      }
+                        });
+                      }}
                       className="brand-cal-quick-add-btn"
                       title={`Schedule post for ${cell.dateKey}`}
                     >
@@ -600,14 +694,6 @@ export const BrandCalendarPage = () => {
                 <div className="brand-cal-slots-list">
                   {/* Strict Client Deliverables — Display planned brand mission slots */}
                   {isCurrentMonth && (() => {
-                    const filteredSlots = daySlots.filter((slot) => {
-                      const slotLinked = findMatchingPostForSlot(slot, dayPosts);
-                      const completed = slot.computed_status === 'completed' || slotLinked?.status === 'published';
-                      if (missionStatusFilter === 'completed') return completed;
-                      if (missionStatusFilter === 'pending') return !completed;
-                      return true;
-                    });
-
                     // Flexible 4/5 overflow logic:
                     // If total slots <= 5, display all normally
                     // If total slots > 5, display 4 items and show "+ X more ..." as the 5th item
@@ -642,28 +728,18 @@ export const BrandCalendarPage = () => {
                           return (
                             <div
                               key={`slot-${slot.id || sIdx}`}
-                              onClick={() => {
-                                if (linked?.id) {
-                                  navigate(`/planner/edit/${linked.id}`);
-                                } else {
-                                  const isPast = slot.computed_status === 'missed' || cell.dateKey < todayKey;
-                                  navigate(`/planner/create?date=${isPast ? todayKey : cell.dateKey}`, {
-                                    state: {
-                                      from: location.pathname,
-                                      prefillBrandId: slot.brand_id,
-                                      prefillDate: isPast ? todayKey : cell.dateKey,
-                                      prefillType: slot.content_type,
-                                      compensationSlotId: isPast ? slot.id : null,
-                                      compensationSlotDate: isPast ? cell.dateKey : null,
-                                      compensationSlotContentType: isPast ? slot.content_type : null,
-                                      compensationBrandName: isPast ? slot.brand_name : null,
-                                      compensationNotes: isPast ? (slot.notes || '') : null,
-                                    }
-                                  });
-                                }
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedDayDetail({
+                                  dateKey: cell.dateKey,
+                                  dayNumber: cell.dayNumber,
+                                  slots: filteredSlots,
+                                  posts: dayPosts,
+                                });
+                                setDayModalTab('targets');
                               }}
                               className={`brand-cal-slot-card ${stateClass}`}
-                              title={`Click to ${linked?.id ? 'view post' : 'create post'} for ${slot.brand_name} (${statusSummary})`}
+                              title={`View Day Schedule & Manage Actions for ${slot.brand_name} (${statusSummary})`}
                             >
                               <div className="brand-cal-slot-main">
                                 {typeInfo.icon && (
@@ -787,16 +863,30 @@ export const BrandCalendarPage = () => {
         size="md"
       >
         {selectedDayDetail && (() => {
-          const brandPosts = (selectedDayDetail.posts || []).filter(
-            (p) => p.brand_id || selectedDayDetail.slots.some((s) => s.linked_post?.id === p.id)
+          // Dynamic Single Source of Truth: derive directly from live itemsByDate and merge with local optimistic state
+          const liveData = itemsByDate.get(selectedDayDetail.dateKey);
+          const rawSlots = (liveData?.slots && liveData.slots.length > 0)
+            ? liveData.slots
+            : (selectedDayDetail.slots || []);
+          const modalOverrides = selectedDayDetail.slots || [];
+          const currentSlots = rawSlots.map((baseSlot) => {
+            const override = modalOverrides.find((o) => Number(o.id) === Number(baseSlot.id));
+            return override ? { ...baseSlot, ...override } : baseSlot;
+          });
+          const currentPosts = (liveData?.posts && liveData.posts.length > 0)
+            ? liveData.posts
+            : (selectedDayDetail.posts || []);
+
+          const brandPosts = currentPosts.filter(
+            (p) => p.brand_id || currentSlots.some((s) => s.linked_post?.id === p.id)
           );
-          const totalTargets = selectedDayDetail.slots.length;
+          const totalTargets = currentSlots.length;
           const totalPosts = brandPosts.length;
           const activeTab = (dayModalTab === 'targets' && totalTargets === 0 && totalPosts > 0)
             ? 'posts'
             : (dayModalTab === 'posts' && totalPosts === 0 && totalTargets > 0)
-            ? 'targets'
-            : dayModalTab;
+              ? 'targets'
+              : dayModalTab;
 
           return (
             <>
@@ -848,7 +938,7 @@ export const BrandCalendarPage = () => {
                       </div>
                     ) : (
                       <div className="brand-cal-modal-list">
-                        {selectedDayDetail.slots.map((slot, sIdx) => {
+                        {currentSlots.map((slot, sIdx) => {
                           const {
                             typeInfo,
                             linked,
@@ -861,7 +951,7 @@ export const BrandCalendarPage = () => {
                             slot,
                             selectedDayDetail.dateKey,
                             todayKey,
-                            selectedDayDetail.posts
+                            currentPosts
                           );
 
                           let thumbUrl = null;
@@ -1029,23 +1119,9 @@ export const BrandCalendarPage = () => {
                                     type="button"
                                     className="brand-cal-modal-btn-unlink"
                                     title="Unlink compensated post"
-                                    onClick={async (e) => {
+                                    onClick={(e) => {
                                       e.stopPropagation();
-                                      if (window.confirm(`Unlink Post #${linked.id} from this compensated slot?`)) {
-                                        await missionApi.unlinkPostFromSlot(slot.id);
-                                        await invalidatePostAndMissionCaches();
-                                        setSelectedDayDetail((prev) => {
-                                          if (!prev) return prev;
-                                          return {
-                                            ...prev,
-                                            slots: prev.slots.map((s) =>
-                                              s.id === slot.id
-                                                ? { ...s, linked_post_id: null, is_compensated: false, slot_status: 'missed' }
-                                                : s
-                                            ),
-                                          };
-                                        });
-                                      }
+                                      setUnlinkConfirmSlot({ slot, linkedPost: linked });
                                     }}
                                   >
                                     <X size={12} />
@@ -1249,13 +1325,27 @@ export const BrandCalendarPage = () => {
         onClose={() => setCategorizeSlot(null)}
         slot={categorizeSlot}
         onSaved={(updated) => {
+          setCategorizeSlot(null);
+          const targetSlot = updated?.slot || updated;
+          const targetId = Number(targetSlot?.id);
+
+          // 1. Instant 0ms visual update in Day Detail modal
           setSelectedDayDetail((prev) => {
             if (!prev) return prev;
             return {
               ...prev,
-              slots: prev.slots.map((s) => (s.id === updated.id ? { ...s, ...updated } : s)),
+              slots: (prev.slots || []).map((s) => (Number(s.id) === targetId ? { ...s, ...targetSlot } : s)),
             };
           });
+
+          // 2. Instant 0ms visual update to calendar grid slots
+          queryClient.setQueriesData({ queryKey: ['missions', 'slots'] }, (old) => {
+            if (!Array.isArray(old)) return old;
+            return old.map((s) => (Number(s.id) === targetId ? { ...s, ...targetSlot } : s));
+          });
+
+          // 3. Background cache sync (non-blocking)
+          invalidatePostAndMissionCaches().catch(() => { });
         }}
       />
 
@@ -1266,15 +1356,85 @@ export const BrandCalendarPage = () => {
         slot={linkPostModalSlot}
         calendarSlots={calendarSlots}
         onLinked={(updated) => {
+          setLinkPostModalSlot(null);
+          const targetSlot = updated?.slot || updated;
+          const targetId = Number(targetSlot?.id);
+
+          // 1. Instant 0ms visual update in Day Detail modal
           setSelectedDayDetail((prev) => {
             if (!prev) return prev;
             return {
               ...prev,
-              slots: prev.slots.map((s) => (s.id === updated.id ? { ...s, ...updated } : s)),
+              slots: (prev.slots || []).map((s) => (Number(s.id) === targetId ? { ...s, ...targetSlot } : s)),
             };
           });
+
+          // 2. Instant 0ms visual update to calendar grid slots
+          queryClient.setQueriesData({ queryKey: ['missions', 'slots'] }, (old) => {
+            if (!Array.isArray(old)) return old;
+            return old.map((s) => (Number(s.id) === targetId ? { ...s, ...targetSlot } : s));
+          });
+
+          // 3. Background cache sync (non-blocking)
+          invalidatePostAndMissionCaches().catch(() => { });
         }}
       />
+
+      {/* Sleek In-App Unlink Confirmation Modal (Zero Native Alerts) */}
+      <Modal
+        isOpen={Boolean(unlinkConfirmSlot)}
+        onClose={() => !isUnlinking && setUnlinkConfirmSlot(null)}
+        size="sm"
+      >
+        <Modal.Header
+          title="Unlink Compensated Post"
+          description="Revert deliverable back to missed status."
+          onClose={() => !isUnlinking && setUnlinkConfirmSlot(null)}
+        />
+        <Modal.Body>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '4px 0' }}>
+            <p style={{ fontSize: '13.5px', color: '#334155', lineHeight: 1.5, margin: 0 }}>
+              Are you sure you want to unlink <strong>Post #{unlinkConfirmSlot?.linkedPost?.id || unlinkConfirmSlot?.slot?.linked_post_id}</strong> from{' '}
+              <strong>{unlinkConfirmSlot?.slot?.brand_name || 'Brand'}</strong> Slot #{unlinkConfirmSlot?.slot?.id}?
+            </p>
+            <div
+              style={{
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: '8px',
+                padding: '10px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                color: '#991b1b',
+                fontSize: '12px',
+              }}
+            >
+              <AlertTriangle size={16} style={{ flexShrink: 0, color: '#dc2626' }} />
+              <span>This deliverable will return to <strong>Missed</strong> status and will require make-up compensation.</span>
+            </div>
+          </div>
+        </Modal.Body>
+        <Modal.Footer style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={isUnlinking}
+            onClick={() => setUnlinkConfirmSlot(null)}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
+            loading={isUnlinking}
+            disabled={isUnlinking}
+            onClick={handleConfirmUnlink}
+          >
+            {isUnlinking ? 'Unlinking Post...' : 'Unlink Post'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

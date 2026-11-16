@@ -12,11 +12,12 @@ import { clearDashboardCache } from '../../features/dashboard/pages/DashboardPag
 
 export const invalidatePostAndMissionCaches = async () => {
   try {
-    // 1. Invalidate TanStack Query caches (Posts, Missions, Statistics)
+    // 1. Invalidate TanStack Query caches (Posts, Missions, Statistics, Planner)
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.posts.all }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.missions.all }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.statistics.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.all, refetchType: 'all' }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.missions.all, refetchType: 'all' }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.statistics.all, refetchType: 'all' }),
+      queryClient.invalidateQueries({ queryKey: ['planner'], refetchType: 'all' }),
     ]);
 
     // 2. Clear module-level in-memory caches
@@ -44,8 +45,9 @@ export const invalidatePostAndMissionCaches = async () => {
 export const invalidateMissionCaches = async () => {
   try {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.missions.all }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.statistics.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.missions.all, refetchType: 'all' }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.statistics.all, refetchType: 'all' }),
+      queryClient.invalidateQueries({ queryKey: ['planner'], refetchType: 'all' }),
     ]);
 
     if (typeof clearBrandCache === 'function') {

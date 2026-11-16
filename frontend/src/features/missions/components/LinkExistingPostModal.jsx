@@ -22,18 +22,16 @@ import {
   Loader2,
   ExternalLink,
 } from 'lucide-react';
-import { FaFacebook } from 'react-icons/fa';
+import { FaFacebook, FaTiktok } from 'react-icons/fa';
 
 const formatDate = (dateStr) => {
   if (!dateStr) return '';
   try {
-    const raw = String(dateStr).slice(0, 10);
-    const parts = raw.split('-');
-    if (parts.length === 3) {
-      const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
       return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
     }
-    return raw;
+    return String(dateStr).slice(0, 10);
   } catch {
     return String(dateStr).slice(0, 10);
   }
@@ -147,9 +145,34 @@ export const LinkExistingPostModal = ({
       .then(([postData, slotsData]) => {
         if (cancelled) return;
         const list = Array.isArray(postData) ? postData : postData?.data || [];
-        const slotsList = Array.isArray(slotsData) ? slotsData : slotsData?.data || [];
+        const rawSlots = Array.isArray(slotsData) ? slotsData : slotsData?.data || [];
 
-        // 1. Group all loaded posts by local date string "YYYY-MM-DD"
+        // 1. CRITICAL FIX: Scoped STRICTLY to the current brand!
+        // External slots from BrandCalendarPage contains all 19 brands.
+        // Slots of other brands must NEVER match or claim this brand's posts!
+        const brandSlots = rawSlots.filter(
+          (s) => !slot?.brand_id || String(s.brand_id || '') === String(slot.brand_id || '')
+        );
+
+        // 2. Map existing occupancy / links for posts
+        const postOccupancy = new Map();
+
+        // A. Explicit links from database for this brand
+        brandSlots.forEach((s) => {
+          if (s.id !== slot.id) {
+            const pId = s.linked_post_id || s.linked_post?.id;
+            if (pId) {
+              postOccupancy.set(Number(pId), {
+                slotId: s.id,
+                plannedDate: s.planned_date || s.planned_date_str,
+                isCompensated: s.is_compensated,
+                brief: s.notes || s.contract_brief,
+              });
+            }
+          }
+        });
+
+        // B. Dynamic date matching for unlinked slots of this brand
         const postsByDate = new Map();
         list.forEach((p) => {
           const pKey = getLocalDateKey(p.published_time || p.scheduled_time || p.created_at);
@@ -159,21 +182,8 @@ export const LinkExistingPostModal = ({
           }
         });
 
-        // 2. Identify all posts that are already fulfilling a mission slot
-        const occupiedIds = new Set();
-
-        // A. Explicit links from database
-        slotsList.forEach((s) => {
-          if (s.id !== slot.id) {
-            if (s.linked_post_id) occupiedIds.add(Number(s.linked_post_id));
-            if (s.linked_post?.id) occupiedIds.add(Number(s.linked_post.id));
-          }
-        });
-
-        // B. Dynamic date matching: if a post on Nov 4 was published for a planned slot on Nov 4,
-        // it is claimed by that Nov 4 slot and CANNOT be offered for another slot!
-        const sortedSlots = [...slotsList]
-          .filter((s) => s.id !== slot.id)
+        const sortedUnlinkedSlots = brandSlots
+          .filter((s) => s.id !== slot.id && !s.linked_post_id && !s.linked_post?.id)
           .sort((a, b) => {
             const order = { live: 1, video: 2, photo: 3, poster: 3 };
             const oA = order[a.content_type?.toLowerCase()] || 3;
@@ -181,35 +191,48 @@ export const LinkExistingPostModal = ({
             return oA - oB;
           });
 
-        sortedSlots.forEach((s) => {
+        sortedUnlinkedSlots.forEach((s) => {
           const sDateKey = getLocalDateKey(s.planned_date || s.planned_date_str);
           if (!sDateKey) return;
           const dayPosts = postsByDate.get(sDateKey) || [];
 
-          // Match first available compatible post on this date
           const match = dayPosts.find((p) => {
-            if (occupiedIds.has(Number(p.id))) return false;
+            if (postOccupancy.has(Number(p.id))) return false;
             if (p.status !== 'published' && p.status !== 'scheduled') return false;
             return isPostCompatibleWithSlot(s.content_type, p.media_type);
           });
 
           if (match) {
-            occupiedIds.add(Number(match.id));
+            postOccupancy.set(Number(match.id), {
+              slotId: s.id,
+              plannedDate: s.planned_date || s.planned_date_str,
+              isDynamicMatch: true,
+              brief: s.notes || s.contract_brief,
+            });
           }
         });
 
-        // C. Any post marked as compensation for another slot is also occupied
+        // C. Posts marked as compensation for another slot
         list.forEach((p) => {
           if (p.compensation_for_slot_id && p.compensation_for_slot_id !== slot.id) {
-            occupiedIds.add(Number(p.id));
+            if (!postOccupancy.has(Number(p.id))) {
+              postOccupancy.set(Number(p.id), {
+                slotId: p.compensation_for_slot_id,
+                isCompensated: true,
+              });
+            }
           }
         });
 
-        // 3. Filter out posts that are already fulfilling another mission slot
-        const available = list.filter((p) => !occupiedIds.has(Number(p.id)));
+        // STRICT EXCLUSION: Only show genuine unassigned/extra posts!
+        // If a post is already fulfilling another mission slot, do NOT show it.
+        const availablePosts = list.filter((p) => {
+          if (slot.linked_post_id === p.id || p.compensation_for_slot_id === slot.id) return true;
+          return !postOccupancy.has(Number(p.id));
+        });
 
-        // 4. Sort newest first
-        const sorted = available.slice().sort((a, b) => {
+        // Sort newest first
+        const sorted = availablePosts.slice().sort((a, b) => {
           const timeA = new Date(a.published_time || a.scheduled_time || a.created_at || 0).getTime();
           const timeB = new Date(b.published_time || b.scheduled_time || b.created_at || 0).getTime();
           return timeB - timeA;
@@ -217,9 +240,11 @@ export const LinkExistingPostModal = ({
 
         setPosts(sorted);
 
-        // If slot already has a linked post, pre-select it
+        // Pre-select currently linked post if exists, or top available post
         if (slot.linked_post_id) {
           setSelectedPostId(slot.linked_post_id);
+        } else if (sorted.length > 0) {
+          setSelectedPostId(sorted[0].id);
         }
       })
       .catch((err) => {
@@ -244,23 +269,71 @@ export const LinkExistingPostModal = ({
       const msg = (p.message || '').toLowerCase();
       const fbId = String(p.fb_post_id || '').toLowerCase();
       const id = String(p.id);
-      return msg.includes(q) || fbId.includes(q) || id.includes(q);
+      const page = String(p.page_name || '').toLowerCase();
+      return msg.includes(q) || fbId.includes(q) || id.includes(q) || page.includes(q);
     });
   }, [posts, searchQuery]);
+
+  const selectedPost = useMemo(() => {
+    return posts.find((p) => p.id === selectedPostId) || null;
+  }, [posts, selectedPostId]);
 
   const slotType = (slot?.content_type || '').toLowerCase();
 
   const handleAttach = async () => {
-    if (!selectedPostId || !slot?.id) return;
+    if (!selectedPostId || !slot?.id || submitting) return;
     setSubmitting(true);
     try {
-      const res = await missionApi.linkPostToSlot(slot.id, selectedPostId);
-      await invalidatePostAndMissionCaches();
+      // 1. Run the API call with minimum visual spinner feedback (~500ms) so user sees the button spinning
+      const [res] = await Promise.all([
+        missionApi.linkPostToSlot(slot.id, selectedPostId),
+        new Promise((resolve) => setTimeout(resolve, 500)),
+      ]);
+
       showSuccess(`Post #${selectedPostId} linked as make-up for Slot #${slot.id}!`);
-      if (onLinked) {
-        onLinked(res.slot || res);
+
+      const updatedSlotData = res?.slot || {};
+      const enrichedSlot = {
+        ...slot,
+        ...updatedSlotData,
+        id: slot.id,
+        brand_id: slot.brand_id || updatedSlotData.brand_id,
+        brand_name: slot.brand_name || updatedSlotData.brand_name || selectedPost?.brand_name,
+        planned_date_str: slot.planned_date_str || String(slot.planned_date || '').slice(0, 10),
+        linked_post_id: selectedPost?.id || selectedPostId,
+        is_compensated: true,
+        slot_status: 'compensated',
+        computed_status: 'compensated',
+        linked_post: selectedPost
+          ? {
+              id: selectedPost.id,
+              status: selectedPost.status || 'published',
+              media_type: selectedPost.media_type || slot.content_type,
+              published_time: selectedPost.published_time,
+              scheduled_time: selectedPost.scheduled_time,
+              message: selectedPost.message,
+              media_url: selectedPost.media_url,
+              thumbnail_url: selectedPost.thumbnail_url,
+              fb_post_id: selectedPost.fb_post_id,
+              post_url: selectedPost.post_url,
+              page_id: selectedPost.page_id,
+              page_name: selectedPost.page_name,
+            }
+          : (updatedSlotData.linked_post || null),
+      };
+
+      // 2. Immediately close this modal first - guaranteed to never stay stuck
+      if (typeof onClose === 'function') {
+        onClose();
       }
-      onClose();
+
+      // 3. Notify parent to update Day Detail (Pic 2) and calendar cache
+      if (typeof onLinked === 'function') {
+        onLinked(enrichedSlot, selectedPost);
+      }
+
+      // 4. Silently synchronize caches in background (fire-and-forget)
+      invalidatePostAndMissionCaches().catch(() => {});
     } catch (err) {
       showError('Failed to link post: ' + (err.message || 'Server error'));
     } finally {
@@ -341,7 +414,7 @@ export const LinkExistingPostModal = ({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search tracked posts by caption, FB Post ID, or Post #..."
+            placeholder="Search tracked posts by caption, page, FB Post ID, or Post #..."
             style={{
               width: '100%',
               padding: '8px 12px 8px 32px',
@@ -366,12 +439,12 @@ export const LinkExistingPostModal = ({
           <div style={{ padding: '32px 16px', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
             <AlertCircle size={28} style={{ margin: '0 auto 8px auto', display: 'block', color: '#94a3b8' }} />
             <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 700, color: '#334155' }}>
-              {searchQuery ? 'No matching posts found' : `No unassigned posts in ${slotDateInfo.monthName}`}
+              {searchQuery ? 'No matching posts found' : `No posts found in ${slotDateInfo.monthName}`}
             </p>
             <p style={{ margin: '6px auto 0 auto', fontSize: '12px', color: '#64748b', maxWidth: '380px', lineHeight: 1.5 }}>
               {searchQuery
                 ? 'Try adjusting your search terms.'
-                : `All posts for ${slot.brand_name || 'this brand'} in ${slotDateInfo.monthName} are already assigned to client deliverables or have not been created yet.`}
+                : `No tracked posts found for ${slot.brand_name || 'this brand'} in ${slotDateInfo.monthName}.`}
             </p>
           </div>
         ) : (
@@ -380,15 +453,10 @@ export const LinkExistingPostModal = ({
               const isSelected = selectedPostId === p.id;
               const postType = (p.media_type || 'post').toLowerCase();
               const isVideo = postType === 'video';
-              const isLive = postType === 'live';
+              const isLive = postType === 'live' || (p.tracking_type || '').toLowerCase() === 'live';
               const previewImg = resolveMediaUrl(p.thumbnail_url || p.media_url);
-
-              // Compatibility badge logic
-              const isExactMatch = postType === slotType;
-              const isUpgrade = slotType === 'photo' && isVideo;
-              const isDowngrade = slotType === 'video' && !isVideo;
-
-              const isAlreadyLinkedOther = p.compensation_for_slot_id && p.compensation_for_slot_id !== slot.id;
+              const platform = (p.platform || 'facebook').toLowerCase();
+              const pageName = p.page_name || p.facebook_page_name || (p.page_id ? `Page #${p.page_id}` : 'Facebook Page');
 
               return (
                 <div
@@ -398,41 +466,63 @@ export const LinkExistingPostModal = ({
                     display: 'flex',
                     alignItems: 'center',
                     gap: '12px',
-                    padding: '10px 12px',
-                    borderRadius: '9px',
-                    border: isSelected ? '2px solid #4f46e5' : '1px solid #e2e8f0',
-                    background: isSelected ? '#f5f3ff' : '#ffffff',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    border: isSelected ? '1.5px solid #3b82f6' : '1px solid #e2e8f0',
+                    background: isSelected ? '#f0f7ff' : '#ffffff',
+                    boxShadow: isSelected ? '0 1px 3px rgba(59, 130, 246, 0.12)' : '0 1px 2px rgba(0, 0, 0, 0.02)',
                     cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    boxShadow: isSelected ? '0 2px 8px rgba(79, 70, 229, 0.12)' : 'none',
+                    transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
                   }}
+                  onMouseEnter={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.borderColor = '#cbd5e1';
+                      e.currentTarget.style.backgroundColor = '#f8fafc';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.borderColor = '#e2e8f0';
+                      e.currentTarget.style.backgroundColor = '#ffffff';
+                    }
+                  }}
+                  title={p.message || ''}
                 >
-                  {/* Radio / Selection Indicator */}
+                  {/* Modern Radio Check Indicator */}
                   <div
                     style={{
                       width: '18px',
                       height: '18px',
                       borderRadius: '50%',
-                      border: isSelected ? '5px solid #4f46e5' : '2px solid #cbd5e1',
-                      background: '#ffffff',
+                      border: isSelected ? '1px solid #2563eb' : '1.5px solid #cbd5e1',
+                      backgroundColor: isSelected ? '#2563eb' : '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#ffffff',
                       flexShrink: 0,
-                      boxSizing: 'border-box',
+                      transition: 'all 0.15s ease',
+                      boxShadow: isSelected ? '0 1px 2px rgba(37, 99, 235, 0.25)' : 'none',
                     }}
-                  />
+                  >
+                    {isSelected && <Check size={11} strokeWidth={3} />}
+                  </div>
 
                   {/* Thumbnail */}
                   <div
                     style={{
-                      width: '52px',
-                      height: '52px',
+                      width: '40px',
+                      height: '40px',
                       borderRadius: '6px',
                       overflow: 'hidden',
                       background: '#f1f5f9',
+                      border: '1px solid rgba(0, 0, 0, 0.08)',
                       flexShrink: 0,
                       position: 'relative',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
+                      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
                     }}
                   >
                     {previewImg ? (
@@ -442,15 +532,15 @@ export const LinkExistingPostModal = ({
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
                     ) : (
-                      <ImageIcon size={20} color="#94a3b8" />
+                      <ImageIcon size={18} color="#94a3b8" />
                     )}
                     {isVideo && (
                       <span
                         style={{
                           position: 'absolute',
-                          bottom: '3px',
-                          right: '3px',
-                          background: 'rgba(0,0,0,0.65)',
+                          bottom: '2px',
+                          right: '2px',
+                          background: 'rgba(15, 23, 42, 0.8)',
                           color: '#fff',
                           borderRadius: '3px',
                           padding: '1px 3px',
@@ -458,91 +548,85 @@ export const LinkExistingPostModal = ({
                           fontWeight: 700,
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '2px',
                         }}
                       >
                         <Video size={8} />
                       </span>
                     )}
-                  </div>
-
-                  {/* Content Details */}
-                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#0f172a' }}>
-                        Post #{p.id}
-                      </span>
-                      <span style={{ fontSize: '11px', color: '#64748b' }}>
-                        · {formatTimeAgo(p.published_time || p.scheduled_time || p.created_at)}
-                      </span>
-
-                      {/* Format Badge */}
+                    {isLive && (
                       <span
                         style={{
-                          fontSize: '10px',
+                          position: 'absolute',
+                          bottom: '2px',
+                          right: '2px',
+                          background: '#dc2626',
+                          color: '#fff',
+                          borderRadius: '3px',
+                          padding: '1px 3px',
+                          fontSize: '8px',
                           fontWeight: 700,
-                          padding: '1px 6px',
-                          borderRadius: '4px',
-                          background: isVideo ? '#f5f3ff' : isLive ? '#fef2f2' : '#f0fdf4',
-                          color: isVideo ? '#7c3aed' : isLive ? '#dc2626' : '#166534',
-                          border: `1px solid ${isVideo ? '#ddd6fe' : isLive ? '#fecaca' : '#bbf7d0'}`,
-                          display: 'inline-flex',
+                          display: 'flex',
                           alignItems: 'center',
-                          gap: '3px',
                         }}
                       >
-                        {isVideo ? <Video size={9} /> : isLive ? <Radio size={9} /> : <ImageIcon size={9} />}
-                        {postType.toUpperCase()}
+                        <Radio size={8} />
                       </span>
+                    )}
+                  </div>
 
-                      {/* Compatibility Tag */}
-                      {isExactMatch && (
-                        <span style={{ fontSize: '10px', fontWeight: 600, color: '#16a34a' }}>
-                          ✓ Format Match
-                        </span>
-                      )}
-                      {isUpgrade && (
-                        <span style={{ fontSize: '10px', fontWeight: 600, color: '#2563eb' }}>
-                          ✨ Video Upgrade
-                        </span>
-                      )}
-                      {isDowngrade && (
-                        <span style={{ fontSize: '10px', fontWeight: 600, color: '#d97706' }}>
-                          ⚠️ Photo (Requires Video)
-                        </span>
-                      )}
-
-                      {isAlreadyLinkedOther && (
-                        <span
-                          style={{
-                            fontSize: '9.5px',
-                            fontWeight: 600,
-                            padding: '1px 5px',
-                            borderRadius: '4px',
-                            background: '#fef3c7',
-                            color: '#92400e',
-                            border: '1px solid #fde68a',
-                          }}
-                        >
-                          Linked to Slot #{p.compensation_for_slot_id}
-                        </span>
-                      )}
+                  {/* Content Details (Post ID on top, Date below ID, Page Badge on right) */}
+                  <div
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '12px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', lineHeight: 1.25 }}>
+                        Post #{p.id}
+                      </span>
+                      <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 400, lineHeight: 1.25 }}>
+                        {formatTimeAgo(p.published_time || p.scheduled_time || p.created_at)}
+                      </span>
                     </div>
 
-                    {/* Message Preview */}
+                    {/* Professional Page Name Tag */}
                     <div
                       style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '3px 9px',
+                        borderRadius: '6px',
+                        background: isSelected ? 'rgba(255, 255, 255, 0.85)' : '#f8fafc',
+                        border: isSelected ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
                         fontSize: '11.5px',
+                        fontWeight: 500,
                         color: '#334155',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        lineHeight: 1.4,
+                        maxWidth: '220px',
+                        flexShrink: 0,
+                        transition: 'all 0.15s ease',
                       }}
+                      title={`${pageName} (${platform})`}
                     >
-                      {p.message || '(No caption text)'}
+                      {platform === 'tiktok' ? (
+                        <FaTiktok size={11} color="#000000" style={{ flexShrink: 0 }} />
+                      ) : (
+                        <FaFacebook size={12} color="#1877f2" style={{ flexShrink: 0 }} />
+                      )}
+                      <span
+                        style={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {pageName}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -562,10 +646,14 @@ export const LinkExistingPostModal = ({
           size="sm"
           disabled={!selectedPostId || submitting}
           loading={submitting}
-          icon={<Check size={14} />}
+          icon={!submitting ? <Check size={14} /> : undefined}
           onClick={handleAttach}
         >
-          {selectedPostId ? `Attach Post #${selectedPostId} to Slot #${slot.id}` : 'Select a Post to Attach'}
+          {submitting
+            ? `Attaching Post #${selectedPostId}...`
+            : selectedPostId
+            ? `Attach Post #${selectedPostId} to Slot #${slot.id}`
+            : 'Select a Post to Attach'}
         </Button>
       </ModalFooter>
     </Modal>

@@ -32,6 +32,9 @@ export const ToastProvider = ({ children }) => {
       success: (msg, duration) => addToast(msg, 'success', duration),
       error: (msg, duration) => addToast(msg, 'error', duration || 5000),
       info: (msg, duration) => addToast(msg, 'info', duration),
+      showSuccess: (msg, duration) => addToast(msg, 'success', duration),
+      showError: (msg, duration) => addToast(msg, 'error', duration || 5000),
+      showInfo: (msg, duration) => addToast(msg, 'info', duration),
       dismiss: removeToast,
     }),
     [addToast, removeToast]

@@ -46,7 +46,7 @@ const REASON_OPTIONS = [
 ];
 
 export const CategorizeMissedModal = ({ isOpen, onClose, slot, onSaved }) => {
-  const { showSuccess, showError } = useToast();
+  const toast = useToast();
   const [selectedReason, setSelectedReason] = useState('agency_delay');
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [slotStatus, setSlotStatus] = useState('missed'); // 'missed' | 'waived'
@@ -81,10 +81,9 @@ export const CategorizeMissedModal = ({ isOpen, onClose, slot, onSaved }) => {
         slot_status: slotStatus,
       });
 
-      // Synchronize all cache tiers (TanStack Query, session, modules)
-      await invalidateMissionCaches();
-
-      showSuccess('Slot missed reason categorized successfully');
+      if (toast?.success) {
+        toast.success('Slot missed reason categorized successfully');
+      }
       if (typeof onSaved === 'function') {
         onSaved({
           ...slot,
@@ -93,9 +92,16 @@ export const CategorizeMissedModal = ({ isOpen, onClose, slot, onSaved }) => {
           slot_status: slotStatus,
         });
       }
-      onClose();
+      if (typeof onClose === 'function') {
+        onClose();
+      }
+
+      // Synchronize all cache tiers (TanStack Query, session, modules)
+      invalidateMissionCaches().catch(() => {});
     } catch (err) {
-      showError(err.message || 'Failed to update slot reason');
+      if (toast?.error) {
+        toast.error(err.message || 'Failed to update slot reason');
+      }
     } finally {
       setIsSaving(false);
     }

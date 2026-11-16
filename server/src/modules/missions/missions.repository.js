@@ -159,7 +159,7 @@ const saveMissionSlots = async (missionId, slots = []) => {
  */
 const getSlotById = async (slotId) => {
   const result = await db.query(
-    `SELECT s.*, m.brand_id, m.month, m.year 
+    `SELECT s.*, m.brand_id, m.brand_name, m.month, m.year 
      FROM tb_brand_mission_slot s
      JOIN tb_brand_mission m ON m.id = s.mission_id
      WHERE s.id = $1`,
