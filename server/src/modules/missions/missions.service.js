@@ -82,14 +82,6 @@ const findMatchingPostForSlot = (slot, dayPosts, usedPostIds = new Set()) => {
  * Get mission details and calculate day-by-day execution status
  */
 const getMissionWithProgress = async (brandId, month, year) => {
-  if (brandId && brandId !== 'all') {
-    try {
-      await autoReconcileBrandSlots(brandId);
-    } catch (err) {
-      console.error(`[getMissionWithProgress] Auto-reconcile error for brand ${brandId}:`, err.message);
-    }
-  }
-
   const mission = await missionsRepo.getMission(brandId, month, year);
   if (!mission) {
     return null;
@@ -264,13 +256,6 @@ const saveMissionWithSlots = async ({
   });
 
   const savedSlots = await missionsRepo.saveMissionSlots(mission.id, slots);
-  if (brand_id) {
-    try {
-      await autoReconcileBrandSlots(brand_id);
-    } catch (err) {
-      console.error(`[saveMissionWithSlots] Auto-reconcile error for brand ${brand_id}:`, err.message);
-    }
-  }
   return getMissionWithProgress(brand_id, month, year);
 };
 
@@ -279,13 +264,6 @@ const saveMissionWithSlots = async ({
  * Uses high-speed B-Tree range query and pre-linked persistent relational data
  */
 const getCalendarSlots = async (brandId, month, year) => {
-  if (brandId && brandId !== 'all') {
-    try {
-      await autoReconcileBrandSlots(brandId);
-    } catch (err) {
-      console.error(`[getCalendarSlots] Auto-reconcile error for brand ${brandId}:`, err.message);
-    }
-  }
   const slots = await missionsRepo.getSlotsForBrandAndMonth(brandId, month, year);
   const posts = await missionsRepo.getBrandPostsForMonth(brandId, month, year);
 
@@ -648,18 +626,8 @@ const reconcilePostWithMission = async (post) => {
       await missionsRepo.unlinkSlotByPostId(post.id);
     }
 
-    // 2. Find an unlinked planned slot matching post's brand, planned date, and media format
-    const matchingSlot = await missionsRepo.findUnlinkedSlotForPost({
-      brand_id: post.brand_id,
-      planned_date: postDateStr,
-      content_type: post.media_type || 'photo',
-    });
-
-    if (matchingSlot) {
-      return await missionsRepo.linkSlotToPost(matchingSlot.id, post.id, targetStatus, false);
-    }
-
-    return null; // Post is an extra/unplanned post for this day
+    // Only link if explicitly targeted via compensation_for_slot_id or already assigned
+    return null; // Unassigned post (requires explicit Link Post action from user)
   } catch (err) {
     console.error(`[reconcilePostWithMission] Error reconciling post #${post.id} with mission:`, err.message);
     return null; // Graceful fallback
@@ -671,67 +639,12 @@ const reconcilePostWithMission = async (post) => {
  * Ensures unlinked slots for a brand are automatically linked to any existing tracked posts
  * that match the slot's planned date and media format (e.g., when schedules are created mid-month).
  */
+/**
+ * Ambient auto-reconciliation disabled in favor of Explicit Linking
+ * (Prevents side-effects in GET requests and ensures deterministic user control).
+ */
 const autoReconcileBrandSlots = async (brandId) => {
-  if (!brandId) return [];
-
-  try {
-    // 1. Get all unlinked, uncompensated slots for this brand
-    const slots = await missionsRepo.getUnlinkedSlotsForBrand(brandId);
-    if (!slots || slots.length === 0) return [];
-
-    // 2. Get all tracked posts for this brand (published or scheduled)
-    const postTrackerRepo = require('../postTracker/postTracker.repository');
-    const posts = await postTrackerRepo.getTrackedPostsForBrand(brandId);
-    if (!posts || posts.length === 0) return [];
-
-    // 3. Collect post IDs that are already claimed by existing slots or marked as compensation
-    const linkedSlots = await missionsRepo.getLinkedSlotsForBrand(brandId);
-    const usedPostIds = new Set(linkedSlots.map((s) => s.linked_post_id).filter(Boolean));
-
-    posts.forEach((p) => {
-      if (p.compensation_for_slot_id) {
-        usedPostIds.add(p.id);
-      }
-    });
-
-    // 4. Group available posts by local date string "YYYY-MM-DD"
-    const postsByDate = {};
-    posts.forEach((p) => {
-      const dStr = formatLocalDateStr(p.published_time || p.scheduled_time);
-      if (dStr) {
-        if (!postsByDate[dStr]) postsByDate[dStr] = [];
-        postsByDate[dStr].push(p);
-      }
-    });
-
-    // 5. Sort unlinked slots so specific formats (live, video) claim matching posts before photo
-    const sortedSlots = [...slots].sort((a, b) => {
-      const order = { live: 1, video: 2, photo: 3, poster: 3 };
-      const oA = order[a.content_type?.toLowerCase()] || 3;
-      const oB = order[b.content_type?.toLowerCase()] || 3;
-      return oA - oB;
-    });
-
-    // 6. Match and persistently link
-    const reconciled = [];
-    for (const slot of sortedSlots) {
-      const slotDateStr = formatLocalDateStr(slot.planned_date);
-      const dayPosts = postsByDate[slotDateStr] || [];
-      const match = findMatchingPostForSlot(slot, dayPosts, usedPostIds);
-
-      if (match) {
-        usedPostIds.add(match.id);
-        const targetStatus = match.status === 'published' ? 'completed' : 'scheduled';
-        const updatedSlot = await missionsRepo.linkSlotToPost(slot.id, match.id, targetStatus, false);
-        reconciled.push({ slot: updatedSlot, post: match });
-      }
-    }
-
-    return reconciled;
-  } catch (err) {
-    console.error(`[autoReconcileBrandSlots] Error reconciling slots for brand #${brandId}:`, err.message);
-    return [];
-  }
+  return [];
 };
 
 /**
@@ -807,15 +720,6 @@ const createSlot = async ({
     notes,
   });
 
-  const bId = brand_id || (slot && slot.brand_id);
-  if (bId) {
-    try {
-      await autoReconcileBrandSlots(bId);
-    } catch (err) {
-      console.error(`[createSlot] Auto-reconcile error for brand ${bId}:`, err.message);
-    }
-  }
-
   return {
     ...slot,
     planned_date_str: formatLocalDateStr(slot.planned_date),
@@ -849,11 +753,6 @@ const getSlotById = async (slotId) => {
  */
 const getMissedSlotsForCompensation = async (brandId) => {
   if (!brandId) return [];
-  try {
-    await autoReconcileBrandSlots(brandId);
-  } catch (err) {
-    console.error(`[getMissedSlotsForCompensation] Auto-reconcile error for brand ${brandId}:`, err.message);
-  }
   const todayStr = formatLocalDateStr(new Date());
   const missed = await missionsRepo.getUnresolvedMissedSlotsForBrand(brandId, todayStr);
   return missed.map((s) => ({
@@ -880,12 +779,30 @@ const linkPostToSlot = async (slotId, postId) => {
   // 0. If this post was previously linked to another mission slot, unlink it first
   await missionsRepo.unlinkSlotByPostId(postId);
 
-  // 1. Assign compensation_for_slot_id to the post
-  await postTrackerRepo.updateTrackedPostData(postId, { compensation_for_slot_id: slot.id });
+  const rawPostDate = post.published_time || post.scheduled_time || post.created_at;
+  const postDateStr = formatLocalDateStr(rawPostDate);
+  const slotDateStr = formatLocalDateStr(slot.planned_date);
+  const brandMatches = String(post.brand_id || '') === String(slot.brand_id || '');
+  const typeMatches = isMediaTypeCompatibleWithSlot(slot.content_type, post.media_type);
+  const isSameDayMatch = brandMatches && typeMatches && (postDateStr === slotDateStr);
 
-  // 2. Link the slot to this post with compensated status
-  const finalStatus = post.status === 'published' ? 'compensated' : post.status === 'scheduled' ? 'scheduled' : 'planned';
-  const updatedSlot = await missionsRepo.linkSlotToPost(slot.id, post.id, finalStatus, true);
+  let finalStatus;
+  let isCompensated;
+
+  if (isSameDayMatch) {
+    // Case 1: On-Time Fulfillment / Retroactive Match (Same Day & Brand & Type)
+    // Not a make-up! Slot was delivered on-time as planned.
+    finalStatus = post.status === 'published' ? 'completed' : post.status === 'scheduled' ? 'scheduled' : 'planned';
+    isCompensated = false;
+    await postTrackerRepo.updateTrackedPostData(postId, { compensation_for_slot_id: null });
+  } else {
+    // Case 2: Cross-Day Make-Up Compensation
+    finalStatus = post.status === 'published' ? 'compensated' : post.status === 'scheduled' ? 'scheduled' : 'planned';
+    isCompensated = true;
+    await postTrackerRepo.updateTrackedPostData(postId, { compensation_for_slot_id: slot.id });
+  }
+
+  const updatedSlot = await missionsRepo.linkSlotToPost(slot.id, post.id, finalStatus, isCompensated);
 
   return {
     slot: {
@@ -894,7 +811,7 @@ const linkPostToSlot = async (slotId, postId) => {
       brand_name: slot.brand_name,
       planned_date_str: formatLocalDateStr(updatedSlot.planned_date || slot.planned_date),
       computed_status: finalStatus,
-      is_compensated: true,
+      is_compensated: isCompensated,
       linked_post: {
         id: post.id,
         status: post.status,
@@ -910,6 +827,8 @@ const linkPostToSlot = async (slotId, postId) => {
       },
     },
     post,
+    isSameDayMatch,
+    isCompensated,
   };
 };
 

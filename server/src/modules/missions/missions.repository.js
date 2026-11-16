@@ -460,7 +460,7 @@ const getUnlinkedSlotsForBrand = async (brandId) => {
  */
 const getLinkedSlotsForBrand = async (brandId) => {
   const result = await db.query(
-    `SELECT s.id, s.linked_post_id
+    `SELECT s.id, s.linked_post_id, s.is_compensated, s.slot_status, s.planned_date
      FROM tb_brand_mission_slot s
      JOIN tb_brand_mission m ON m.id = s.mission_id
      WHERE m.brand_id = $1

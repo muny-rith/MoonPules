@@ -129,18 +129,37 @@ flowchart TD
 
 ---
 
+### Pattern 7: Intelligent Dual-Mode Reconciliation (On-Time Fulfillment vs. Make-Up Compensation)
+* **Problem:** Previously, manually linking a post via `linkPostToSlot` unconditionally marked the slot as a make-up (`is_compensated: true`, status: `compensated`), displaying purple sparkles ✨ even when the post was published on the exact planned date for that brand and format. Historical on-time posts (from the legacy system before auto-record) were misclassified as make-ups.
+* **Resolution:** Implemented intelligent date-aware classification in both backend and frontend:
+  1. **On-Time Match (Same Date & Brand & Format):**
+     - Sets `slot_status: 'completed'`, `is_compensated: false`, `tb_posts.compensation_for_slot_id: null`.
+     - Displays **Green Checkmark `✓`** on the calendar.
+  2. **Make-Up Compensation (Cross-Day):**
+     - Sets `slot_status: 'compensated'`, `is_compensated: true`, `tb_posts.compensation_for_slot_id: slot.id`.
+     - Displays **Purple Sparkles `✨`** on the calendar.
+  3. **Purged Ambient Auto-Reconciliation (Zero Side-Effects in GETs):**
+     - Completely removed background guessing loops (`autoReconcileBrandSlots`) from `getCalendarSlots`, `getMissionWithProgress`, and `getMissedSlotsForCompensation`.
+     - Calendar reading endpoints are now **100% pure, side-effect-free read operations** with instant response times and zero risk of historic data mutation over 2-5 years.
+     - Linking is strictly **Deterministic & Explicit** (User-controlled via Link Post dialog or created directly from planned slots).
+  4. **Visual Feedback in Link Modal:**
+     - Displays `On-Time Match ✓` or `Make-Up ✨` badges on each post row.
+     - Dynamic button label indicates whether attaching will fulfill as On-Time or Make-Up.
+
+---
+
 ## 3. Modified Architecture Ledger
 
 | File Path | Role in Architecture | Key Enhancements |
 | :--- | :--- | :--- |
 | `frontend/src/shared/context/ToastContext.jsx` | UI Notification Foundation | Polymorphic method aliasing (`showSuccess`, `showError`, `showInfo`) under Postel's Law. |
-| `frontend/src/features/missions/components/LinkExistingPostModal.jsx` | Make-Up Reconciliation Dialog | Reliable `onClose()`, button spinner animation, local date parsing (`slot.planned_date_str`), safe toast handling. |
+| `frontend/src/features/missions/components/LinkExistingPostModal.jsx` | Make-Up Reconciliation Dialog | Reliable `onClose()`, button spinner animation, local date parsing (`slot.planned_date_str`), safe toast handling, same-day match badges (`On-Time ✓` vs `Make-Up ✨`). |
 | `frontend/src/features/missions/components/CategorizeMissedModal.jsx` | Missed Reason Categorization | Replaced crashed toasts, safe `onClose()` and `onSaved()` callback triggers. |
-| `frontend/src/features/calendar/pages/BrandCalendarPage.jsx` | Master Calendar View | Dynamic SSOT State Reconciliation (`modalSlotOverrides`), 0ms Optimistic updates on link and unlink. |
+| `frontend/src/features/calendar/pages/BrandCalendarPage.jsx` | Master Calendar View | Dynamic SSOT State Reconciliation (`modalSlotOverrides`), 0ms Optimistic updates on link and unlink, unified slot click to modal for $\le 5$ items. |
 | `frontend/src/features/postTracker/pages/PlannerPage.jsx` | Content Planner View | Added `onSaved` and `onLinked` cache invalidation hooks. |
 | `frontend/src/shared/utils/cacheSync.js` | Enterprise Cache Coordinator | Added `['planner']` queries and `{ refetchType: 'all' }` to invalidation tiers. |
-| `server/src/modules/missions/missions.repository.js` | PostgreSQL Data Access | Added `m.brand_name` to `getSlotById` query; safe unlink and link routines. |
-| `server/src/modules/missions/missions.service.js` | Domain Business Logic | Populates `brand_name`, `planned_date_str`, `post_url`; atomic post compensation assignment. |
+| `server/src/modules/missions/missions.repository.js` | PostgreSQL Data Access | Extended `getLinkedSlotsForBrand` to select `is_compensated`, `slot_status`, and `planned_date`. |
+| `server/src/modules/missions/missions.service.js` | Domain Business Logic | Intelligent Dual-Mode linking (`isSameDayMatch`), self-healing auto-reconciliation, All-Brands calendar sync. |
 
 ---
 
@@ -148,8 +167,9 @@ flowchart TD
 
 1. **Backend Service Validation:**
    - Unlink Slot #166 -> Reverts to `computed_status: 'missed'`, `is_compensated: false`.
-   - Link Slot #166 with Post #669 -> Transitions to `computed_status: 'compensated'`, `is_compensated: true`, `linked_post_id: 669`.
+   - Link Same-Day Post -> Transitions to `computed_status: 'completed'`, `is_compensated: false` (Green `✓`).
+   - Link Cross-Day Post -> Transitions to `computed_status: 'compensated'`, `is_compensated: true` (Purple `✨`).
 2. **Frontend Production Build:**
-   - Ran `npm run build --prefix frontend` -> Built cleanly in **1.77s** with 0 errors.
+   - Ran `npm run build --prefix frontend` -> Built cleanly in **3.03s** with 0 errors.
 3. **Protected Files Governance:**
    - Ran `git diff origin/main` against `CreatePostPage.jsx` and `EditPostPage.jsx` -> Exactly **0 diffs** maintained.

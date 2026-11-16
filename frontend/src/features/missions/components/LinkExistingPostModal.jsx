@@ -290,7 +290,18 @@ export const LinkExistingPostModal = ({
         new Promise((resolve) => setTimeout(resolve, 500)),
       ]);
 
-      showSuccess(`Post #${selectedPostId} linked as make-up for Slot #${slot.id}!`);
+      const isSameDayMatch = res?.isSameDayMatch ?? (
+        getLocalDateKey(selectedPost?.published_time || selectedPost?.scheduled_time || selectedPost?.created_at) ===
+        getLocalDateKey(slot.planned_date_str || slot.planned_date)
+      );
+      const isCompensated = res?.isCompensated ?? (res?.slot?.is_compensated ?? !isSameDayMatch);
+      const computedStatus = res?.slot?.computed_status || (isCompensated ? 'compensated' : 'completed');
+
+      if (isSameDayMatch || !isCompensated) {
+        showSuccess(`Post #${selectedPostId} linked as on-time fulfillment for Slot #${slot.id}!`);
+      } else {
+        showSuccess(`Post #${selectedPostId} linked as make-up for Slot #${slot.id}!`);
+      }
 
       const updatedSlotData = res?.slot || {};
       const enrichedSlot = {
@@ -301,9 +312,9 @@ export const LinkExistingPostModal = ({
         brand_name: slot.brand_name || updatedSlotData.brand_name || selectedPost?.brand_name,
         planned_date_str: slot.planned_date_str || String(slot.planned_date || '').slice(0, 10),
         linked_post_id: selectedPost?.id || selectedPostId,
-        is_compensated: true,
-        slot_status: 'compensated',
-        computed_status: 'compensated',
+        is_compensated: isCompensated,
+        slot_status: computedStatus,
+        computed_status: computedStatus,
         linked_post: selectedPost
           ? {
               id: selectedPost.id,
@@ -585,14 +596,61 @@ export const LinkExistingPostModal = ({
                       gap: '12px',
                     }}
                   >
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
-                      <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', lineHeight: 1.25 }}>
-                        Post #{p.id}
-                      </span>
-                      <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 400, lineHeight: 1.25 }}>
-                        {formatTimeAgo(p.published_time || p.scheduled_time || p.created_at)}
-                      </span>
-                    </div>
+                    {(() => {
+                      const postDateKey = getLocalDateKey(p.published_time || p.scheduled_time || p.created_at);
+                      const slotDateKey = getLocalDateKey(slot.planned_date_str || slot.planned_date);
+                      const isSameDay = Boolean(postDateKey && slotDateKey && postDateKey === slotDateKey);
+
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', lineHeight: 1.25 }}>
+                              Post #{p.id}
+                            </span>
+                            {isSameDay ? (
+                              <span
+                                style={{
+                                  fontSize: '10px',
+                                  fontWeight: 700,
+                                  color: '#15803d',
+                                  background: '#dcfce7',
+                                  border: '1px solid #bbf7d0',
+                                  padding: '1px 5px',
+                                  borderRadius: '4px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                }}
+                                title="Same-day match: fulfills as regular on-time deliverable"
+                              >
+                                <Check size={9} strokeWidth={2.8} /> On-Time
+                              </span>
+                            ) : (
+                              <span
+                                style={{
+                                  fontSize: '10px',
+                                  fontWeight: 600,
+                                  color: '#7c3aed',
+                                  background: '#f5f3ff',
+                                  border: '1px solid #e9d5ff',
+                                  padding: '1px 5px',
+                                  borderRadius: '4px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                }}
+                                title="Cross-day post: fulfills as make-up compensation"
+                              >
+                                <Sparkles size={9} strokeWidth={2.2} /> Make-Up
+                              </span>
+                            )}
+                          </div>
+                          <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 400, lineHeight: 1.25 }}>
+                            {formatTimeAgo(p.published_time || p.scheduled_time || p.created_at)}
+                          </span>
+                        </div>
+                      );
+                    })()}
 
                     {/* Professional Page Name Tag */}
                     <div
@@ -641,20 +699,37 @@ export const LinkExistingPostModal = ({
           Cancel
         </Button>
 
-        <Button
-          variant="primary"
-          size="sm"
-          disabled={!selectedPostId || submitting}
-          loading={submitting}
-          icon={!submitting ? <Check size={14} /> : undefined}
-          onClick={handleAttach}
-        >
-          {submitting
-            ? `Attaching Post #${selectedPostId}...`
-            : selectedPostId
-            ? `Attach Post #${selectedPostId} to Slot #${slot.id}`
-            : 'Select a Post to Attach'}
-        </Button>
+        {(() => {
+          const isSelectedSameDay = Boolean(
+            selectedPost &&
+            getLocalDateKey(selectedPost.published_time || selectedPost.scheduled_time || selectedPost.created_at) ===
+            getLocalDateKey(slot.planned_date_str || slot.planned_date)
+          );
+
+          let buttonText = 'Select a Post to Attach';
+          if (submitting) {
+            buttonText = isSelectedSameDay
+              ? `Attaching Post #${selectedPostId} (On-Time)...`
+              : `Attaching Post #${selectedPostId} (Make-Up)...`;
+          } else if (selectedPostId) {
+            buttonText = isSelectedSameDay
+              ? `Attach Post #${selectedPostId} (On-Time ✓)`
+              : `Attach Post #${selectedPostId} as Make-Up ✨`;
+          }
+
+          return (
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={!selectedPostId || submitting}
+              loading={submitting}
+              icon={!submitting ? <Check size={14} /> : undefined}
+              onClick={handleAttach}
+            >
+              {buttonText}
+            </Button>
+          );
+        })()}
       </ModalFooter>
     </Modal>
   );
