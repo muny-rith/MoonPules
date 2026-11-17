@@ -203,7 +203,7 @@ export const BrandCalendarPage = () => {
   const { data: pages = [] } = usePages();
 
   // Contracted client campaign brands (brands that have missions with clients)
-  const { data: missionBrands = [] } = useMissionBrands(monthNumber, yearNumber);
+  const { data: missionBrands = [], isLoading: missionBrandsLoading } = useMissionBrands(monthNumber, yearNumber);
 
   // Fast brand logo lookup map by brand_id and normalized brand_name
   const brandLogoMap = useMemo(() => {
@@ -276,6 +276,20 @@ export const BrandCalendarPage = () => {
       null
     );
   }, [missionBrands, brands, selectedBrandId]);
+
+  // Auto-reset stale selectedBrandId if brand has no active campaign in this month
+  useEffect(() => {
+    if (selectedBrandId && selectedBrandId !== 'all' && !missionBrandsLoading && !loading) {
+      const brandExists = (missionBrands || []).some(
+        (b) => String(b.brand_id || b.id) === String(selectedBrandId)
+      ) || (calendarSlots || []).some(
+        (s) => String(s.brand_id) === String(selectedBrandId)
+      );
+      if (!brandExists) {
+        setSelectedBrandId('all');
+      }
+    }
+  }, [missionBrands, calendarSlots, selectedBrandId, missionBrandsLoading, loading]);
 
   // Load tracked posts from PostTracker
   const { posts } = usePostTracker({ range: 'all' });

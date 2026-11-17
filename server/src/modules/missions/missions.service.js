@@ -247,6 +247,15 @@ const saveMissionWithSlots = async ({
   slots = [],
   notes = null,
 }) => {
+  // If saving with 0 slots, clean up any existing mission so no empty ghost blueprint persists
+  if (!slots || slots.length === 0) {
+    const existing = await missionsRepo.getMission(brand_id, month, year);
+    if (existing) {
+      await missionsRepo.deleteMission(existing.id);
+    }
+    return null;
+  }
+
   const mission = await missionsRepo.upsertMission({
     brand_id,
     brand_name,

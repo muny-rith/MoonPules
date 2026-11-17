@@ -181,6 +181,15 @@ const recalculateMissionTargets = async (missionId) => {
      WHERE id = $1`,
     [missionId]
   );
+
+  // If all slots are deleted and targets are 0, remove the empty mission shell
+  await db.query(
+    `DELETE FROM tb_brand_mission
+     WHERE id = $1
+       AND target_posters = 0 AND target_live_streams = 0 AND target_videos = 0
+       AND NOT EXISTS (SELECT 1 FROM tb_brand_mission_slot WHERE mission_id = $1)`,
+    [missionId]
+  );
 };
 
 /**
@@ -502,16 +511,21 @@ const getAllSlotsWithMissionsForMonth = async (month, year) => {
 
 /**
  * Get distinct brands that have missions / campaigns with clients
+ * Strictly requires active deliverables: planned slots > 0 or target content > 0.
  * If month and year are provided and have missions, returns brands for that month.
  * Otherwise falls back to all distinct brands with any mission.
  */
 const getContractedBrands = async (month = null, year = null) => {
   if (month && year) {
     const monthRes = await db.query(
-      `SELECT DISTINCT brand_id, brand_name 
-       FROM tb_brand_mission 
-       WHERE month = $1 AND year = $2
-       ORDER BY brand_name ASC`,
+      `SELECT DISTINCT m.brand_id, m.brand_name 
+       FROM tb_brand_mission m
+       WHERE m.month = $1 AND m.year = $2
+         AND (
+           (m.target_posters + m.target_live_streams + m.target_videos) > 0
+           OR EXISTS (SELECT 1 FROM tb_brand_mission_slot s WHERE s.mission_id = m.id)
+         )
+       ORDER BY m.brand_name ASC`,
       [parseInt(month, 10), parseInt(year, 10)]
     );
     if (monthRes.rows.length > 0) {
@@ -520,17 +534,27 @@ const getContractedBrands = async (month = null, year = null) => {
   }
 
   const allRes = await db.query(
-    `SELECT DISTINCT brand_id, brand_name 
-     FROM tb_brand_mission 
-     ORDER BY brand_name ASC`
+    `SELECT DISTINCT m.brand_id, m.brand_name 
+     FROM tb_brand_mission m
+     WHERE (
+       (m.target_posters + m.target_live_streams + m.target_videos) > 0
+       OR EXISTS (SELECT 1 FROM tb_brand_mission_slot s WHERE s.mission_id = m.id)
+     )
+     ORDER BY m.brand_name ASC`
   );
   return allRes.rows;
+};
+
+const deleteMission = async (missionId) => {
+  await db.query(`DELETE FROM tb_brand_mission_slot WHERE mission_id = $1`, [missionId]);
+  await db.query(`DELETE FROM tb_brand_mission WHERE id = $1`, [missionId]);
 };
 
 module.exports = {
   getMission,
   getAllMissionsForMonth,
   getContractedBrands,
+  deleteMission,
   upsertMission,
   getSlotsByMissionId,
   getSlotsForBrandAndMonth,
