@@ -18,6 +18,7 @@ export const queryKeys = {
   },
   missions: {
     all: ['missions'],
+    brands: (month, year) => ['missions', 'brands', { month, year }],
     slots: (brandId = 'all', month, year) => ['missions', 'slots', { brandId: String(brandId), month, year }],
     audit: (month, year) => ['missions', 'audit', { month, year }],
   },

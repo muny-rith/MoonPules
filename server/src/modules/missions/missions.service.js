@@ -283,7 +283,8 @@ const getCalendarSlots = async (brandId, month, year) => {
   });
 
   // For unlinked slots, sort by [live, video, photo] so specific slots claim matches first
-  const unlinkedSlots = slots.filter((s) => !s.linked_post_id || s.fb_post_id === undefined);
+  // CRITICAL: Exclude slots that are explicitly 'missed' or 'waived' (e.g. user unlinked or categorized)
+  const unlinkedSlots = slots.filter((s) => !s.linked_post_id && s.slot_status !== 'missed' && s.slot_status !== 'waived');
   const sortedUnlinked = [...unlinkedSlots].sort((a, b) => {
     const order = { live: 1, video: 2, photo: 3 };
     const oA = order[a.content_type?.toLowerCase()] || 3;
@@ -338,10 +339,12 @@ const getCalendarSlots = async (brandId, month, year) => {
       };
     }
 
-    // 2. Fallback: Dynamic matching if not yet persistently linked
-    const matchingPost = fallbackMatchBySlotId.get(slot.id);
+    // 2. Fallback: Dynamic matching if not yet persistently linked and not explicitly missed/waived
+    const matchingPost = (slot.slot_status !== 'missed' && slot.slot_status !== 'waived')
+      ? fallbackMatchBySlotId.get(slot.id)
+      : null;
 
-    let computedStatus = 'planned';
+    let computedStatus = slot.slot_status || 'planned';
     let linkedPost = null;
     if (matchingPost && matchingPost.status === 'published') {
       computedStatus = 'completed';
@@ -367,7 +370,7 @@ const getCalendarSlots = async (brandId, month, year) => {
         fb_post_id: matchingPost.fb_post_id,
         page_id: matchingPost.page_id,
       };
-    } else if (slotDateStr < todayStr) {
+    } else if (slotDateStr < todayStr || slot.slot_status === 'missed') {
       computedStatus = 'missed';
     }
 
@@ -585,12 +588,31 @@ const reconcilePostWithMission = async (post) => {
 
     const targetStatus = post.status === 'published' ? 'completed' : post.status === 'scheduled' ? 'scheduled' : 'planned';
 
-    // 0. Explicit Compensation Linking (Highest Priority)
+    // 0. Explicit Compensation / Target Slot Linking (Highest Priority)
     if (post.compensation_for_slot_id) {
       const targetSlot = await missionsRepo.getSlotById(post.compensation_for_slot_id);
       if (targetSlot) {
         const brandMatches = String(targetSlot.brand_id || '') === String(post.brand_id || '');
-        if (brandMatches) {
+        const isLive = (post.media_type || '').toLowerCase() === 'live' || (targetSlot.content_type || '').toLowerCase() === 'live';
+
+        if (!brandMatches && !isLive) {
+          console.warn(`[reconcilePostWithMission] Blocked cross-brand linking for non-live deliverable: Post #${post.id} (brand ${post.brand_id}) cannot fulfill Slot #${targetSlot.id} (brand ${targetSlot.brand_id})`);
+          return null;
+        }
+
+        const slotDateStr = formatLocalDateStr(targetSlot.planned_date);
+        const typeMatches = isMediaTypeCompatibleWithSlot(targetSlot.content_type, post.media_type);
+        const isSameDayMatch = (brandMatches || isLive) && typeMatches && (postDateStr === slotDateStr);
+
+        if (isSameDayMatch) {
+          // Case 1: On-Time Fulfillment / Retroactive Match (Same Day & Brand/Live & Type)
+          // The post was published on the planned date — satisfy as Completed, NOT Make-Up
+          const finalStatus = post.status === 'published' ? 'completed' : post.status === 'scheduled' ? 'scheduled' : 'planned';
+          const postTrackerRepo = require('../postTracker/postTracker.repository');
+          await postTrackerRepo.updateTrackedPostData(post.id, { compensation_for_slot_id: null });
+          return await missionsRepo.linkSlotToPost(targetSlot.id, post.id, finalStatus, false);
+        } else {
+          // Case 2: Cross-Day Make-Up Compensation (ផុសសង)
           const finalStatus = post.status === 'published' ? 'compensated' : post.status === 'scheduled' ? 'scheduled' : 'planned';
           return await missionsRepo.linkSlotToPost(targetSlot.id, post.id, finalStatus, true);
         }
@@ -600,10 +622,21 @@ const reconcilePostWithMission = async (post) => {
     // 1. Check if post is already linked to an existing slot
     const existingSlot = await missionsRepo.getSlotByLinkedPostId(post.id);
     if (existingSlot) {
-      // If this existing link is a compensation link, preserve it if brand still matches
+      const brandMatches = String(existingSlot.brand_id || '') === String(post.brand_id || '');
+      const existingDateStr = formatLocalDateStr(existingSlot.planned_date);
+      const dateMatches = existingDateStr === postDateStr;
+      const typeMatches = isMediaTypeCompatibleWithSlot(existingSlot.content_type, post.media_type);
+
+      // If this existing link is marked as compensation, re-verify if date actually matches on-time
       if (existingSlot.is_compensated) {
-        const brandMatches = String(existingSlot.brand_id || '') === String(post.brand_id || '');
         if (brandMatches) {
+          if (dateMatches && typeMatches) {
+            // Re-classified as on-time fulfillment (Same Day & Brand & Type)
+            const finalStatus = post.status === 'published' ? 'completed' : post.status === 'scheduled' ? 'scheduled' : 'planned';
+            const postTrackerRepo = require('../postTracker/postTracker.repository');
+            await postTrackerRepo.updateTrackedPostData(post.id, { compensation_for_slot_id: null });
+            return await missionsRepo.linkSlotToPost(existingSlot.id, post.id, finalStatus, false);
+          }
           const finalStatus = post.status === 'published' ? 'compensated' : post.status === 'scheduled' ? 'scheduled' : 'planned';
           return await missionsRepo.linkSlotToPost(existingSlot.id, post.id, finalStatus, true);
         }
@@ -612,11 +645,6 @@ const reconcilePostWithMission = async (post) => {
         const postTrackerRepo = require('../postTracker/postTracker.repository');
         await postTrackerRepo.updateTrackedPostData(post.id, { compensation_for_slot_id: null });
       }
-
-      const existingDateStr = formatLocalDateStr(existingSlot.planned_date);
-      const brandMatches = String(existingSlot.brand_id || '') === String(post.brand_id || '');
-      const dateMatches = existingDateStr === postDateStr;
-      const typeMatches = isMediaTypeCompatibleWithSlot(existingSlot.content_type, post.media_type);
 
       // If brand, date, and content_type are still aligned/compatible, just update status
       if (brandMatches && dateMatches && typeMatches) {
@@ -776,15 +804,30 @@ const linkPostToSlot = async (slotId, postId) => {
     throw new Error('Post not found');
   }
 
-  // 0. If this post was previously linked to another mission slot, unlink it first
-  await missionsRepo.unlinkSlotByPostId(postId);
+  const brandMatches = String(post.brand_id || '') === String(slot.brand_id || '');
+  const isLive = (post.media_type || '').toLowerCase() === 'live' || (slot.content_type || '').toLowerCase() === 'live';
+
+  if (!brandMatches && !isLive) {
+    const productsService = require('../products/products.service');
+    const brands = await productsService.listBrands().catch(() => []);
+    const existingBrand = brands.find((b) => String(b.id || b.brand_id) === String(post.brand_id));
+    const existingBrandName = existingBrand?.brand_name || existingBrand?.name || `Brand #${post.brand_id}`;
+    throw new Error(`Cannot link Post #${postId}: It is assigned to "${existingBrandName}". Only Live Streams can be shared across multiple brands.`);
+  }
+
+  // 0. If non-live deliverable: Unlink from any previously linked slot (strict 1-to-1)
+  // If live stream: Only detach this specific slot to preserve multi-brand co-stream links
+  if (!isLive) {
+    await missionsRepo.unlinkSlotByPostId(postId);
+  } else {
+    await missionsRepo.unlinkSlotBySlotId(slot.id);
+  }
 
   const rawPostDate = post.published_time || post.scheduled_time || post.created_at;
   const postDateStr = formatLocalDateStr(rawPostDate);
   const slotDateStr = formatLocalDateStr(slot.planned_date);
-  const brandMatches = String(post.brand_id || '') === String(slot.brand_id || '');
   const typeMatches = isMediaTypeCompatibleWithSlot(slot.content_type, post.media_type);
-  const isSameDayMatch = brandMatches && typeMatches && (postDateStr === slotDateStr);
+  const isSameDayMatch = (brandMatches || isLive) && typeMatches && (postDateStr === slotDateStr);
 
   let finalStatus;
   let isCompensated;
@@ -846,16 +889,44 @@ const unlinkPostFromSlot = async (slotId) => {
     await postTrackerRepo.updateTrackedPostData(slot.linked_post_id, { compensation_for_slot_id: null });
   }
 
-  const updatedSlot = await missionsRepo.unlinkSlotBySlotId(slot.id);
+  const todayStr = formatLocalDateStr(new Date());
+  const slotDateStr = formatLocalDateStr(slot.planned_date);
+  const nextStatus = slotDateStr < todayStr ? 'missed' : 'planned';
+
+  const updatedSlot = await missionsRepo.unlinkSlotBySlotId(slot.id, nextStatus);
   return {
     ...updatedSlot,
     brand_id: slot.brand_id,
     brand_name: slot.brand_name,
-    planned_date_str: formatLocalDateStr(updatedSlot.planned_date || slot.planned_date),
-    computed_status: 'missed',
+    planned_date_str: slotDateStr,
+    slot_status: nextStatus,
+    computed_status: nextStatus,
     is_compensated: false,
     linked_post: null,
   };
+};
+
+/**
+ * Get contracted client brands that have missions / campaigns with clients
+ * Enriched with brand logos and details from IMS
+ */
+const getMissionBrands = async (month = null, year = null) => {
+  const missionBrands = await missionsRepo.getContractedBrands(month, year);
+
+  const productsService = require('../products/products.service');
+  const allBrands = await productsService.listBrands().catch(() => []);
+  const imsMap = new Map();
+  allBrands.forEach((b) => imsMap.set(String(b.brand_id || b.id), b));
+
+  return missionBrands.map((mb) => {
+    const ims = imsMap.get(String(mb.brand_id));
+    return {
+      brand_id: mb.brand_id,
+      brand_name: mb.brand_name || ims?.brand_name || ims?.name,
+      image_url: ims?.image_url || ims?.logo_url || null,
+      description: ims?.description || null,
+    };
+  });
 };
 
 module.exports = {
@@ -864,6 +935,7 @@ module.exports = {
   saveMissionWithSlots,
   getCalendarSlots,
   getMonthAudit,
+  getMissionBrands,
   updateSlot,
   createSlot,
   deleteSlot,

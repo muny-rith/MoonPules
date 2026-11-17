@@ -389,7 +389,7 @@ const unlinkSlotByPostId = async (postId) => {
   const result = await db.query(
     `UPDATE tb_brand_mission_slot
      SET linked_post_id = NULL,
-         slot_status = 'planned',
+         slot_status = CASE WHEN planned_date < CURRENT_DATE THEN 'missed' ELSE 'planned' END,
          is_compensated = FALSE,
          compensated_at = NULL,
          updated_at = CURRENT_TIMESTAMP
@@ -401,19 +401,19 @@ const unlinkSlotByPostId = async (postId) => {
 };
 
 /**
- * Unlink a specific slot by slot ID (clearing post link and restoring planned status)
+ * Unlink a specific slot by slot ID (clearing post link and restoring missed/planned status)
  */
-const unlinkSlotBySlotId = async (slotId) => {
+const unlinkSlotBySlotId = async (slotId, status = null) => {
   const result = await db.query(
     `UPDATE tb_brand_mission_slot
      SET linked_post_id = NULL,
-         slot_status = 'planned',
+         slot_status = COALESCE($2, CASE WHEN planned_date < CURRENT_DATE THEN 'missed' ELSE 'planned' END),
          is_compensated = FALSE,
          compensated_at = NULL,
          updated_at = CURRENT_TIMESTAMP
      WHERE id = $1
      RETURNING *`,
-    [slotId]
+    [slotId, status]
   );
   return result.rows[0] || null;
 };
@@ -500,9 +500,37 @@ const getAllSlotsWithMissionsForMonth = async (month, year) => {
   return result.rows;
 };
 
+/**
+ * Get distinct brands that have missions / campaigns with clients
+ * If month and year are provided and have missions, returns brands for that month.
+ * Otherwise falls back to all distinct brands with any mission.
+ */
+const getContractedBrands = async (month = null, year = null) => {
+  if (month && year) {
+    const monthRes = await db.query(
+      `SELECT DISTINCT brand_id, brand_name 
+       FROM tb_brand_mission 
+       WHERE month = $1 AND year = $2
+       ORDER BY brand_name ASC`,
+      [parseInt(month, 10), parseInt(year, 10)]
+    );
+    if (monthRes.rows.length > 0) {
+      return monthRes.rows;
+    }
+  }
+
+  const allRes = await db.query(
+    `SELECT DISTINCT brand_id, brand_name 
+     FROM tb_brand_mission 
+     ORDER BY brand_name ASC`
+  );
+  return allRes.rows;
+};
+
 module.exports = {
   getMission,
   getAllMissionsForMonth,
+  getContractedBrands,
   upsertMission,
   getSlotsByMissionId,
   getSlotsForBrandAndMonth,

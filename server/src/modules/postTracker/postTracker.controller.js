@@ -60,8 +60,16 @@ const getPostById = async (req, res, next) => {
 // In-flight / rapid-duplicate submission guard (prevents accidental multi-clicks creating duplicate posts)
 const recentCreations = new Map();
 
-const isDuplicateSubmission = (pageId, message, mediaUrl) => {
-  const key = `${pageId}_${(message || '').trim()}_${typeof mediaUrl === 'string' ? mediaUrl : JSON.stringify(mediaUrl || '')}`;
+const isDuplicateSubmission = (pageId, message, mediaUrl, fbPostId = null) => {
+  let key;
+  if (fbPostId) {
+    key = `${pageId}_fb_${String(fbPostId).trim()}`;
+  } else if ((message || '').trim() || mediaUrl) {
+    key = `${pageId}_${(message || '').trim()}_${typeof mediaUrl === 'string' ? mediaUrl : JSON.stringify(mediaUrl || '')}`;
+  } else {
+    return false;
+  }
+
   const now = Date.now();
   if (recentCreations.has(key)) {
     const lastTimestamp = recentCreations.get(key);
@@ -82,9 +90,9 @@ const createPost = async (req, res, next) => {
     };
 
     // Prevent duplicate rapid submissions from rapid clicks or network retries
-    if (isDuplicateSubmission(postData.page_id, postData.message, postData.media_url)) {
-      console.warn(`[createPost] Duplicate submission detected for page ${postData.page_id} within 4s. Ignoring.`);
-      return res.status(200).json({ message: 'Duplicate post creation ignored' });
+    if (isDuplicateSubmission(postData.page_id, postData.message, postData.media_url, postData.fb_post_id)) {
+      console.warn(`[createPost] Duplicate submission detected for page ${postData.page_id} within 4s.`);
+      return res.status(409).json({ error: 'Duplicate submission in progress. Please wait a moment.' });
     }
 
     // If direct scheduling / publishing mode (Method 1)

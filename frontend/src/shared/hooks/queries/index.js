@@ -1,4 +1,5 @@
 export * from './useBrands';
+export * from './useMissionBrands';
 export * from './usePages';
 export * from './useCalendarSlots';
 export * from './useMonthAudit';

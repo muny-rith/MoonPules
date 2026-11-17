@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Modal, ModalHeader, ModalBody, ModalFooter } from '../../../shared/components/ui/Modal/Modal';
 import { Button } from '../../../shared/components/ui/Button/Button';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
@@ -27,13 +28,19 @@ import { FaFacebook, FaTiktok } from 'react-icons/fa';
 const formatDate = (dateStr) => {
   if (!dateStr) return '';
   try {
-    const d = new Date(dateStr);
-    if (!isNaN(d.getTime())) {
-      return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    const trimmed = String(dateStr).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      const [y, m, d] = trimmed.split('-').map((v) => parseInt(v, 10));
+      const dateObj = new Date(y, m - 1, d);
+      return dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
     }
-    return String(dateStr).slice(0, 10);
+    const d = new Date(trimmed);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Asia/Phnom_Penh' });
+    }
+    return trimmed;
   } catch {
-    return String(dateStr).slice(0, 10);
+    return String(dateStr);
   }
 };
 
@@ -86,6 +93,7 @@ export const LinkExistingPostModal = ({
   onLinked,
   calendarSlots: externalSlots = null,
 }) => {
+  const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -97,8 +105,8 @@ export const LinkExistingPostModal = ({
   const slotDateInfo = useMemo(() => {
     let year = new Date().getFullYear();
     let month = new Date().getMonth() + 1;
-    if (slot?.planned_date) {
-      const cleanStr = String(slot.planned_date).slice(0, 10);
+    const cleanStr = slot?.planned_date_str || (slot?.planned_date ? getLocalDateKey(slot.planned_date) : '');
+    if (cleanStr) {
       const parts = cleanStr.split('-');
       if (parts.length === 3) {
         year = parseInt(parts[0], 10);
@@ -114,7 +122,7 @@ export const LinkExistingPostModal = ({
       year: 'numeric',
     });
     return { year, month, startOfMonth, endOfMonth, monthName };
-  }, [slot?.planned_date]);
+  }, [slot?.planned_date, slot?.planned_date_str]);
 
   // Load unassigned posts for the slot's brand (scoped to slot's month)
   useEffect(() => {
@@ -393,7 +401,7 @@ export const LinkExistingPostModal = ({
                   border: '1px solid #fecaca',
                 }}
               >
-                Due: {formatDate(slot.planned_date)}
+                Due: {formatDate(slot.planned_date_str || slot.planned_date)}
               </span>
               <span
                 style={{
@@ -447,7 +455,7 @@ export const LinkExistingPostModal = ({
             </span>
           </div>
         ) : filteredPosts.length === 0 ? (
-          <div style={{ padding: '32px 16px', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
+          <div style={{ padding: '28px 16px', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
             <AlertCircle size={28} style={{ margin: '0 auto 8px auto', display: 'block', color: '#94a3b8' }} />
             <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 700, color: '#334155' }}>
               {searchQuery ? 'No matching posts found' : `No posts found in ${slotDateInfo.monthName}`}
@@ -457,6 +465,36 @@ export const LinkExistingPostModal = ({
                 ? 'Try adjusting your search terms.'
                 : `No tracked posts found for ${slot.brand_name || 'this brand'} in ${slotDateInfo.monthName}.`}
             </p>
+            {!searchQuery && (
+              <div style={{ marginTop: '16px' }}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    onClose();
+                    navigate(`/planner/create?mode=legacy`, {
+                      state: {
+                        returnPath: '/calendar',
+                        initialTab: 'legacy',
+                        prefillBrandId: slot.brand_id,
+                        prefillType: slot.content_type,
+                        defaultBrandId: slot.brand_id,
+                        defaultContentType: slot.content_type,
+                        plannedSlotId: slot.id,
+                        compensationSlotId: slot.id,
+                        compensationSlotDate: slot.planned_date_str || (slot.planned_date ? getLocalDateKey(slot.planned_date) : null),
+                        compensationSlotContentType: slot.content_type,
+                        compensationBrandName: slot.brand_name,
+                        compensationNotes: slot.notes || '',
+                      },
+                    });
+                  }}
+                  icon={<FaFacebook size={12} color="#1877f2" />}
+                >
+                  Track Existing Facebook Post for Slot #{slot.id}
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>

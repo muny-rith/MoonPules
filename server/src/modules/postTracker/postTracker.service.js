@@ -312,7 +312,33 @@ const markPost = async (postData) => {
       // Reconcile existing tracked post with the compensation slot
       const existing = await repository.getPostByFbPostId(fb_post_id);
       if (existing) {
+        const missionsRepo = require('../missions/missions.repository');
+        const targetSlot = await missionsRepo.getSlotById(postData.compensation_for_slot_id);
+        const incomingBrandId = hasBrand ? parseInt(brand_id, 10) : (targetSlot?.brand_id ? parseInt(targetSlot.brand_id, 10) : null);
+        const isDifferentBrand = incomingBrandId && existing.brand_id && String(incomingBrandId) !== String(existing.brand_id);
+        const isLive = (existing.media_type || '').toLowerCase() === 'live' || (targetSlot?.content_type || '').toLowerCase() === 'live';
+
+        if (isDifferentBrand && !isLive) {
+          const brands = await productsService.listBrands().catch(() => []);
+          const existingBrand = brands.find((b) => String(b.id || b.brand_id) === String(existing.brand_id));
+          const existingBrandName = existingBrand?.brand_name || existingBrand?.name || `Brand #${existing.brand_id}`;
+          const customErr = new Error(`Cannot link Post #${existing.id}: It is already tracked and assigned to "${existingBrandName}". Only Live Streams can be shared across multiple brands.`);
+          customErr.status = 409;
+          customErr.code = 'BRAND_CONFLICT';
+          throw customErr;
+        }
+
+        if (isDifferentBrand && isLive && targetSlot) {
+          // Multi-brand Live Stream support: Link the target slot directly without stripping previous brand assignment
+          await missionsRepo.linkSlotToPost(targetSlot.id, existing.id, 'completed', false);
+          return existing;
+        }
+
+        // Same brand: update post metadata if needed and reconcile
         await repository.updateTrackedPostData(existing.id, {
+          brand_id: hasBrand ? parseInt(brand_id, 10) : existing.brand_id,
+          product_id: hasProduct ? parseInt(product_id, 10) : existing.product_id,
+          tracking_type: tracking_type || (hasBrand && !hasProduct ? 'brand' : existing.tracking_type),
           compensation_for_slot_id: parseInt(postData.compensation_for_slot_id, 10),
         });
         const updated = await repository.getTrackedPostById(existing.id);

@@ -14,6 +14,14 @@ export const getCalendarSlots = async (brandId, month, year) => {
   return response.data?.data || [];
 };
 
+export const getMissionBrands = async (month, year) => {
+  const params = {};
+  if (month) params.month = month;
+  if (year) params.year = year;
+  const response = await apiClient.get('/missions/brands', { params });
+  return response.data?.data || [];
+};
+
 export const saveMission = async (payload) => {
   const response = await apiClient.post('/missions', payload);
   return response.data?.data || null;

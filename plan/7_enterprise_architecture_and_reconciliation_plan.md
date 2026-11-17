@@ -16,7 +16,7 @@ In modern media agency operations, client deliverable schedules (**Brand Mission
 
 ## 2. Professional Software Engineering Design Patterns Applied
 
-### Pattern 1: Defensive API Design & The Adapter Pattern (Postel's Law)
+### Pattern 1: D 
 * **Root Cause:** Caller components destructured `{ showSuccess, showError } = useToast()`, whereas the original `ToastContext` exposed `{ success, error }`. Under standard JavaScript execution, calling `undefined()` threw an uncaught `TypeError`, prematurely halting the execution chain before `onClose()` and `onLinked()` callbacks could execute.
 * **Architectural Implementation:**
   - Applied **Postel's Law (Robustness Principle)**: *"Be conservative in what you do, be liberal in what you accept from others."*
@@ -130,21 +130,20 @@ flowchart TD
 ---
 
 ### Pattern 7: Intelligent Dual-Mode Reconciliation (On-Time Fulfillment vs. Make-Up Compensation)
-* **Problem:** Previously, manually linking a post via `linkPostToSlot` unconditionally marked the slot as a make-up (`is_compensated: true`, status: `compensated`), displaying purple sparkles ✨ even when the post was published on the exact planned date for that brand and format. Historical on-time posts (from the legacy system before auto-record) were misclassified as make-ups.
-* **Resolution:** Implemented intelligent date-aware classification in both backend and frontend:
+* **Problem:** Previously, manually linking a post via `linkPostToSlot` or tracking an existing post via `CreatePostPage` unconditionally marked the slot as a make-up (`is_compensated: true`, status: `compensated`), displaying purple sparkles ✨ even when the post was published on the exact planned date for that brand and format. Historical on-time posts (from the legacy system before auto-record) were misclassified as make-ups until an unlink/link cycle occurred.
+* **Resolution:** Implemented intelligent date-aware classification across ALL reconciliation paths (`linkPostToSlot` and `reconcilePostWithMission`):
   1. **On-Time Match (Same Date & Brand & Format):**
      - Sets `slot_status: 'completed'`, `is_compensated: false`, `tb_posts.compensation_for_slot_id: null`.
      - Displays **Green Checkmark `✓`** on the calendar.
   2. **Make-Up Compensation (Cross-Day):**
      - Sets `slot_status: 'compensated'`, `is_compensated: true`, `tb_posts.compensation_for_slot_id: slot.id`.
      - Displays **Purple Sparkles `✨`** on the calendar.
-  3. **Purged Ambient Auto-Reconciliation (Zero Side-Effects in GETs):**
-     - Completely removed background guessing loops (`autoReconcileBrandSlots`) from `getCalendarSlots`, `getMissionWithProgress`, and `getMissedSlotsForCompensation`.
-     - Calendar reading endpoints are now **100% pure, side-effect-free read operations** with instant response times and zero risk of historic data mutation over 2-5 years.
-     - Linking is strictly **Deterministic & Explicit** (User-controlled via Link Post dialog or created directly from planned slots).
-  4. **Visual Feedback in Link Modal:**
-     - Displays `On-Time Match ✓` or `Make-Up ✨` badges on each post row.
-     - Dynamic button label indicates whether attaching will fulfill as On-Time or Make-Up.
+  3. **Universal Symmetry in `reconcilePostWithMission`:**
+     - Whenever a post is tracked from Facebook (even when initiated via compensation flow), `reconcilePostWithMission` verifies whether the verified Facebook `created_time` matches the slot's `planned_date`.
+     - Same-day matches automatically resolve as Completed (`✓`) and clear `compensation_for_slot_id` from the post.
+  4. **Direct Facebook Tracking Gateway in Empty Link Modal:**
+     - When `LinkExistingPostModal` finds 0 unassigned tracked posts in MoonPulse, it provides a 1-click CTA: `Track Existing Facebook Post for Slot #...`.
+     - Opens `CreatePostPage` directly in Facebook tracking mode (`mode=legacy`) prefilled with slot parameters.
 
 ---
 

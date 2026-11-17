@@ -106,15 +106,19 @@ const PageAvatar = ({ page, size = 26, className = 'meta-page-avatar-img' }) => 
 const formatDateLabel = (dateStr) => {
   if (!dateStr) return '';
   try {
-    const raw = String(dateStr).slice(0, 10);
-    const parts = raw.split('-');
-    if (parts.length === 3) {
-      const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-      return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    const trimmed = String(dateStr).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      const [y, m, d] = trimmed.split('-').map((v) => parseInt(v, 10));
+      const dateObj = new Date(y, m - 1, d);
+      return dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
     }
-    return raw;
+    const dateObj = new Date(trimmed);
+    if (!isNaN(dateObj.getTime())) {
+      return dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Asia/Phnom_Penh' });
+    }
+    return trimmed;
   } catch {
-    return String(dateStr).slice(0, 10);
+    return String(dateStr);
   }
 };
 

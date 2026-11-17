@@ -173,6 +173,18 @@ const unlinkPost = async (req, res, next) => {
   }
 };
 
+const getMissionBrands = async (req, res, next) => {
+  try {
+    const { month, year } = req.query;
+    const m = month ? parseInt(month, 10) : null;
+    const y = year ? parseInt(year, 10) : null;
+    const brands = await missionsService.getMissionBrands(m, y);
+    res.json({ data: brands });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getMission,
   getCalendarSlots,
@@ -185,5 +197,6 @@ module.exports = {
   getMissedSlots,
   linkPost,
   unlinkPost,
+  getMissionBrands,
 };
 

@@ -45,6 +45,14 @@ const REASON_OPTIONS = [
   },
 ];
 
+const formatSlotDateStr = (slot) => {
+  if (slot?.planned_date_str) return slot.planned_date_str;
+  if (!slot?.planned_date) return '';
+  const d = new Date(slot.planned_date);
+  if (isNaN(d.getTime())) return String(slot.planned_date).slice(0, 10);
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Phnom_Penh' });
+};
+
 export const CategorizeMissedModal = ({ isOpen, onClose, slot, onSaved }) => {
   const toast = useToast();
   const [selectedReason, setSelectedReason] = useState('agency_delay');
@@ -111,7 +119,7 @@ export const CategorizeMissedModal = ({ isOpen, onClose, slot, onSaved }) => {
     <Modal isOpen={isOpen} onClose={onClose} size="md">
       <ModalHeader
         title="Categorize Missed Deliverable"
-        description={`Slot #${slot.id} · ${slot.brand_name || 'Brand'} (${slot.planned_date_str || slot.planned_date?.slice(0, 10)} · ${(slot.content_type || 'post').toUpperCase()})`}
+        description={`Slot #${slot.id} · ${slot.brand_name || 'Brand'} (${formatSlotDateStr(slot)} · ${(slot.content_type || 'post').toUpperCase()})`}
         onClose={onClose}
       />
 

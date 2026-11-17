@@ -108,15 +108,19 @@ const PageAvatar = ({ page, size = 20, className = 'meta-page-avatar-img' }) => 
 const formatDateLabel = (dateStr) => {
   if (!dateStr) return '';
   try {
-    const raw = String(dateStr).slice(0, 10);
-    const parts = raw.split('-');
-    if (parts.length === 3) {
-      const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-      return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    const trimmed = String(dateStr).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      const [y, m, d] = trimmed.split('-').map((v) => parseInt(v, 10));
+      const dateObj = new Date(y, m - 1, d);
+      return dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
     }
-    return raw;
+    const dateObj = new Date(trimmed);
+    if (!isNaN(dateObj.getTime())) {
+      return dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Asia/Phnom_Penh' });
+    }
+    return trimmed;
   } catch {
-    return String(dateStr).slice(0, 10);
+    return String(dateStr);
   }
 };
 
@@ -133,7 +137,12 @@ export const CreatePostPage = () => {
 
   // Layout states
   const [previewDevice, setPreviewDevice] = useState('desktop'); // 'desktop' | 'mobile'
-  const [tabMode, setTabMode] = useState('direct'); // 'direct' | 'legacy'
+  const [tabMode, setTabMode] = useState(() => {
+    if (searchParams.get('mode') === 'legacy' || location.state?.initialTab === 'legacy') {
+      return 'legacy';
+    }
+    return 'direct';
+  }); // 'direct' | 'legacy'
   const textCardRef = useWheelIsolation();
 
   // Data states
@@ -212,11 +221,11 @@ export const CreatePostPage = () => {
         setAvailableMissedSlots(list);
         if (compensationSlot?.id) {
           const match = list.find((s) => s.id === compensationSlot.id);
-          if (match && (!compensationSlot.notes || !compensationSlot.planned_date)) {
+          if (match) {
             setCompensationSlot((prev) => prev ? {
               ...prev,
               notes: prev.notes || match.notes || '',
-              planned_date: prev.planned_date || match.planned_date_str || (match.planned_date?.slice(0, 10)),
+              planned_date: match.planned_date_str || prev.planned_date || (match.planned_date ? String(match.planned_date).slice(0, 10) : ''),
               brand_name: prev.brand_name || match.brand_name,
               content_type: prev.content_type || match.content_type,
             } : prev);
@@ -308,9 +317,40 @@ export const CreatePostPage = () => {
   const [postUrl, setPostUrl] = useState('');
   const [parsedPostId, setParsedPostId] = useState(null);
   const [urlError, setUrlError] = useState('');
+  const [existingPostConflict, setExistingPostConflict] = useState(null);
   const [recentPosts, setRecentPosts] = useState([]);
   const [loadingRecent, setLoadingRecent] = useState(false);
   const [selectedRecentPostId, setSelectedRecentPostId] = useState('');
+
+  // Real-time conflict check for already tracked posts (Enforce Option 3: Only Live Streams can be multi-brand)
+  useEffect(() => {
+    if (!parsedPostId || tabMode !== 'legacy') {
+      setExistingPostConflict(null);
+      return;
+    }
+    let cancelled = false;
+    api.fetchPosts({ search: parsedPostId, limit: 1 }, true).then((res) => {
+      if (cancelled) return;
+      const list = Array.isArray(res) ? res : res?.data || [];
+      const match = list.find((p) => p.fb_post_id === parsedPostId);
+      if (match && effectiveBrandId && String(match.brand_id) !== String(effectiveBrandId)) {
+        const isLive = (match.media_type || '').toLowerCase() === 'live';
+        if (!isLive) {
+          setExistingPostConflict({
+            id: match.id,
+            brand_id: match.brand_id,
+            brand_name: match.brand_name || `Brand #${match.brand_id}`,
+            media_type: match.media_type,
+          });
+          return;
+        }
+      }
+      setExistingPostConflict(null);
+    }).catch(() => {
+      if (!cancelled) setExistingPostConflict(null);
+    });
+    return () => { cancelled = true; };
+  }, [parsedPostId, effectiveBrandId, tabMode]);
 
   // Store Contact Footer
   const [contactFooter, setContactFooter] = useState('');
@@ -953,6 +993,12 @@ export const CreatePostPage = () => {
       setSubmitError(`Please select ${trackingTarget === 'brand' ? 'a Brand' : 'a Product'} and at least one Facebook Page.`);
       return;
     }
+    if (tabMode === 'legacy' && existingPostConflict) {
+      const conflictMsg = `Cannot track this post: Post #${existingPostConflict.id} is already assigned to "${existingPostConflict.brand_name}". Only Live Streams can be shared across multiple brands.`;
+      setSubmitError(conflictMsg);
+      toast.error(conflictMsg);
+      return;
+    }
     isSubmittingRef.current = true;
     setSubmitting(true);
     setSubmitError('');
@@ -1045,8 +1091,28 @@ export const CreatePostPage = () => {
           setSubmitting(false);
           return;
         }
+        // 0. Double-check for Brand Conflict before submitting (Prevents race condition)
         try {
-          await api.createPost({
+          const preCheckRes = await api.fetchPosts({ search: fbPostId, limit: 1 }, true);
+          const preCheckList = Array.isArray(preCheckRes) ? preCheckRes : preCheckRes?.data || [];
+          const existingMatch = preCheckList.find((p) => p.fb_post_id === fbPostId);
+          if (existingMatch && targetBrandId && String(existingMatch.brand_id) !== String(targetBrandId)) {
+            const isLive = (existingMatch.media_type || '').toLowerCase() === 'live';
+            if (!isLive) {
+              const conflictMsg = `Cannot link Post #${existingMatch.id}: It is already tracked and assigned to "${existingMatch.brand_name || 'another brand'}". Only Live Streams can be shared across multiple brands.`;
+              setSubmitError(conflictMsg);
+              toast.error(conflictMsg);
+              isSubmittingRef.current = false;
+              setSubmitting(false);
+              return;
+            }
+          }
+        } catch {
+          // Non-blocking precheck failure; backend will enforce
+        }
+
+        try {
+          const res = await api.createPost({
             mode: 'legacy',
             tracking_type: trackingTarget,
             product_id: targetProductId,
@@ -1058,29 +1124,58 @@ export const CreatePostPage = () => {
             attribution_window_days: parseInt(attributionWindow, 10) || 7,
             compensation_for_slot_id: compensationSlot?.id || null,
           });
+
+          if (res?.duplicate || res?.message?.toLowerCase().includes('duplicate') || res?.message?.toLowerCase().includes('ignored')) {
+            toast.info('This post submission is already being processed.');
+            isSubmittingRef.current = false;
+            setSubmitting(false);
+            return;
+          }
         } catch (createErr) {
+          const isBrandConflict =
+            createErr.response?.data?.code === 'BRAND_CONFLICT' ||
+            createErr.response?.data?.error?.toLowerCase().includes('only live streams') ||
+            createErr.response?.data?.error?.toLowerCase().includes('assigned to') ||
+            createErr.message?.toLowerCase().includes('only live streams');
+
+          if (isBrandConflict) {
+            throw createErr;
+          }
+
           const isAlreadyTracked =
             createErr.response?.status === 409 ||
             (createErr.response?.data?.error && createErr.response.data.error.toLowerCase().includes('already tracked')) ||
             (createErr.message && createErr.message.toLowerCase().includes('already tracked'));
 
           if (isAlreadyTracked && compensationSlot?.id) {
-            // Self-healing: Existing post in MoonPulse is automatically linked to the compensation slot
+            // Self-healing: Existing post in MoonPulse is automatically linked to the compensation slot (only if same brand or live)
             try {
               const existingRes = await api.fetchPosts({ search: fbPostId, limit: 5 }, true);
               const matchedPost = Array.isArray(existingRes)
                 ? (existingRes.find((p) => p.fb_post_id === fbPostId) || existingRes[0])
                 : null;
               if (matchedPost) {
-                await missionApi.linkPostToSlot(compensationSlot.id, matchedPost.id);
+                const isDifferentBrand = targetBrandId && matchedPost.brand_id && String(targetBrandId) !== String(matchedPost.brand_id);
+                const isLive = (matchedPost.media_type || '').toLowerCase() === 'live' || (compensationSlot.content_type || '').toLowerCase() === 'live';
+                if (isDifferentBrand && !isLive) {
+                  throw new Error(`Cannot link Post #${matchedPost.id}: It is assigned to another brand. Only Live Streams can be shared across multiple brands.`);
+                }
+
+                const linkRes = await missionApi.linkPostToSlot(compensationSlot.id, matchedPost.id);
                 clearMessageDraft();
                 await invalidatePostAndMissionCaches();
-                toast.success(`Post #${matchedPost.id} successfully linked as make-up for Slot #${compensationSlot.id}!`);
+                const isSameDay = linkRes?.isSameDayMatch;
+                toast.success(
+                  isSameDay
+                    ? `Post #${matchedPost.id} linked as on-time fulfillment for Slot #${compensationSlot.id}!`
+                    : `Post #${matchedPost.id} linked as make-up for Slot #${compensationSlot.id}!`
+                );
                 navigate(returnPath);
                 return;
               }
             } catch (linkFallbackErr) {
               console.warn('Fallback linking failed:', linkFallbackErr);
+              throw linkFallbackErr;
             }
           }
           throw createErr;
@@ -1091,9 +1186,13 @@ export const CreatePostPage = () => {
       // Ensure all cache tiers (TanStack Query, session, modules) are instantly refreshed
       await invalidatePostAndMissionCaches();
 
-      const successMessage = publishMode === 'schedule'
-        ? 'Post scheduled successfully!'
-        : 'Post created and tracked successfully!';
+      const successMessage = tabMode === 'legacy'
+        ? (compensationSlot
+            ? `Post tracked and linked to Slot #${compensationSlot.id}!`
+            : 'Facebook post tracked successfully!')
+        : (publishMode === 'schedule'
+            ? 'Post scheduled successfully!'
+            : 'Post created and tracked successfully!');
       toast.success(successMessage);
       navigate(returnPath);
     } catch (err) {
@@ -2115,7 +2214,7 @@ export const CreatePostPage = () => {
                       : 'Publish'
                   )
                 ) : (
-                  compensationSlot ? `Link & Track as Make-Up for Slot #${compensationSlot.id}` : 'Track Post'
+                  compensationSlot ? `Link & Track Post for Slot #${compensationSlot.id}` : 'Track Post'
                 )}
               </Button>
             </div>

@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import * as missionApi from '../../missions/api/missionApi';
-import { useBrands, usePages, useCalendarSlots } from '../../../shared/hooks/queries';
+import { useBrands, usePages, useCalendarSlots, useMissionBrands } from '../../../shared/hooks/queries';
 import { queryKeys } from '../../../shared/utils/queryKeys';
 import { invalidatePostAndMissionCaches, invalidateMissionCaches } from '../../../shared/utils/cacheSync';
 import { usePostTracker } from '../../postTracker/hooks/usePostTracker';
@@ -119,14 +119,15 @@ const resolveSlotDisplay = (slot, dateKey, todayKey, posts) => {
     (slot.time_window || '').includes('04:00PM') ||
     (slot.notes || '').toLowerCase().includes('payday');
   const typeInfo = getContentTypeInfo(slot.content_type, isSpecial);
-  const linked = findMatchingPostForSlot(slot, posts);
+  const isSlotMissed = slot.slot_status === 'missed' || slot.computed_status === 'missed';
+  const linked = slot.linked_post || (!isSlotMissed && slot.slot_status !== 'waived' ? findMatchingPostForSlot(slot, posts) : null);
 
   const isCompensated = slot.computed_status === 'compensated' || slot.is_compensated;
-  const isCompleted = !isCompensated && (slot.computed_status === 'completed' || linked?.status === 'published');
+  const isCompleted = !isCompensated && !isSlotMissed && (slot.computed_status === 'completed' || linked?.status === 'published');
   const isScheduled =
-    !isCompleted && !isCompensated && (slot.computed_status === 'scheduled' || linked?.status === 'scheduled');
+    !isCompleted && !isCompensated && !isSlotMissed && (slot.computed_status === 'scheduled' || linked?.status === 'scheduled');
   const isMissed =
-    !isCompleted && !isCompensated && !isScheduled && (slot.computed_status === 'missed' || (dateKey < todayKey && !linked));
+    !isCompleted && !isCompensated && !isScheduled && (isSlotMissed || (dateKey < todayKey && !linked));
 
   const stateClass = isCompensated
     ? 'is-compensated'
@@ -201,6 +202,9 @@ export const BrandCalendarPage = () => {
   const { data: brands = [] } = useBrands();
   const { data: pages = [] } = usePages();
 
+  // Contracted client campaign brands (brands that have missions with clients)
+  const { data: missionBrands = [] } = useMissionBrands(monthNumber, yearNumber);
+
   // Fast brand logo lookup map by brand_id and normalized brand_name
   const brandLogoMap = useMemo(() => {
     const map = new Map();
@@ -213,22 +217,6 @@ export const BrandCalendarPage = () => {
     });
     return map;
   }, [brands]);
-
-  // Formatted options for global UI Select components
-  const brandOptions = useMemo(() => {
-    const list = [{ value: 'all', label: '🌟 All Brands (Master Schedule)' }];
-    (brands || []).forEach((b) => {
-      const id = String(b.brand_id || b.id);
-      const name = b.brand_name || b.name || `Brand #${id}`;
-      list.push({ value: id, label: name });
-    });
-    return list;
-  }, [brands]);
-
-  const selectedBrand = useMemo(() => {
-    if (!selectedBrandId || selectedBrandId === 'all') return null;
-    return brands.find((b) => String(b.brand_id || b.id) === String(selectedBrandId)) || null;
-  }, [brands, selectedBrandId]);
 
   const pageOptions = useMemo(() => {
     const list = [{ value: 'all', label: `📄 All Pages ${pages.length > 0 ? `(${pages.length})` : ''}` }];
@@ -251,6 +239,43 @@ export const BrandCalendarPage = () => {
   const [isUnlinking, setIsUnlinking] = useState(false);
   // TanStack Query: Cached calendar slots (0ms instant render on back navigation)
   const { data: calendarSlots = [], isLoading: loading } = useCalendarSlots(selectedBrandId, monthNumber, yearNumber);
+
+  // Formatted options for global UI Select components: ONLY brands that have a mission / campaign with clients
+  const brandOptions = useMemo(() => {
+    const list = [{ value: 'all', label: '🌟 All Brands (Master Schedule)' }];
+
+    // Primary: Brands with campaigns / missions with client
+    const availableBrandsMap = new Map();
+    (missionBrands || []).forEach((b) => {
+      const id = String(b.brand_id || b.id);
+      availableBrandsMap.set(id, b.brand_name || b.name || `Brand #${id}`);
+    });
+
+    // Safety fallback: any brand with a slot in the current calendar view
+    (calendarSlots || []).forEach((s) => {
+      const id = String(s.brand_id);
+      if (id && !availableBrandsMap.has(id)) {
+        availableBrandsMap.set(id, s.brand_name || `Brand #${id}`);
+      }
+    });
+
+    // Sort alphabetically by brand name
+    const sorted = Array.from(availableBrandsMap.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+    sorted.forEach(([id, name]) => {
+      list.push({ value: id, label: name });
+    });
+
+    return list;
+  }, [missionBrands, calendarSlots]);
+
+  const selectedBrand = useMemo(() => {
+    if (!selectedBrandId || selectedBrandId === 'all') return null;
+    return (
+      (missionBrands || []).find((b) => String(b.brand_id || b.id) === String(selectedBrandId)) ||
+      brands.find((b) => String(b.brand_id || b.id) === String(selectedBrandId)) ||
+      null
+    );
+  }, [missionBrands, brands, selectedBrandId]);
 
   // Load tracked posts from PostTracker
   const { posts } = usePostTracker({ range: 'all' });
@@ -626,8 +651,9 @@ export const BrandCalendarPage = () => {
             const isToday = cell.dateKey === todayKey;
 
             const filteredSlots = daySlots.filter((slot) => {
-              const slotLinked = findMatchingPostForSlot(slot, dayPosts);
-              const completed = slot.computed_status === 'completed' || slotLinked?.status === 'published';
+              const isSlotMissed = slot.slot_status === 'missed' || slot.computed_status === 'missed';
+              const slotLinked = slot.linked_post || (!isSlotMissed ? findMatchingPostForSlot(slot, dayPosts) : null);
+              const completed = !isSlotMissed && (slot.computed_status === 'completed' || slotLinked?.status === 'published');
               if (missionStatusFilter === 'completed') return completed;
               if (missionStatusFilter === 'pending') return !completed;
               return true;
@@ -1114,11 +1140,11 @@ export const BrandCalendarPage = () => {
                                   </>
                                 )}
 
-                                {slot.is_compensated && linked?.id && (
+                                {linked?.id && (
                                   <button
                                     type="button"
                                     className="brand-cal-modal-btn-unlink"
-                                    title="Unlink compensated post"
+                                    title="Unlink post from slot"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setUnlinkConfirmSlot({ slot, linkedPost: linked });
