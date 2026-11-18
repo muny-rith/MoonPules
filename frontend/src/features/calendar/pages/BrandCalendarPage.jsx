@@ -160,6 +160,8 @@ export const BrandCalendarPage = () => {
   const brandParam = searchParams.get('brand_id') || searchParams.get('brand') || 'all';
   const monthParam = parseInt(searchParams.get('month'), 10);
   const yearParam = parseInt(searchParams.get('year'), 10);
+  const pageParam = searchParams.get('page_id') || 'all';
+  const statusParam = searchParams.get('status') || 'all';
 
   // Active Month & Year
   const [currentDate, setCurrentDate] = useState(() => {
@@ -194,9 +196,61 @@ export const BrandCalendarPage = () => {
     }, { replace: true });
   };
 
-  const [selectedPageId, setSelectedPageId] = useState('all');   // 'all' shows all pages
-  const [missionStatusFilter, setMissionStatusFilter] = useState('all'); // 'all' | 'completed' | 'pending'
+  const [selectedPageId, setSelectedPageIdState] = useState(pageParam);
+
+  const setSelectedPageId = (newPageId) => {
+    setSelectedPageIdState(newPageId);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (newPageId && newPageId !== 'all') {
+        next.set('page_id', newPageId);
+      } else {
+        next.delete('page_id');
+      }
+      return next;
+    }, { replace: true });
+  };
+
+  const [missionStatusFilter, setMissionStatusFilterState] = useState(statusParam);
+
+  const setMissionStatusFilter = (newStatus) => {
+    setMissionStatusFilterState(newStatus);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (newStatus && newStatus !== 'all') {
+        next.set('status', newStatus);
+      } else {
+        next.delete('status');
+      }
+      return next;
+    }, { replace: true });
+  };
+
   const [selectedContentType, setSelectedContentType] = useState('all');
+
+  // Synchronize state when URL search params change (e.g. browser back/forward or navigation return)
+  useEffect(() => {
+    setSelectedBrandIdState(brandParam);
+  }, [brandParam]);
+
+  useEffect(() => {
+    setSelectedPageIdState(pageParam);
+  }, [pageParam]);
+
+  useEffect(() => {
+    setMissionStatusFilterState(statusParam);
+  }, [statusParam]);
+
+  useEffect(() => {
+    if (!isNaN(monthParam) && monthParam >= 1 && monthParam <= 12 && !isNaN(yearParam) && yearParam >= 2000) {
+      setCurrentDate((prev) => {
+        if (prev.getMonth() + 1 !== monthParam || prev.getFullYear() !== yearParam) {
+          return new Date(yearParam, monthParam - 1, 1);
+        }
+        return prev;
+      });
+    }
+  }, [monthParam, yearParam]);
 
   // TanStack Query: Cached & deduplicated brands and pages lists
   const { data: brands = [] } = useBrands();
@@ -280,13 +334,15 @@ export const BrandCalendarPage = () => {
   // Auto-reset stale selectedBrandId if brand has no active campaign in this month
   useEffect(() => {
     if (selectedBrandId && selectedBrandId !== 'all' && !missionBrandsLoading && !loading) {
-      const brandExists = (missionBrands || []).some(
-        (b) => String(b.brand_id || b.id) === String(selectedBrandId)
-      ) || (calendarSlots || []).some(
-        (s) => String(s.brand_id) === String(selectedBrandId)
-      );
-      if (!brandExists) {
-        setSelectedBrandId('all');
+      if ((missionBrands && missionBrands.length > 0) || (calendarSlots && calendarSlots.length > 0)) {
+        const brandExists = (missionBrands || []).some(
+          (b) => String(b.brand_id || b.id) === String(selectedBrandId)
+        ) || (calendarSlots || []).some(
+          (s) => String(s.brand_id) === String(selectedBrandId)
+        );
+        if (!brandExists) {
+          setSelectedBrandId('all');
+        }
       }
     }
   }, [missionBrands, calendarSlots, selectedBrandId, missionBrandsLoading, loading]);
@@ -715,9 +771,11 @@ export const BrandCalendarPage = () => {
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
+                        const returnUrl = location.pathname + location.search;
                         navigate(`/planner/create?date=${cell.dateKey}`, {
                           state: {
-                            from: location.pathname,
+                            from: returnUrl,
+                            returnPath: returnUrl,
                             ...(selectedBrandId !== 'all' ? { prefillBrandId: selectedBrandId } : {}),
                           },
                         });
@@ -1174,7 +1232,13 @@ export const BrandCalendarPage = () => {
                                     type="button"
                                     onClick={() => {
                                       setSelectedDayDetail(null);
-                                      navigate(`/planner/edit/${linked.id}`);
+                                      const returnUrl = location.pathname + location.search;
+                                      navigate(`/planner/edit/${linked.id}`, {
+                                        state: {
+                                          from: returnUrl,
+                                          returnPath: returnUrl,
+                                        },
+                                      });
                                     }}
                                     className="brand-cal-modal-btn-view is-completed"
                                     title={`View Post #${linked.id}`}
@@ -1188,10 +1252,11 @@ export const BrandCalendarPage = () => {
                                     onClick={() => {
                                       setSelectedDayDetail(null);
                                       const isPast = slot.computed_status === 'missed' || selectedDayDetail.dateKey < todayKey;
+                                      const returnUrl = location.pathname + location.search;
                                       navigate(`/planner/create?date=${isPast ? todayKey : selectedDayDetail.dateKey}`, {
                                         state: {
-                                          returnPath: '/calendar',
-                                          from: location.pathname,
+                                          returnPath: returnUrl,
+                                          from: returnUrl,
                                           prefillBrandId: slot.brand_id,
                                           prefillDate: isPast ? todayKey : selectedDayDetail.dateKey,
                                           prefillType: slot.content_type,
@@ -1218,10 +1283,11 @@ export const BrandCalendarPage = () => {
                                     type="button"
                                     onClick={() => {
                                       setSelectedDayDetail(null);
+                                      const returnUrl = location.pathname + location.search;
                                       navigate(`/planner/create?date=${selectedDayDetail.dateKey}`, {
                                         state: {
-                                          returnPath: '/calendar',
-                                          from: location.pathname,
+                                          returnPath: returnUrl,
+                                          from: returnUrl,
                                           prefillBrandId: slot.brand_id,
                                           prefillDate: selectedDayDetail.dateKey,
                                           prefillType: slot.content_type,
@@ -1273,7 +1339,13 @@ export const BrandCalendarPage = () => {
                               key={`modal-post-${p.id}`}
                               onClick={() => {
                                 setSelectedDayDetail(null);
-                                navigate(`/planner/edit/${p.id}`);
+                                const returnUrl = location.pathname + location.search;
+                                navigate(`/planner/edit/${p.id}`, {
+                                  state: {
+                                    from: returnUrl,
+                                    returnPath: returnUrl,
+                                  },
+                                });
                               }}
                               className="brand-cal-related-post-card"
                             >
@@ -1329,7 +1401,13 @@ export const BrandCalendarPage = () => {
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setSelectedDayDetail(null);
-                                    navigate(`/planner/edit/${p.id}`);
+                                    const returnUrl = location.pathname + location.search;
+                                    navigate(`/planner/edit/${p.id}`, {
+                                      state: {
+                                        from: returnUrl,
+                                        returnPath: returnUrl,
+                                      },
+                                    });
                                   }}
                                 >
                                   <ExternalLink size={12} />

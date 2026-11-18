@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Modal, ModalHeader, ModalBody, ModalFooter } from '../../../shared/components/ui/Modal/Modal';
 import { Button } from '../../../shared/components/ui/Button/Button';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
@@ -94,6 +94,7 @@ export const LinkExistingPostModal = ({
   calendarSlots: externalSlots = null,
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { showSuccess, showError } = useToast();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -472,9 +473,11 @@ export const LinkExistingPostModal = ({
                   size="sm"
                   onClick={() => {
                     onClose();
+                    const returnUrl = location.pathname + location.search;
                     navigate(`/planner/create?mode=legacy`, {
                       state: {
-                        returnPath: '/calendar',
+                        from: returnUrl,
+                        returnPath: returnUrl,
                         initialTab: 'legacy',
                         prefillBrandId: slot.brand_id,
                         prefillType: slot.content_type,

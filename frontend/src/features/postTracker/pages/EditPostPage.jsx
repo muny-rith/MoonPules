@@ -129,7 +129,7 @@ export const EditPostPage = () => {
   const { id } = useParams();
   const { updatePost } = usePostTracker();
   const isFromPlanner = location.pathname.startsWith('/planner') || location.search.includes('from=planner');
-  const returnPath = location.state?.from || (isFromPlanner ? '/planner' : '/tasks');
+  const returnPath = location.state?.returnPath || location.state?.from || (isFromPlanner ? '/planner' : '/tasks');
 
   // Layout states
   const [previewDevice, setPreviewDevice] = useState('desktop'); // 'desktop' | 'mobile'

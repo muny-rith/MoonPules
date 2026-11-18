@@ -131,7 +131,7 @@ export const CreatePostPage = () => {
   const searchParams = new URLSearchParams(location.search);
   const dateParam = searchParams.get('date');
   const isFromPlanner = location.pathname.startsWith('/planner') || location.search.includes('from=planner');
-  const returnPath = location.state?.from || (isFromPlanner ? '/planner' : '/tasks');
+  const returnPath = location.state?.returnPath || location.state?.from || (isFromPlanner ? '/planner' : '/tasks');
   const duplicatePost = location.state?.duplicatePost || null;
   const { addPost } = usePostTracker();
 
