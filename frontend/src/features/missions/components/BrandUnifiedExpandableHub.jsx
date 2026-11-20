@@ -168,6 +168,20 @@ export const BrandUnifiedExpandableHub = () => {
         const livesPercent = livesTarget > 0 ? Math.round((livesCovered / livesTarget) * 100) : 0;
         const isLivesMet = livesTarget > 0 && livesCovered >= livesTarget;
 
+        const isBrandFullyScheduled =
+          postsTarget > 0 && livesTarget > 0
+            ? isPostsMet && isLivesMet
+            : postsTarget > 0
+            ? isPostsMet
+            : livesTarget > 0
+            ? isLivesMet
+            : false;
+
+        const effectiveCoveredSlots = postsTarget > 0 ? postsCovered : livesCovered;
+        const effectiveScheduledSlots = postsTarget > 0 ? postsScheduled : livesScheduled;
+        const effectiveRemainingSlots = postsTarget > 0 ? postsRemaining : livesRemaining;
+        const effectiveCoverageRate = postsTarget > 0 ? postsPercent : livesPercent;
+
         return {
           ...audit,
           total_slots: audit.total_slots || slots.length,
@@ -194,12 +208,12 @@ export const BrandUnifiedExpandableHub = () => {
           lives_remaining: livesRemaining,
           lives_percent: livesPercent,
           is_lives_met: isLivesMet,
-          // Standard schedule coverage reflects schedulable posts fulfillment
-          scheduled_slots: postsScheduled,
-          covered_slots: postsCovered,
-          remaining_slots: postsRemaining,
-          schedule_coverage_rate: postsPercent,
-          is_fully_scheduled: isPostsMet,
+          // Schedule coverage reflects active deliverables
+          scheduled_slots: effectiveScheduledSlots,
+          covered_slots: effectiveCoveredSlots,
+          remaining_slots: effectiveRemainingSlots,
+          schedule_coverage_rate: effectiveCoverageRate,
+          is_fully_scheduled: isBrandFullyScheduled,
           posts_count: postsCount,
           views_count: viewsCount,
           reach_count: reachCount,
@@ -323,8 +337,6 @@ export const BrandUnifiedExpandableHub = () => {
   // Dropdown options for enterprise Select component
   const statusOptions = useMemo(() => [
     { value: 'active_brands', label: `Active Brands (${stats.activeBrandsCount})` },
-    { value: 'fully_scheduled', label: `✅ គ្រប់ Target (${stats.fullyScheduledBrands})` },
-    { value: 'needs_scheduling', label: `⚠️ នៅខ្វះ Schedule (${stats.needsSchedulingBrands})` },
     { value: 'planned', label: `With Campaign Plan (${stats.plannedBrands})` },
     { value: 'on_track', label: `On Track (${stats.onTrackBrands})` },
     { value: 'at_risk', label: `At Risk / Behind (${stats.atRiskBrands})` },
@@ -996,31 +1008,33 @@ export const BrandUnifiedExpandableHub = () => {
 
                         {/* 3. Target & Schedule Health (Option 3: Split Tracks) */}
                         <td style={{ padding: '12px 16px', minWidth: '220px' }}>
-                          {hasBlueprint ? (
+                          {hasBlueprint && ((brand.posts_target || 0) > 0 || (brand.lives_target || 0) > 0) ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                              {/* Row 1: Schedulable Posts (Posters + Videos) */}
-                              <div>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
-                                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#334155' }}>
-                                    Posts: {brand.posts_covered || 0} / {brand.posts_target || 0}
-                                  </span>
-                                  <span style={{ fontSize: '11px', fontWeight: '800', color: '#2563eb' }}>
-                                    {brand.posts_percent || 0}%
-                                  </span>
+                              {/* Row 1: Schedulable Posts (shown only if brand has Posts quota) */}
+                              {brand.posts_target > 0 && (
+                                <div>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#334155' }}>
+                                      Posts: {brand.posts_covered || 0} / {brand.posts_target || 0}
+                                    </span>
+                                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#2563eb' }}>
+                                      {brand.posts_percent || 0}%
+                                    </span>
+                                  </div>
+                                  <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden', display: 'flex' }}>
+                                    <div
+                                      style={{ width: `${brand.posts_pub_percent || 0}%`, height: '100%', backgroundColor: '#10b981' }}
+                                      title={`Published: ${brand.posts_completed || 0}/${brand.posts_target || 0} (${brand.posts_pub_percent || 0}%)`}
+                                    />
+                                    <div
+                                      style={{ width: `${brand.posts_sched_percent || 0}%`, height: '100%', backgroundColor: '#3b82f6' }}
+                                      title={`Scheduled: ${brand.posts_scheduled || 0}/${brand.posts_target || 0} (${brand.posts_sched_percent || 0}%)`}
+                                    />
+                                  </div>
                                 </div>
-                                <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden', display: 'flex' }}>
-                                  <div
-                                    style={{ width: `${brand.posts_pub_percent || 0}%`, height: '100%', backgroundColor: '#10b981' }}
-                                    title={`Published: ${brand.posts_completed || 0}/${brand.posts_target || 0} (${brand.posts_pub_percent || 0}%)`}
-                                  />
-                                  <div
-                                    style={{ width: `${brand.posts_sched_percent || 0}%`, height: '100%', backgroundColor: '#3b82f6' }}
-                                    title={`Scheduled: ${brand.posts_scheduled || 0}/${brand.posts_target || 0} (${brand.posts_sched_percent || 0}%)`}
-                                  />
-                                </div>
-                              </div>
+                              )}
 
-                              {/* Row 2: Live Streams (shown if brand has Live quota) */}
+                              {/* Row 2: Live Streams (shown only if brand has Live quota) */}
                               {brand.lives_target > 0 && (
                                 <div>
                                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>

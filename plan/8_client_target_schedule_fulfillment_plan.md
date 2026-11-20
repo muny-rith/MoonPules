@@ -58,7 +58,13 @@ $$\text{Schedule Fulfillment Rate (SFR)} = \begin{cases}
 
 ## 3. UI/UX Architecture & Production Layout
 
-### 3.1 Part A: Brand Calendar Page (`/calendar`)
+### 3.1 Part A: Brand Calendar Page (`/calendar`) & Brands Hub Table (`/stats/brands`)
+- **Smart Conditional Schedulable Rows:**
+  - **Live-Only Brands (e.g. Lactogrow):** When `posts_target === 0` and `lives_target > 0`, the UI automatically suppresses the empty `Posts: 0/0 (0%)` row, rendering only the active `Lives` progress track (`Lives: 5/8 (63%)`).
+  - **Posts-Only Brands:** When `posts_target > 0` and `lives_target === 0`, only the `Posts` track renders.
+  - **Hybrid Brands (e.g. Baby Love):** Both rows render.
+  - **Unplanned/Empty Blueprint:** Renders clean em-dash `—`.
+  - **Smart Fulfillment Evaluation:** For live-only brands, `is_fully_scheduled` evaluates to true as soon as `lives_covered >= lives_target` without penalizing for non-existent posts quota.
 
 Placed directly above the Calendar Grid, the component renders in a compact, balanced 2-row layout with neutral white styling:
 

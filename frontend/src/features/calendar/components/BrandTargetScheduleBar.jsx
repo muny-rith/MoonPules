@@ -197,16 +197,18 @@ export const BrandTargetScheduleBar = ({
                 </>
               ) : (
                 <>
-                  <span className="target-count-item">
-                    <strong className="count-num">{postsTarget}</strong> Target Posts
-                  </span>
+                  {postsTarget > 0 && (
+                    <span className="target-count-item">
+                      <strong className="count-num">{postsTarget}</strong> Target Posts
+                    </span>
+                  )}
+                  {postsTarget > 0 && livesTarget > 0 && (
+                    <span className="count-dot">•</span>
+                  )}
                   {livesTarget > 0 && (
-                    <>
-                      <span className="count-dot">•</span>
-                      <span className="target-count-item">
-                        <strong className="count-num">{livesTarget}</strong> Target Lives
-                      </span>
-                    </>
+                    <span className="target-count-item">
+                      <strong className="count-num">{livesTarget}</strong> Target Lives
+                    </span>
                   )}
                 </>
               )}
@@ -217,33 +219,35 @@ export const BrandTargetScheduleBar = ({
         {/* Right: Sized-Up Split Dual Tracks */}
         {hasBlueprint ? (
           <div className="brand-target-progress">
-            {/* Row 1: Schedulable Posts Track */}
-            <div className="split-track-row">
-              <span className="split-track-label">Posts:</span>
-              {isMasterView ? (
-                <div className="brand-target-topright-track is-mini-track">
-                  <div
-                    className="brand-target-bar-fill is-published"
-                    style={{ width: `${postsPubPercent}%` }}
-                    title={`Published: ${postsPublished}/${postsTarget} (${postsPubPercent}%)`}
-                  />
-                  <div
-                    className="brand-target-bar-fill is-scheduled"
-                    style={{ width: `${postsSchedPercent}%` }}
-                    title={`Scheduled: ${postsScheduled}/${postsTarget} (${postsSchedPercent}%)`}
-                  />
-                </div>
-              ) : (
-                <div className="blocks-pill-grid is-mini-pill-grid">
-                  {splitBlocks.postList.map((block, idx) => (
-                    <div key={idx} className={`block-pill is-mini-pill is-${block.type}`} title={block.label} />
-                  ))}
-                </div>
-              )}
-              <span className="split-track-pct">
-                <strong>{postsPercent}%</strong> ({postsCovered}/{postsTarget})
-              </span>
-            </div>
+            {/* Row 1: Schedulable Posts Track (shown if master view or postsTarget > 0) */}
+            {(isMasterView || postsTarget > 0) && (
+              <div className="split-track-row">
+                <span className="split-track-label">Posts:</span>
+                {isMasterView ? (
+                  <div className="brand-target-topright-track is-mini-track">
+                    <div
+                      className="brand-target-bar-fill is-published"
+                      style={{ width: `${postsPubPercent}%` }}
+                      title={`Published: ${postsPublished}/${postsTarget} (${postsPubPercent}%)`}
+                    />
+                    <div
+                      className="brand-target-bar-fill is-scheduled"
+                      style={{ width: `${postsSchedPercent}%` }}
+                      title={`Scheduled: ${postsScheduled}/${postsTarget} (${postsSchedPercent}%)`}
+                    />
+                  </div>
+                ) : (
+                  <div className="blocks-pill-grid is-mini-pill-grid">
+                    {splitBlocks.postList.map((block, idx) => (
+                      <div key={idx} className={`block-pill is-mini-pill is-${block.type}`} title={block.label} />
+                    ))}
+                  </div>
+                )}
+                <span className="split-track-pct">
+                  <strong>{postsPercent}%</strong> ({postsCovered}/{postsTarget})
+                </span>
+              </div>
+            )}
 
             {/* Row 2: Live Streams Track */}
             {(isMasterView || livesTarget > 0) && (
