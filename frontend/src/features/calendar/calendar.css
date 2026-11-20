@@ -1375,3 +1375,341 @@
   background-color: #eff6ff;
   border-color: #93c5fd;
 }
+
+
+
+/* ==========================================================================
+   PLAN 8: BRAND TARGET SCHEDULE HEALTH BAR (SPLIT DUAL TRACKS ARCHITECTURE)
+   ========================================================================== */
+
+.brand-target-bar {
+  background-color: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+/* ==========================================================================
+   ROW 1: HEADER (BRAND META ON LEFT, SPLIT PROGRESS TRACKS ON RIGHT)
+   ========================================================================== */
+
+.brand-target-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.brand-target-brand-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.brand-target-avatar-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background-color: #f1f5f9;
+  border: 1.5px solid #cbd5e1;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.brand-target-avatar-wrap.is-master {
+  background-color: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.brand-target-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.brand-target-avatar-fallback {
+  font-size: 18px;
+  font-weight: 800;
+  color: #3b82f6;
+}
+
+.brand-target-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.brand-target-brand-name {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.2px;
+}
+
+.brand-target-counts-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: #475569;
+  flex-wrap: wrap;
+}
+
+.target-count-item .count-num {
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.count-dot {
+  color: #cbd5e1;
+  font-size: 10px;
+}
+
+.brand-target-btn-action {
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.brand-target-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Sized-Up Split Dual Tracks on Top-Right */
+.brand-target-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  min-width: 290px;
+}
+
+.split-track-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.split-track-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+  min-width: 40px;
+  text-align: right;
+}
+
+.split-track-pct {
+  font-size: 12.5px;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.split-track-pct strong {
+  font-size: 15px;
+  font-weight: 800;
+  color: #2563eb;
+}
+
+/* Discrete Unit Blocks (Enlarged to 25px x 17px) */
+.blocks-pill-grid.is-mini-pill-grid {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.block-pill.is-mini-pill {
+  width: 25px;
+  height: 17px;
+  border-radius: 5px;
+  flex-shrink: 0;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+}
+
+.block-pill.is-mini-pill:hover {
+  transform: translateY(-2px) scale(1.08);
+}
+
+.block-pill.is-published {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.35);
+}
+
+.block-pill.is-scheduled {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.35);
+}
+
+.block-pill.is-unscheduled {
+  background-color: #f8fafc;
+  border: 1.5px dashed #cbd5e1;
+}
+
+.block-pill.is-live-done {
+  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+  box-shadow: 0 1px 3px rgba(225, 29, 72, 0.35);
+}
+
+/* Master Schedule: Continuous Progress Track */
+.brand-target-topright-track.is-mini-track {
+  width: 210px;
+  height: 15px;
+  background-color: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  overflow: hidden;
+  display: flex;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+}
+
+.brand-target-topright-track .brand-target-bar-fill {
+  height: 100%;
+  transition: width 0.35s ease;
+}
+
+.brand-target-topright-track .brand-target-bar-fill.is-published {
+  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+}
+
+.brand-target-topright-track .brand-target-bar-fill.is-scheduled {
+  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+}
+
+.brand-target-topright-track .brand-target-bar-fill.is-live-done {
+  background: linear-gradient(90deg, #e11d48 0%, #be123c 100%);
+}
+
+/* ==========================================================================
+   ROW 2: FOOTER (BREAKDOWN ON LEFT, LEGEND ON RIGHT)
+   ========================================================================== */
+
+.brand-target-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed #e2e8f0;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+/* Left: Target Breakdown Chips */
+.brand-target-breakdown {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.brand-target-breakdown .breakdown-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.breakdown-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.breakdown-chip.type-poster {
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.breakdown-chip.type-poster .chip-icon {
+  color: #16a34a;
+}
+
+.breakdown-chip.type-video {
+  background-color: #faf5ff;
+  border: 1px solid #e9d5ff;
+  color: #6b21a8;
+}
+
+.breakdown-chip.type-video .chip-icon {
+  color: #9333ea;
+}
+
+.breakdown-chip.type-live {
+  background-color: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #be123c;
+}
+
+.breakdown-chip.type-live .chip-icon {
+  color: #e11d48;
+}
+
+.breakdown-chip .chip-type {
+  font-weight: 500;
+}
+
+.breakdown-chip .chip-val {
+  font-weight: 800;
+}
+
+.breakdown-chip .chip-check {
+  margin-left: 2px;
+  stroke-width: 3px;
+  color: #16a34a;
+}
+
+/* Right: Progress Status Legend Dots */
+.brand-target-legend {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  font-size: 12px;
+  color: #64748b;
+  flex-wrap: wrap;
+}
+
+.label-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.legend-dot.is-published {
+  background-color: #10b981;
+}
+
+.legend-dot.is-scheduled {
+  background-color: #3b82f6;
+}
+
+.legend-dot.is-live-done {
+  background-color: #e11d48;
+}
+
+.legend-dot.is-remaining {
+  background-color: #cbd5e1;
+}

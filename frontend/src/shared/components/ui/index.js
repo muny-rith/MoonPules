@@ -8,4 +8,5 @@ export { SafeImage } from './SafeImage';
 export { DateRangeFilter } from './DateRangeFilter';
 export { DatePicker } from './DatePicker/DatePicker';
 export { SortableHeader } from './SortableHeader';
+export { TablePagination, useTablePagination } from './TablePagination';
 

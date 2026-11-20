@@ -17,7 +17,7 @@ import {
   Edit3,
   Layers,
 } from 'lucide-react';
-import { Input, Select, Button, Skeleton } from '../../../shared/components/ui';
+import { Input, Select, Button, Skeleton, TablePagination } from '../../../shared/components/ui';
 import { BrandUnifiedTableSkeleton } from '../../../shared/components/skeletons';
 import * as missionApi from '../api/missionApi';
 import { useBrands, useMonthAudit, useCalendarSlots, useBrandStats } from '../../../shared/hooks/queries';
@@ -88,7 +88,30 @@ export const BrandUnifiedExpandableHub = () => {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 15;
+  const [itemsPerPage, setItemsPerPage] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('moonpulse_table_page_size');
+        const parsed = parseInt(saved, 10);
+        if ([10, 25, 50, 100].includes(parsed)) return parsed;
+      } catch (err) {
+        console.warn('Failed to read table page size preference:', err);
+      }
+    }
+    return 25;
+  });
+
+  const handlePageSizeChange = (newSize) => {
+    setItemsPerPage(newSize);
+    setCurrentPage(1);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('moonpulse_table_page_size', String(newSize));
+      } catch (err) {
+        console.warn('Failed to persist page size preference:', err);
+      }
+    }
+  };
 
   // Merge Brands, Missions, and Performance Analytics
   const mergedBrands = useMemo(() => {
@@ -123,13 +146,60 @@ export const BrandUnifiedExpandableHub = () => {
       const imageUrl = b.image_url || b.logo_url || b.logo || (stats && (stats.image_url || stats.logo_url));
 
       if (audit) {
+        // Option 3 (Split Tracks): Schedulable Posts (Posters + Videos) & Lives evaluated distinctly
+        const schedulableSlots = slots.filter((s) => s.content_type !== 'live');
+        const liveSlots = slots.filter((s) => s.content_type === 'live');
+
+        const postsTarget = schedulableSlots.length;
+        const postsCompleted = schedulableSlots.filter((s) => s.computed_status === 'completed' || s.computed_status === 'compensated').length;
+        const postsScheduled = schedulableSlots.filter((s) => s.computed_status === 'scheduled').length;
+        const postsCovered = postsCompleted + postsScheduled;
+        const postsRemaining = Math.max(0, postsTarget - postsCovered);
+        const postsPercent = postsTarget > 0 ? Math.round((postsCovered / postsTarget) * 100) : 0;
+        const postsPubPercent = postsTarget > 0 ? Math.round((postsCompleted / postsTarget) * 100) : 0;
+        const postsSchedPercent = postsTarget > 0 ? Math.round((postsScheduled / postsTarget) * 100) : 0;
+        const isPostsMet = postsTarget > 0 && postsCovered >= postsTarget;
+
+        const livesTarget = liveSlots.length;
+        const livesCompleted = liveSlots.filter((s) => s.computed_status === 'completed' || s.computed_status === 'compensated').length;
+        const livesScheduled = liveSlots.filter((s) => s.computed_status === 'scheduled').length;
+        const livesCovered = livesCompleted + livesScheduled;
+        const livesRemaining = Math.max(0, livesTarget - livesCovered);
+        const livesPercent = livesTarget > 0 ? Math.round((livesCovered / livesTarget) * 100) : 0;
+        const isLivesMet = livesTarget > 0 && livesCovered >= livesTarget;
+
         return {
           ...audit,
+          total_slots: audit.total_slots || slots.length,
+          completed_slots: audit.completed_slots || 0,
           brand_id: bId,
           brand_name: audit.brand_name || b.brand_name || b.name,
           image_url: imageUrl || audit.image_url,
           has_blueprint: true,
           slots,
+          // Split metrics for Option 3
+          posts_target: postsTarget,
+          posts_completed: postsCompleted,
+          posts_scheduled: postsScheduled,
+          posts_covered: postsCovered,
+          posts_remaining: postsRemaining,
+          posts_percent: postsPercent,
+          posts_pub_percent: postsPubPercent,
+          posts_sched_percent: postsSchedPercent,
+          is_posts_met: isPostsMet,
+          lives_target: livesTarget,
+          lives_completed: livesCompleted,
+          lives_scheduled: livesScheduled,
+          lives_covered: livesCovered,
+          lives_remaining: livesRemaining,
+          lives_percent: livesPercent,
+          is_lives_met: isLivesMet,
+          // Standard schedule coverage reflects schedulable posts fulfillment
+          scheduled_slots: postsScheduled,
+          covered_slots: postsCovered,
+          remaining_slots: postsRemaining,
+          schedule_coverage_rate: postsPercent,
+          is_fully_scheduled: isPostsMet,
           posts_count: postsCount,
           views_count: viewsCount,
           reach_count: reachCount,
@@ -145,13 +215,18 @@ export const BrandUnifiedExpandableHub = () => {
         year,
         total_slots: 0,
         completed_slots: 0,
+        scheduled_slots: 0,
+        covered_slots: 0,
+        remaining_slots: 0,
+        schedule_coverage_rate: 0,
+        is_fully_scheduled: false,
         missed_slots: 0,
         completion_rate: 0,
         status: 'unplanned',
         breakdown: {
-          posters: { target: 0, completed: 0 },
-          lives: { target: 0, completed: 0 },
-          videos: { target: 0, completed: 0 },
+          posters: { target: 0, completed: 0, scheduled: 0 },
+          lives: { target: 0, completed: 0, scheduled: 0 },
+          videos: { target: 0, completed: 0, scheduled: 0 },
         },
         slots,
         has_blueprint: false,
@@ -179,6 +254,10 @@ export const BrandUnifiedExpandableHub = () => {
     if (statusFilter === 'active_brands') {
       // Brand ទាំងអស់ដែលមានការផុស ឬមាន Plan ក្នុងខែនេះ
       result = result.filter((b) => (b.posts_count > 0) || (b.has_blueprint && b.total_slots > 0));
+    } else if (statusFilter === 'fully_scheduled') {
+      result = result.filter((b) => b.has_blueprint && b.total_slots > 0 && (b.is_fully_scheduled || (b.covered_slots || 0) >= b.total_slots));
+    } else if (statusFilter === 'needs_scheduling') {
+      result = result.filter((b) => b.has_blueprint && b.total_slots > 0 && !b.is_fully_scheduled && ((b.covered_slots || 0) < b.total_slots));
     } else if (statusFilter === 'planned' || statusFilter === 'active') {
       result = result.filter((b) => b.has_blueprint && b.total_slots > 0);
     } else if (statusFilter === 'completed') {
@@ -195,6 +274,7 @@ export const BrandUnifiedExpandableHub = () => {
     return result.sort((a, b) => {
       if (sortBy === 'views_desc') return (b.views_count || 0) - (a.views_count || 0);
       if (sortBy === 'reach_desc') return (b.reach_count || 0) - (a.reach_count || 0);
+      if (sortBy === 'schedule_rate') return (b.schedule_coverage_rate || 0) - (a.schedule_coverage_rate || 0);
       if (sortBy === 'completion') return (b.completion_rate || 0) - (a.completion_rate || 0);
       if (sortBy === 'slots') return (b.total_slots || 0) - (a.total_slots || 0);
       return (a.brand_name || '').localeCompare(b.brand_name || '');
@@ -205,11 +285,16 @@ export const BrandUnifiedExpandableHub = () => {
   const stats = useMemo(() => {
     const activeBrands = mergedBrands.filter((b) => (b.posts_count > 0) || (b.has_blueprint && b.total_slots > 0));
     const planned = mergedBrands.filter((b) => b.has_blueprint && b.total_slots > 0);
+    const fullyScheduled = planned.filter((b) => b.is_fully_scheduled || (b.total_slots > 0 && (b.covered_slots || 0) >= b.total_slots));
+    const needsScheduling = planned.filter((b) => b.total_slots > 0 && !b.is_fully_scheduled && ((b.covered_slots || 0) < b.total_slots));
     const completed = planned.filter((b) => b.completion_rate === 100);
     const atRisk = planned.filter((b) => b.missed_slots > 0 || (b.completion_rate === 0 && b.total_slots > 0));
     const onTrack = planned.filter((b) => b.has_blueprint && b.missed_slots === 0 && b.completion_rate < 100 && b.total_slots > 0);
     const totalSlots = planned.reduce((acc, b) => acc + (b.total_slots || 0), 0);
     const completedSlots = planned.reduce((acc, b) => acc + (b.completed_slots || 0), 0);
+    const scheduledSlots = planned.reduce((acc, b) => acc + (b.scheduled_slots || 0), 0);
+    const coveredSlots = planned.reduce((acc, b) => acc + (b.covered_slots || 0), 0);
+    const overallScheduleRate = totalSlots > 0 ? Math.round((coveredSlots / totalSlots) * 100) : 0;
 
     const totalViews = mergedBrands.reduce((acc, b) => acc + (b.views_count || 0), 0);
     const totalReach = mergedBrands.reduce((acc, b) => acc + (b.reach_count || 0), 0);
@@ -219,11 +304,16 @@ export const BrandUnifiedExpandableHub = () => {
       totalBrands: mergedBrands.length,
       activeBrandsCount: activeBrands.length,
       plannedBrands: planned.length,
+      fullyScheduledBrands: fullyScheduled.length,
+      needsSchedulingBrands: needsScheduling.length,
       completedBrands: completed.length,
       atRiskBrands: atRisk.length,
       onTrackBrands: onTrack.length,
       totalSlots,
       completedSlots,
+      scheduledSlots,
+      coveredSlots,
+      overallScheduleRate,
       totalViews,
       totalReach,
       totalEngagement,
@@ -233,6 +323,8 @@ export const BrandUnifiedExpandableHub = () => {
   // Dropdown options for enterprise Select component
   const statusOptions = useMemo(() => [
     { value: 'active_brands', label: `Active Brands (${stats.activeBrandsCount})` },
+    { value: 'fully_scheduled', label: `✅ គ្រប់ Target (${stats.fullyScheduledBrands})` },
+    { value: 'needs_scheduling', label: `⚠️ នៅខ្វះ Schedule (${stats.needsSchedulingBrands})` },
     { value: 'planned', label: `With Campaign Plan (${stats.plannedBrands})` },
     { value: 'on_track', label: `On Track (${stats.onTrackBrands})` },
     { value: 'at_risk', label: `At Risk / Behind (${stats.atRiskBrands})` },
@@ -242,6 +334,7 @@ export const BrandUnifiedExpandableHub = () => {
 
   const sortOptions = useMemo(() => [
     { value: 'brand_name', label: 'Sort: Brand (A-Z)' },
+    { value: 'schedule_rate', label: 'Sort: Schedule Fulfillment' },
     { value: 'views_desc', label: 'Sort: Most Views' },
     { value: 'reach_desc', label: 'Sort: Most Reach' },
     { value: 'completion', label: 'Sort: Completion Rate' },
@@ -254,6 +347,12 @@ export const BrandUnifiedExpandableHub = () => {
     const start = (currentPage - 1) * itemsPerPage;
     return filteredBrands.slice(start, start + itemsPerPage);
   }, [filteredBrands, currentPage, itemsPerPage]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
 
   // Row Expand/Collapse Handler
   const toggleRowExpand = (brandId) => {
@@ -434,10 +533,10 @@ export const BrandUnifiedExpandableHub = () => {
           )}
         </div>
 
-        {/* 100% Completed */}
+        {/* Fully Scheduled */}
         <div style={{ padding: '14px 18px', backgroundColor: '#f0fdf4', borderRadius: '12px', border: '1px solid #bbf7d0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#16a34a' }}>100% Completed</span>
+            <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#16a34a' }}>✅ គ្រប់ Target</span>
             <CheckCircle2 size={17} color="#16a34a" />
           </div>
           {loading ? (
@@ -447,15 +546,15 @@ export const BrandUnifiedExpandableHub = () => {
             </div>
           ) : (
             <div style={{ fontSize: '22px', fontWeight: '800', color: '#15803d', marginTop: '4px' }}>
-              {stats.completedBrands} <span style={{ fontSize: '12px', fontWeight: '500' }}>brands</span>
+              {stats.fullyScheduledBrands} <span style={{ fontSize: '12px', fontWeight: '500' }}>/ {stats.plannedBrands} brands</span>
             </div>
           )}
         </div>
 
-        {/* Deliverables Done */}
+        {/* Deliverables Covered */}
         <div style={{ padding: '14px 18px', backgroundColor: '#eff6ff', borderRadius: '12px', border: '1px solid #bfdbfe', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#1d4ed8' }}>Deliverables Done</span>
+            <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#1d4ed8' }}>Deliverables Covered</span>
             <Clock size={17} color="#2563eb" />
           </div>
           {loading ? (
@@ -465,7 +564,7 @@ export const BrandUnifiedExpandableHub = () => {
             </div>
           ) : (
             <div style={{ fontSize: '22px', fontWeight: '800', color: '#1e40af', marginTop: '4px' }}>
-              {stats.completedSlots} <span style={{ fontSize: '12px', fontWeight: '500', color: '#60a5fa' }}>/ {stats.totalSlots} scheduled</span>
+              {stats.coveredSlots} <span style={{ fontSize: '12px', fontWeight: '500', color: '#60a5fa' }}>/ {stats.totalSlots} ({stats.overallScheduleRate}%)</span>
             </div>
           )}
         </div>
@@ -674,12 +773,12 @@ export const BrandUnifiedExpandableHub = () => {
                   <th style={{ padding: '12px 10px', width: '42px', textAlign: 'center' }}></th>
                   <th style={{ padding: '12px 4px', width: '32px', textAlign: 'center' }}></th>
                   <th style={{ padding: '12px 16px', minWidth: '200px' }}>Brand</th>
-                  <th style={{ padding: '12px 16px', minWidth: '180px' }}>Campaign Status</th>
+                  <th style={{ padding: '12px 16px', minWidth: '220px' }}>Target Schedule Health</th>
                   <th style={{ padding: '12px 16px', textAlign: 'center', width: '90px' }}>Posts</th>
                   <th style={{ padding: '12px 16px', textAlign: 'center', width: '120px' }}>Views</th>
                   <th style={{ padding: '12px 16px', textAlign: 'center', width: '120px' }}>Reach</th>
                   <th style={{ padding: '12px 16px', textAlign: 'center', width: '120px' }}>Engagement</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right', minWidth: '100px' }}>Actions</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right', minWidth: '150px' }}>Actions</th>
                 </tr>
               </thead>
               <BrandUnifiedTableSkeleton rowCount={7} />
@@ -743,12 +842,12 @@ export const BrandUnifiedExpandableHub = () => {
                   {/* Expand Chevron Column */}
                   <th style={{ padding: '12px 4px', width: '32px', textAlign: 'center' }}></th>
                   <th style={{ padding: '12px 16px', minWidth: '200px' }}>Brand</th>
-                  <th style={{ padding: '12px 16px', minWidth: '180px' }}>Campaign Status</th>
+                  <th style={{ padding: '12px 16px', minWidth: '220px' }}>Target Schedule Health</th>
                   <th style={{ padding: '12px 16px', textAlign: 'center', width: '90px' }}>Posts</th>
                   <th style={{ padding: '12px 16px', textAlign: 'center', width: '120px' }}>Views</th>
                   <th style={{ padding: '12px 16px', textAlign: 'center', width: '120px' }}>Reach</th>
                   <th style={{ padding: '12px 16px', textAlign: 'center', width: '120px' }}>Engagement</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right', minWidth: '100px' }}>Actions</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right', minWidth: '150px' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -756,6 +855,13 @@ export const BrandUnifiedExpandableHub = () => {
                   const bId = String(brand.brand_id);
                   const isExpanded = expandedBrandIds.has(bId);
                   const hasBlueprint = brand.has_blueprint && brand.total_slots > 0;
+                  const isFullyScheduled = brand.is_fully_scheduled || (brand.total_slots > 0 && (brand.covered_slots || 0) >= brand.total_slots);
+                  const scheduledSlots = brand.scheduled_slots || 0;
+                  const coveredSlots = brand.covered_slots || ((brand.completed_slots || 0) + scheduledSlots);
+                  const remainingSlots = brand.remaining_slots ?? Math.max(0, (brand.total_slots || 0) - coveredSlots);
+                  const scheduleCoverageRate = brand.schedule_coverage_rate ?? (brand.total_slots > 0 ? Math.round((coveredSlots / brand.total_slots) * 100) : 0);
+                  const publishedPercent = brand.total_slots > 0 ? Math.round(((brand.completed_slots || 0) / brand.total_slots) * 100) : 0;
+                  const scheduledPercent = brand.total_slots > 0 ? Math.round((scheduledSlots / brand.total_slots) * 100) : 0;
                   const isCompleted = brand.completion_rate === 100 && hasBlueprint;
                   const isAtRisk = hasBlueprint && brand.missed_slots > 0;
                   const isSelected = selectedBrandIds.includes(bId);
@@ -888,35 +994,54 @@ export const BrandUnifiedExpandableHub = () => {
                           </div>
                         </td>
 
-                        {/* 3. Campaign Status & Progress */}
-                        <td style={{ padding: '14px 16px' }}>
+                        {/* 3. Target & Schedule Health (Option 3: Split Tracks) */}
+                        <td style={{ padding: '12px 16px', minWidth: '220px' }}>
                           {hasBlueprint ? (
-                            <div>
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                <span style={{
-                                  fontSize: '11px',
-                                  fontWeight: '700',
-                                  color: isCompleted ? '#16a34a' : (isAtRisk ? '#dc2626' : '#2563eb'),
-                                }}>
-                                  {isCompleted ? '✓ Completed' : (isAtRisk ? `⚠️ ${brand.missed_slots} Missed` : '🎯 On Track')}
-                                </span>
-                                <span style={{ fontSize: '11.5px', fontWeight: '800', color: '#1e293b' }}>
-                                  {brand.completed_slots} / {brand.total_slots} ({brand.completion_rate}%)
-                                </span>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              {/* Row 1: Schedulable Posts (Posters + Videos) */}
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
+                                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#334155' }}>
+                                    Posts: {brand.posts_covered || 0} / {brand.posts_target || 0}
+                                  </span>
+                                  <span style={{ fontSize: '11px', fontWeight: '800', color: '#2563eb' }}>
+                                    {brand.posts_percent || 0}%
+                                  </span>
+                                </div>
+                                <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden', display: 'flex' }}>
+                                  <div
+                                    style={{ width: `${brand.posts_pub_percent || 0}%`, height: '100%', backgroundColor: '#10b981' }}
+                                    title={`Published: ${brand.posts_completed || 0}/${brand.posts_target || 0} (${brand.posts_pub_percent || 0}%)`}
+                                  />
+                                  <div
+                                    style={{ width: `${brand.posts_sched_percent || 0}%`, height: '100%', backgroundColor: '#3b82f6' }}
+                                    title={`Scheduled: ${brand.posts_scheduled || 0}/${brand.posts_target || 0} (${brand.posts_sched_percent || 0}%)`}
+                                  />
+                                </div>
                               </div>
-                              <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                                <div
-                                  style={{
-                                    width: `${brand.completion_rate}%`,
-                                    height: '100%',
-                                    backgroundColor: isCompleted ? '#16a34a' : (isAtRisk ? '#ef4444' : '#2563eb'),
-                                    borderRadius: '4px',
-                                  }}
-                                />
-                              </div>
+
+                              {/* Row 2: Live Streams (shown if brand has Live quota) */}
+                              {brand.lives_target > 0 && (
+                                <div>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#be123c' }}>
+                                      Lives: {brand.lives_covered || 0} / {brand.lives_target || 0}
+                                    </span>
+                                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#e11d48' }}>
+                                      {brand.lives_percent || 0}%
+                                    </span>
+                                  </div>
+                                  <div style={{ width: '100%', height: '5px', backgroundColor: '#fecdd3', borderRadius: '3px', overflow: 'hidden' }}>
+                                    <div
+                                      style={{ width: `${brand.lives_percent || 0}%`, height: '100%', background: 'linear-gradient(90deg, #f43f5e 0%, #e11d48 100%)' }}
+                                      title={`Lives Completed: ${brand.lives_completed || 0}/${brand.lives_target || 0} (${brand.lives_percent || 0}%)`}
+                                    />
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           ) : (
-                            <span style={{ color: '#94a3b8', fontSize: '14px', fontWeight: '500' }}>—</span>
+                            <span style={{ color: '#94a3b8', fontSize: '16px', fontWeight: '600', paddingLeft: '4px' }}>—</span>
                           )}
                         </td>
 
@@ -942,13 +1067,23 @@ export const BrandUnifiedExpandableHub = () => {
 
                         {/* 8. Actions */}
                         <td style={{ padding: '14px 16px', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              startIcon={<Calendar size={12} />}
+                              onClick={() => navigate(`/calendar?brand_id=${brand.brand_id}&month=${month}&year=${year}`)}
+                              style={{ height: '30px', fontSize: '11.5px', padding: '0 8px', borderRadius: '6px' }}
+                              title={`Open ${brand.brand_name} Calendar for ${monthNames[month - 1]} ${year}`}
+                            >
+                              Calendar
+                            </Button>
                             <Button
                               variant="outline"
                               size="sm"
                               startIcon={<Eye size={12} />}
                               onClick={() => navigate(`/stats/brands/${brand.brand_id}`)}
-                              style={{ height: '30px', fontSize: '11.5px', padding: '0 10px', borderRadius: '6px' }}
+                              style={{ height: '30px', fontSize: '11.5px', padding: '0 8px', borderRadius: '6px' }}
                               title="View full Brand Detail Analytics"
                             >
                               Details
@@ -1115,41 +1250,15 @@ export const BrandUnifiedExpandableHub = () => {
         </div>
 
         {/* PAGINATION CONTROLS */}
-        {!loading && filteredBrands.length > itemsPerPage && (
-          <div
-            style={{
-              padding: '12px 18px',
-              borderTop: '1px solid #e2e8f0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              backgroundColor: '#f8fafc',
-            }}
-          >
-            <div style={{ fontSize: '12.5px', color: '#64748b' }}>
-              Showing <strong>{(currentPage - 1) * itemsPerPage + 1}</strong> to <strong>{Math.min(currentPage * itemsPerPage, filteredBrands.length)}</strong> of <strong>{filteredBrands.length}</strong> brands
-            </div>
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                style={{ height: '30px', fontSize: '12px', padding: '0 12px' }}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                style={{ height: '30px', fontSize: '12px', padding: '0 12px' }}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
+        {!loading && filteredBrands.length > 0 && (
+          <TablePagination
+            currentPage={currentPage}
+            totalItems={filteredBrands.length}
+            pageSize={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={handlePageSizeChange}
+            itemLabel="brands"
+          />
         )}
       </div>
 

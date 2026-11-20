@@ -12,7 +12,7 @@ import { Search, Filter, Calendar, ExternalLink, RefreshCw, BarChart2, DollarSig
 import { FaFacebook, FaTiktok, FaInstagram } from 'react-icons/fa';
 
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
-import { Select, Input, Button } from '../../../shared/components/ui';
+import { Select, Input, Button, TablePagination } from '../../../shared/components/ui';
 import { PostTrackerTableSkeleton, PostTrackerMobileSkeleton } from '../../../shared/components/skeletons';
 import { SafeImage } from '../../../shared/components/ui/SafeImage';
 import { SortableHeader } from '../../../shared/components/ui/SortableHeader';
@@ -922,46 +922,19 @@ export const PostTrackerPage = () => {
           )}
         </div>
 
+        {/* Pagination */}
         {filteredPosts.length > 0 && (
-          <div className="tasks-pagination-bar" style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e2e8f0', backgroundColor: '#f8fafc', borderBottomLeftRadius: '12px', borderBottomRightRadius: '12px', flexWrap: 'wrap', gap: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: '#64748b' }}>
-              <span>Rows per page:</span>
-              <select
-                value={rowsPerPage}
-                onChange={e => {
-                  setFilter('limit', Number(e.target.value));
-                }}
-                style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '4px 8px', backgroundColor: 'white', color: '#334155', fontWeight: 500 }}
-              >
-                <option value={10}>10</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '13px', color: '#64748b' }}>
-              <span>
-                {((currentPage - 1) * rowsPerPage) + 1}-{Math.min(currentPage * rowsPerPage, filteredPosts.length)} of {filteredPosts.length}
-              </span>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  disabled={currentPage === 1}
-                  onClick={() => setFilter('page', currentPage - 1)}
-                  style={{ padding: '4px', borderRadius: '6px', border: '1px solid #cbd5e1', backgroundColor: currentPage === 1 ? '#f1f5f9' : 'white', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', color: currentPage === 1 ? '#94a3b8' : '#334155' }}
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <button
-                  disabled={currentPage === totalPages}
-                  onClick={() => setFilter('page', currentPage + 1)}
-                  style={{ padding: '4px', borderRadius: '6px', border: '1px solid #cbd5e1', backgroundColor: currentPage === totalPages ? '#f1f5f9' : 'white', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', color: currentPage === totalPages ? '#94a3b8' : '#334155' }}
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            </div>
-          </div>
+          <TablePagination
+            currentPage={currentPage}
+            totalItems={filteredPosts.length}
+            pageSize={rowsPerPage}
+            onPageChange={(page) => setFilter('page', page)}
+            onPageSizeChange={(newSize) => {
+              setFilters({ limit: newSize, page: 1 });
+            }}
+            itemLabel="posts"
+            style={{ borderBottomLeftRadius: '12px', borderBottomRightRadius: '12px' }}
+          />
         )}
       </div>
 

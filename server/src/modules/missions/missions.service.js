@@ -439,6 +439,7 @@ const getMonthAudit = async (month, year) => {
   for (const mission of missions) {
     const slots = slotsByMissionId.get(mission.id) || [];
     let completedSlots = 0;
+    let scheduledSlots = 0;
     let missedSlots = 0;
     let plannedSlots = 0;
 
@@ -482,6 +483,7 @@ const getMonthAudit = async (month, year) => {
           : (slotDateStr < todayStr ? 'missed' : 'planned');
 
         if (status === 'completed' || status === 'compensated') completedSlots += 1;
+        else if (status === 'scheduled') scheduledSlots += 1;
         else if (status === 'missed') missedSlots += 1;
         else plannedSlots += 1;
 
@@ -517,6 +519,7 @@ const getMonthAudit = async (month, year) => {
         linkedPost = matchingPost;
       } else if (matchingPost && matchingPost.status === 'scheduled') {
         status = 'scheduled';
+        scheduledSlots += 1;
         linkedPost = matchingPost;
       } else if (slotDateStr < todayStr) {
         status = 'missed';
@@ -545,16 +548,25 @@ const getMonthAudit = async (month, year) => {
 
     const postersTarget = enrichedSlots.filter((s) => s.content_type === 'photo').length;
     const postersCompleted = enrichedSlots.filter((s) => s.content_type === 'photo' && (s.computed_status === 'completed' || s.computed_status === 'compensated')).length;
+    const postersScheduled = enrichedSlots.filter((s) => s.content_type === 'photo' && s.computed_status === 'scheduled').length;
 
     const livesTarget = enrichedSlots.filter((s) => s.content_type === 'live').length;
     const livesCompleted = enrichedSlots.filter((s) => s.content_type === 'live' && (s.computed_status === 'completed' || s.computed_status === 'compensated')).length;
+    const livesScheduled = enrichedSlots.filter((s) => s.content_type === 'live' && s.computed_status === 'scheduled').length;
 
     const videosTarget = enrichedSlots.filter((s) => s.content_type === 'video').length;
     const videosCompleted = enrichedSlots.filter((s) => s.content_type === 'video' && (s.computed_status === 'completed' || s.computed_status === 'compensated')).length;
+    const videosScheduled = enrichedSlots.filter((s) => s.content_type === 'video' && s.computed_status === 'scheduled').length;
+
     const compensatedCount = enrichedSlots.filter((s) => s.computed_status === 'compensated' || s.is_compensated).length;
     const completedOnTimeCount = enrichedSlots.filter((s) => s.computed_status === 'completed' && !s.is_compensated).length;
     const waivedCount = enrichedSlots.filter((s) => s.computed_status === 'waived' || s.slot_status === 'waived').length;
     const onTimeRate = totalSlots > 0 ? Math.round((completedOnTimeCount / totalSlots) * 100) : 0;
+
+    const coveredSlots = completedSlots + scheduledSlots;
+    const remainingSlots = Math.max(0, totalSlots - coveredSlots);
+    const scheduleCoverageRate = totalSlots > 0 ? Math.round((coveredSlots / totalSlots) * 100) : 0;
+    const isFullyScheduled = totalSlots > 0 && coveredSlots >= totalSlots;
 
     auditList.push({
       brand_id: mission.brand_id,
@@ -563,6 +575,11 @@ const getMonthAudit = async (month, year) => {
       year: mission.year,
       total_slots: totalSlots,
       completed_slots: completedSlots,
+      scheduled_slots: scheduledSlots,
+      covered_slots: coveredSlots,
+      remaining_slots: remainingSlots,
+      schedule_coverage_rate: scheduleCoverageRate,
+      is_fully_scheduled: isFullyScheduled,
       completed_on_time_slots: completedOnTimeCount,
       compensated_slots: compensatedCount,
       missed_slots: missedSlots,
@@ -572,9 +589,9 @@ const getMonthAudit = async (month, year) => {
       on_time_rate: onTimeRate,
       status: statusLabel,
       breakdown: {
-        posters: { target: postersTarget, completed: postersCompleted },
-        lives: { target: livesTarget, completed: livesCompleted },
-        videos: { target: videosTarget, completed: videosCompleted },
+        posters: { target: postersTarget, completed: postersCompleted, scheduled: postersScheduled },
+        lives: { target: livesTarget, completed: livesCompleted, scheduled: livesScheduled },
+        videos: { target: videosTarget, completed: videosCompleted, scheduled: videosScheduled },
       },
       slots: enrichedSlots,
     });

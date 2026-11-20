@@ -54,6 +54,16 @@ const getDateKey = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+// Helper to parse local "YYYY-MM-DD" date string
+const parseLocalDate = (dateStr) => {
+  if (!dateStr || typeof dateStr !== 'string') return null;
+  const parts = dateStr.split('-').map(Number);
+  if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+  return null;
+};
+
 // Helper to get post time formatted "12:01 AM"
 const formatTime = (dateStr) => {
   if (!dateStr) return '';
@@ -177,6 +187,7 @@ export const PlannerPage = () => {
     brand_id: '',
     type: 'all',
     search: '',
+    date: '',
   }, {
     debouncedKeys: ['search'],
     debounceDelay: 300,
@@ -198,13 +209,33 @@ export const PlannerPage = () => {
   const { data: brands = [] } = useBrands();
   const { data: pages = [] } = usePages();
 
-  // Navigation states
-  const [currentWeekStart, setCurrentWeekStart] = useState(() => getWeekMonday(new Date()));
-  const [currentMonthDate, setCurrentMonthDate] = useState(() => {
-    const d = new Date();
-    d.setDate(1);
-    return d;
+  // Navigation states (synchronized with URL 'date' param)
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => {
+    const parsed = parseLocalDate(filters.date);
+    return getWeekMonday(parsed || new Date());
   });
+  const [currentMonthDate, setCurrentMonthDate] = useState(() => {
+    const parsed = parseLocalDate(filters.date);
+    const d = parsed || new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
+
+  // Synchronize calendar dates when date param changes in URL (e.g. browser navigation or returning from create)
+  useEffect(() => {
+    const parsed = parseLocalDate(filters.date);
+    if (parsed) {
+      const mon = getWeekMonday(parsed);
+      setCurrentWeekStart((prev) => (getDateKey(prev) !== getDateKey(mon) ? mon : prev));
+      const firstOfMonth = new Date(parsed.getFullYear(), parsed.getMonth(), 1);
+      setCurrentMonthDate((prev) => (getDateKey(prev) !== getDateKey(firstOfMonth) ? firstOfMonth : prev));
+    } else {
+      const today = new Date();
+      const mon = getWeekMonday(today);
+      setCurrentWeekStart((prev) => (getDateKey(prev) !== getDateKey(mon) ? mon : prev));
+      const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      setCurrentMonthDate((prev) => (getDateKey(prev) !== getDateKey(firstOfMonth) ? firstOfMonth : prev));
+    }
+  }, [filters.date]);
 
   const selectedPageId = useMemo(() => {
     if (selectedPageFilter) return selectedPageFilter;
@@ -519,15 +550,17 @@ export const PlannerPage = () => {
 
   // Click handler for a planned target slot chip
   const handleSlotClick = (slot, dateKey) => {
+    const returnUrl = location.pathname + location.search;
     if (slot.linked_post?.id) {
       navigate(`/planner/edit/${slot.linked_post.id}`, {
-        state: { from: location.pathname + location.search },
+        state: { from: returnUrl, returnPath: returnUrl },
       });
     } else {
       const isMissed = slot.computed_status === 'missed' || dateKey < todayKey;
       navigate(`/planner/create?date=${isMissed ? todayKey : dateKey}`, {
         state: {
-          from: location.pathname + location.search,
+          from: returnUrl,
+          returnPath: returnUrl,
           prefillBrandId: slot.brand_id,
           prefillDate: isMissed ? todayKey : dateKey,
           prefillType: slot.content_type,
@@ -544,10 +577,12 @@ export const PlannerPage = () => {
 
   const navigateToCreate = (dateKey = '') => {
     const url = dateKey ? `/planner/create?date=${dateKey}` : '/planner/create';
+    const returnUrl = location.pathname + location.search;
     navigate(url, {
       state: {
-        from: location.pathname + location.search,
-        ...(brandFilter !== 'all' ? { prefillBrandId: brandFilter } : {}),
+        from: returnUrl,
+        returnPath: returnUrl,
+        ...(brandFilter && brandFilter !== 'all' ? { prefillBrandId: brandFilter } : {}),
       },
     });
   };
@@ -558,10 +593,12 @@ export const PlannerPage = () => {
       const prev = new Date(currentWeekStart);
       prev.setDate(prev.getDate() - 7);
       setCurrentWeekStart(prev);
+      setFilter('date', getDateKey(prev));
     } else {
       const prev = new Date(currentMonthDate);
       prev.setMonth(prev.getMonth() - 1);
       setCurrentMonthDate(prev);
+      setFilter('date', getDateKey(prev));
     }
   };
 
@@ -570,10 +607,12 @@ export const PlannerPage = () => {
       const next = new Date(currentWeekStart);
       next.setDate(next.getDate() + 7);
       setCurrentWeekStart(next);
+      setFilter('date', getDateKey(next));
     } else {
       const next = new Date(currentMonthDate);
       next.setMonth(next.getMonth() + 1);
       setCurrentMonthDate(next);
+      setFilter('date', getDateKey(next));
     }
   };
 
@@ -582,6 +621,7 @@ export const PlannerPage = () => {
     setCurrentWeekStart(getWeekMonday(today));
     const firstOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     setCurrentMonthDate(firstOfCurrentMonth);
+    setFilter('date', '');
   };
 
   // Sync with Facebook & refresh planned deliverable slots
@@ -897,7 +937,10 @@ export const PlannerPage = () => {
                             <div
                               key={post.id}
                               className="planner-post-card"
-                              onClick={() => navigate(`/planner/edit/${post.id}`, { state: { from: location.pathname + location.search } })}
+                              onClick={() => {
+                                const returnUrl = location.pathname + location.search;
+                                navigate(`/planner/edit/${post.id}`, { state: { from: returnUrl, returnPath: returnUrl } });
+                              }}
                               title="Click to view & edit post"
                             >
                               {/* Time & Status Row */}
@@ -1268,7 +1311,10 @@ export const PlannerPage = () => {
                         <div
                           key={post.id}
                           className="planner-month-post-chip"
-                          onClick={() => navigate(`/planner/edit/${post.id}`, { state: { from: location.pathname + location.search } })}
+                          onClick={() => {
+                            const returnUrl = location.pathname + location.search;
+                            navigate(`/planner/edit/${post.id}`, { state: { from: returnUrl, returnPath: returnUrl } });
+                          }}
                           title={`${postTime} · ${post.message || 'Post'}`}
                         >
                           {thumb ? (

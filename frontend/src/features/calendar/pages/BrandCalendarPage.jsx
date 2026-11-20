@@ -42,6 +42,7 @@ import { FaFacebook } from 'react-icons/fa';
 import { SetMissionModal } from '../../missions/components/SetMissionModal';
 import { CategorizeMissedModal } from '../../missions/components/CategorizeMissedModal';
 import { LinkExistingPostModal } from '../../missions/components/LinkExistingPostModal';
+import { BrandTargetScheduleBar } from '../components/BrandTargetScheduleBar';
 import { useToast } from '../../../shared/context/ToastContext';
 import '../../postTracker/planner.css';
 import '../calendar.css';
@@ -298,6 +299,20 @@ export const BrandCalendarPage = () => {
   const brandOptions = useMemo(() => {
     const list = [{ value: 'all', label: '🌟 All Brands (Master Schedule)' }];
 
+    // Group calendarSlots by brand_id to see coverage status for dropdown labels
+    const brandSlotsCoverage = new Map();
+    (calendarSlots || []).forEach((s) => {
+      const bId = String(s.brand_id);
+      if (!brandSlotsCoverage.has(bId)) {
+        brandSlotsCoverage.set(bId, { total: 0, covered: 0 });
+      }
+      const item = brandSlotsCoverage.get(bId);
+      item.total += 1;
+      if (s.computed_status === 'completed' || s.computed_status === 'compensated' || s.computed_status === 'scheduled') {
+        item.covered += 1;
+      }
+    });
+
     // Primary: Brands with campaigns / missions with client
     const availableBrandsMap = new Map();
     (missionBrands || []).forEach((b) => {
@@ -316,7 +331,16 @@ export const BrandCalendarPage = () => {
     // Sort alphabetically by brand name
     const sorted = Array.from(availableBrandsMap.entries()).sort((a, b) => a[1].localeCompare(b[1]));
     sorted.forEach(([id, name]) => {
-      list.push({ value: id, label: name });
+      const coverage = brandSlotsCoverage.get(id);
+      let badge = '';
+      if (coverage && coverage.total > 0) {
+        if (coverage.covered >= coverage.total) {
+          badge = ` ✅ (${coverage.covered}/${coverage.total})`;
+        } else {
+          badge = ` (${coverage.covered}/${coverage.total})`;
+        }
+      }
+      list.push({ value: id, label: `${name}${badge}` });
     });
 
     return list;
@@ -694,6 +718,18 @@ export const BrandCalendarPage = () => {
         </div>
       </div>
 
+      {/* Brand Target Schedule Health Bar (Plan 8: Combo A+B) */}
+      <BrandTargetScheduleBar
+        selectedBrandId={selectedBrandId}
+        selectedBrand={selectedBrand}
+        monthNumber={monthNumber}
+        yearNumber={yearNumber}
+        calendarSlots={calendarSlots}
+        missionBrands={missionBrands}
+        onSelectBrand={(bId) => setSelectedBrandId(String(bId))}
+        onOpenBlueprint={() => setIsModalOpen(true)}
+      />
+
       {/* ====================================================================
           MASTER CALENDAR GRID (Monday to Sunday - All Brands)
          ==================================================================== */}
@@ -729,10 +765,14 @@ export const BrandCalendarPage = () => {
               return true;
             });
 
+            const hasEmptySlot = filteredSlots.some(
+              (s) => s.computed_status === 'planned' || (!s.linked_post && s.slot_status === 'planned')
+            );
+
             return (
               <div
                 key={idx}
-                className={`brand-cal-day-cell ${!isCurrentMonth ? 'is-other-month' : ''} ${isToday && isCurrentMonth ? 'is-today' : ''}`}
+                className={`brand-cal-day-cell ${!isCurrentMonth ? 'is-other-month' : ''} ${isToday && isCurrentMonth ? 'is-today' : ''} ${hasEmptySlot ? 'has-empty-slot' : ''}`}
                 onClick={() => {
                   if (!isCurrentMonth) return;
                   setSelectedDayDetail({

@@ -12,7 +12,7 @@ import { getBrandStats } from '../../statistics/services/brandStatsService';
 import { SetMissionModal } from './SetMissionModal';
 import { SlotDatePopover } from './SlotDatePopover';
 import { AddSlotModal } from './AddSlotModal';
-import { Button } from '../../../shared/components/ui';
+import { Button, TablePagination } from '../../../shared/components/ui';
 import { invalidateMissionCaches } from '../../../shared/utils/cacheSync';
 
 export const BrandDeliverablesHub = () => {
@@ -40,7 +40,30 @@ export const BrandDeliverablesHub = () => {
 
   // Pagination for 100-500 brands
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 20;
+  const [pageSize, setPageSize] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('moonpulse_table_page_size');
+        const parsed = parseInt(saved, 10);
+        if ([10, 25, 50, 100].includes(parsed)) return parsed;
+      } catch (err) {
+        console.warn('Failed to read table page size preference:', err);
+      }
+    }
+    return 25;
+  });
+
+  const handlePageSizeChange = (newSize) => {
+    setPageSize(newSize);
+    setCurrentPage(1);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('moonpulse_table_page_size', String(newSize));
+      } catch (err) {
+        console.warn('Failed to persist page size preference:', err);
+      }
+    }
+  };
 
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -207,6 +230,12 @@ export const BrandDeliverablesHub = () => {
   }, [filteredBrands, currentPage, pageSize]);
 
   const totalPages = Math.ceil(filteredBrands.length / pageSize) || 1;
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
 
   // Combined KPI Calculations (Operations + Social Reach)
   const stats = useMemo(() => {
@@ -911,63 +940,15 @@ export const BrandDeliverablesHub = () => {
             )}
 
             {/* Pagination Controls */}
-            {totalPages > 1 && (
-              <div
-                style={{
-                  padding: '12px 20px',
-                  borderTop: '1px solid #f1f5f9',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  backgroundColor: '#ffffff',
-                }}
-              >
-                <div style={{ fontSize: '13px', color: '#64748b' }}>
-                  Showing <strong>{(currentPage - 1) * pageSize + 1}</strong> to{' '}
-                  <strong>{Math.min(currentPage * pageSize, filteredBrands.length)}</strong> of{' '}
-                  <strong>{filteredBrands.length}</strong> brands
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <button
-                    type="button"
-                    disabled={currentPage === 1}
-                    onClick={() => setCurrentPage(currentPage - 1)}
-                    style={{
-                      padding: '5px 10px',
-                      borderRadius: '6px',
-                      border: '1px solid #cbd5e1',
-                      backgroundColor: currentPage === 1 ? '#f8fafc' : '#ffffff',
-                      color: currentPage === 1 ? '#94a3b8' : '#334155',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    Previous
-                  </button>
-                  <span style={{ fontSize: '12px', fontWeight: '700', padding: '0 6px' }}>
-                    {currentPage} / {totalPages}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={currentPage === totalPages}
-                    onClick={() => setCurrentPage(currentPage + 1)}
-                    style={{
-                      padding: '5px 10px',
-                      borderRadius: '6px',
-                      border: '1px solid #cbd5e1',
-                      backgroundColor: currentPage === totalPages ? '#f8fafc' : '#ffffff',
-                      color: currentPage === totalPages ? '#94a3b8' : '#334155',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
+            {!loading && filteredBrands.length > 0 && (
+              <TablePagination
+                currentPage={currentPage}
+                totalItems={filteredBrands.length}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={handlePageSizeChange}
+                itemLabel="brands"
+              />
             )}
           </div>
         )}
